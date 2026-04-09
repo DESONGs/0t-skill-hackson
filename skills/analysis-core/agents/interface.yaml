@@ -1,0 +1,10 @@
+schema_version: v1
+skill: analysis-core
+mode: analysis
+workflow:
+  - step: plan_data_needs
+    purpose: Derive required AVE data actions from the task request.
+  - step: synthesize_evidence
+    purpose: Combine the plan and workspace data artifacts into findings.
+  - step: write_report
+    purpose: Render the final Markdown and JSON report artifacts.

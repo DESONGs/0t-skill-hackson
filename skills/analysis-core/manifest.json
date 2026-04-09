@@ -1,0 +1,23 @@
+{
+  "schema_version": "v1",
+  "name": "analysis-core",
+  "version": "1.0.0",
+  "description": "Core analysis skill for AVE-backed workspace analysis and report generation.",
+  "kind": "skill",
+  "owner": "subagent-4",
+  "entrypoints": {
+    "skill": "SKILL.md",
+    "actions": "actions.yaml",
+    "agents": "agents/interface.yaml"
+  },
+  "runtime": {
+    "language": "python",
+    "stdout_format": "json",
+    "artifact_dir_env": "WORKSPACE_DIR"
+  },
+  "requires": {
+    "env": [
+      "WORKSPACE_DIR"
+    ]
+  }
+}

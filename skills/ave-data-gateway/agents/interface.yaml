@@ -1,0 +1,23 @@
+schema_version: v1
+skill: ave-data-gateway
+role: gateway-skill
+contract:
+  stdout_format: json
+  required_stdout_keys:
+    - ok
+    - action
+    - summary
+    - artifacts
+  artifact_dir_env: WORKSPACE_DIR
+  artifact_subdir: data
+actions:
+  - id: discover_tokens
+    entrypoint: scripts/discover_tokens.py
+  - id: inspect_token
+    entrypoint: scripts/inspect_token.py
+  - id: inspect_market
+    entrypoint: scripts/inspect_market.py
+  - id: inspect_wallet
+    entrypoint: scripts/inspect_wallet.py
+  - id: review_signals
+    entrypoint: scripts/review_signals.py
