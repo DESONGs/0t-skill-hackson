@@ -10,3 +10,16 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+### AL ###
+# Template for AL projects for Dynamics 365 Business Central
+.vscode/
+.alcache/
+.alpackages/
+.snapshots/
+.output/
+*.app
+rad.json
+*.g.xlf
+*.flf
+TestResults.xml
