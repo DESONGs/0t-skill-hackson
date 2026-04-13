@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>0T Skill | Runtime Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div style="width:40px;height:40px;background:linear-gradient(135deg,var(--accent),#fff);border-radius:12px;box-shadow:0 0 25px var(--accent-glow);display:grid;place-items:center;">
+          <div style="width:16px;height:16px;background:#000;border-radius:3px;transform:rotate(45deg);"></div>
+        </div>
+        <div>
+          <h1 style="font-size:1.3rem;margin:0;letter-spacing:-0.03em;font-weight:800;">0T Runtime</h1>
+          <div style="font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;font-weight:700;">DASHBOARD</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item is-active" data-target="overview" style="font-weight:700;background:rgba(247,212,81,0.12);color:#fff;">
+          <span style="margin-right:12px;">◈</span> 运行总览
+        </button>
+        <button class="nav-item" data-target="style-distill">地址蒸馏</button>
+        <button class="nav-item" data-target="runtimes">Runtime 注册表</button>
+        <button class="nav-item" data-target="sessions">会话管理</button>
+        <button class="nav-item" data-target="active-runs">活跃执行</button>
+        <button class="nav-item" data-target="evaluations">评估结果</button>
+        <button class="nav-item" data-target="candidates">候选 Skill</button>
+        <button class="nav-item" data-target="promotions">晋升记录</button>
+      </nav>
+
+      <div class="glass-card sidebar-panel">
+        <div class="panel-label">工作区 (WORKSPACE)</div>
+        <select id="workspace-select" class="panel-select">
+          <option value=".ot-workspace">默认工作区 (.ot-workspace)</option>
+        </select>
+        <button id="refresh-dashboard" class="panel-button">切换并刷新</button>
+        <div id="dashboard-status" class="panel-status">只读 Runtime 视图</div>
+      </div>
+    </aside>
+
+    <main>
+      <section id="overview" class="section is-active">
+        <div class="section-container">
+          <header class="hero">
+            <div>
+              <div class="eyebrow">Runtime Dashboard</div>
+              <h2 id="dashboard-title">运行时总览</h2>
+              <p id="dashboard-summary">只读控制面，监控系统运行状态、最新执行与评估摘要。</p>
+            </div>
+            <div id="overview-summary" class="hero-summary"></div>
+          </header>
+
+          <div class="layout-grid runtime-grid">
+            <div class="glass-card panel-wide">
+              <div class="panel-label">运行指标 (METRICS)</div>
+              <div id="runtime-metrics" class="metric-grid"></div>
+            </div>
+            <div class="glass-card panel-tall">
+              <div class="panel-label">系统状态 (STATUS)</div>
+              <div id="runtime-status-row" class="pill-row"></div>
+              <div id="runtime-context" class="runtime-context"></div>
+            </div>
+            <div class="glass-card panel-tall" id="latest-run-card">
+              <div class="card-heading">最新运行</div>
+              <div class="card-meta">正在加载中...</div>
+            </div>
+            <div class="glass-card panel-tall" id="latest-evaluation-card">
+              <div class="card-heading">最新评估</div>
+              <div class="card-meta">正在加载中...</div>
+            </div>
+            <div class="glass-card panel-tall" id="latest-candidate-card">
+              <div class="card-heading">最新候选</div>
+              <div class="card-meta">正在加载中...</div>
+            </div>
+            <div class="glass-card panel-tall" id="latest-promotion-card">
+              <div class="card-heading">最新晋升</div>
+              <div class="card-meta">正在加载中...</div>
+            </div>
+            <div class="glass-card panel-wide">
+              <div class="panel-label">已注册 RUNTIMES</div>
+              <div id="registered-runtimes" class="card-stack compact-stack"></div>
+            </div>
+            <div class="glass-card panel-wide">
+              <div class="panel-label">Candidate 闭环摘要</div>
+              <div id="evolution-summary" class="runtime-context"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="style-distill" class="section">
+        <div class="section-container">
+          <header class="section-header">
+            <div>
+              <div class="eyebrow">Hackathon MVP</div>
+              <h2>地址蒸馏</h2>
+              <p>输入目标地址，系统会拉取交易画像、抽取交易风格，并生成可发现、可运行的本地 style skill。</p>
+            </div>
+          </header>
+          <div class="layout-grid runtime-grid">
+            <div class="glass-card panel-wide distill-panel">
+              <div class="panel-label">蒸馏输入</div>
+              <form id="style-distill-form" class="distill-form">
+                <label class="field-label" for="distill-wallet">目标地址</label>
+                <input id="distill-wallet" class="panel-input" type="text" placeholder="0xabc... / 钱包地址">
+                <label class="field-label" for="distill-chain">链</label>
+                <input id="distill-chain" class="panel-input" type="text" placeholder="solana / ethereum / bsc">
+                <label class="field-label" for="distill-skill-name">Skill 名称（可选）</label>
+                <input id="distill-skill-name" class="panel-input" type="text" placeholder="wallet-style-xxxxxx">
+                <label class="field-label" for="distill-prompt">Extractor System Prompt（可选）</label>
+                <textarea id="distill-prompt" class="panel-textarea" placeholder="描述你希望重点提取的交易风格维度，例如风险偏好、节奏、代币偏好、仓位模式。"></textarea>
+                <button id="distill-submit" class="btn-primary" type="submit">开始蒸馏</button>
+              </form>
+              <div id="distill-status" class="panel-status">提交地址后，会同步跑完整的 style skill 闭环。</div>
+            </div>
+            <div class="glass-card panel-tall" id="style-distill-latest-card">
+              <div class="card-heading">最新蒸馏</div>
+              <div class="card-meta">暂无蒸馏记录</div>
+            </div>
+            <div class="glass-card panel-tall" id="style-distill-qa-card">
+              <div class="card-heading">QA 闭环</div>
+              <div class="card-meta">等待任务执行</div>
+            </div>
+            <div class="glass-card panel-wide">
+              <div class="panel-label">风格画像</div>
+              <div id="style-distill-profile" class="runtime-context"></div>
+            </div>
+            <div class="glass-card panel-wide">
+              <div class="panel-label">最近蒸馏任务</div>
+              <div id="style-distill-list" class="card-stack"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="runtimes" class="section">
+        <div class="section-container">
+          <header class="section-header">
+            <div>
+              <div class="eyebrow">运行时注册表</div>
+              <h2>Runtime 注册表</h2>
+              <p>展示当前控制面登记的内置与外接 Runtime 适配器及默认设置。</p>
+            </div>
+          </header>
+          <div id="runtimes-list" class="card-stack"></div>
+        </div>
+      </section>
+
+      <section id="sessions" class="section">
+        <div class="section-container">
+          <header class="section-header">
+            <div>
+              <div class="eyebrow">运行时会话</div>
+              <h2>会话管理</h2>
+              <p>基于 runtime_session_id 链路的执行会话摘要视图。</p>
+            </div>
+          </header>
+          <div id="sessions-list" class="card-stack"></div>
+        </div>
+      </section>
+
+      <section id="active-runs" class="section">
+        <div class="section-container">
+          <header class="section-header">
+            <div>
+              <div class="eyebrow">实时执行监控</div>
+              <h2>活跃执行</h2>
+              <p>实时监控当前正在运行或处于活跃状态的任务记录。</p>
+            </div>
+          </header>
+          <div id="active-runs-list" class="card-stack"></div>
+        </div>
+      </section>
+
+      <section id="evaluations" class="section">
+        <div class="section-container">
+          <header class="section-header">
+            <div>
+              <div class="eyebrow">评估结果</div>
+              <h2>Evaluations</h2>
+              <p>查看运行质量判断，重点包括 runtime、contract 和 task-match 三类评测。</p>
+            </div>
+          </header>
+          <div id="evaluations-list" class="card-stack"></div>
+        </div>
+      </section>
+
+      <section id="candidates" class="section">
+        <div class="section-container">
+          <header class="section-header">
+            <div>
+              <div class="eyebrow">候选 Skill</div>
+              <h2>Candidates</h2>
+              <p>查看由 evaluation 触发的待生成、待验证、待晋升 skill 候选。</p>
+            </div>
+          </header>
+          <div id="candidates-list" class="card-stack"></div>
+        </div>
+      </section>
+
+      <section id="promotions" class="section">
+        <div class="section-container">
+          <header class="section-header">
+            <div>
+              <div class="eyebrow">晋升记录</div>
+              <h2>Promotions</h2>
+              <p>查看通过 validate 后进入 registry 的 skill 包记录。</p>
+            </div>
+          </header>
+          <div id="promotions-list" class="card-stack"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,25 +1,12 @@
-.env
-.env.local
-.venv/
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.enterprise-installs/
-.ot-workspace/
-.staging-workspace/
-dist/
-build/
-*.egg-info/
+.DS_Store
 
-### AL ###
-# Template for AL projects for Dynamics 365 Business Central
-.vscode/
-.alcache/
-.alpackages/
-.snapshots/
-.output/
-*.app
-rad.json
-*.g.xlf
-*.flf
-TestResults.xml
+0t-skill_hackson_v2ing/.venv/
+0t-skill_hackson_v2ing/.ot-workspace/
+0t-skill_hackson_v2ing/skills/
+0t-skill_hackson_v2ing/vendor/pi_runtime/node_modules/
+0t-skill_hackson_v2ing/vendor/onchainos_cli/upstream/cli/target/
+0t-skill_hackson_v2ing/vendor/onchainos_cli/upstream/cli/.env
+0t-skill_hackson_v2ing/__pycache__/
+0t-skill_hackson_v2ing/tests/__pycache__/
+0t-skill_hackson_v2ing/src/**/__pycache__/
+0t-skill_hackson_v2ing/*.egg-info/

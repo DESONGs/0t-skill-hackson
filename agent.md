@@ -1,205 +1,100 @@
-# Agent Operating Guide
+# 0t-skill-v2 Agent Guide
 
-这份文档描述 `0t-skill_enterprise/` 当前的开发、维护和验收方式。
+`0t-skill-v2/` 是当前唯一 git 根、唯一对外交付仓、唯一开发入口。
 
-项目已经具备可运行基线，所以从现在开始，`mainagent + subagent` 的协作重点不再是“从零规划”，而是围绕真实代码做增量开发、回归验证、清理发布物，并持续把项目维持在可交付状态。
+## 仓库拓扑
 
-## 1. 固定原则
+- 根级开发指引：`distill-modules/`
+- 根级权威规则：`agent.md`
+- 主工程目录：`0t-skill_hackson_v2ing/`
+- 业务代码：`0t-skill_hackson_v2ing/src/ot_skill_enterprise/`
+- vendored 依赖：`0t-skill_hackson_v2ing/vendor/`
 
-- 所有代码、脚本、文档和测试都只写在 `0t-skill_enterprise/`
-- `mainagent` 负责调度、集成、验收和 QA 回路
-- `subagent` 负责明确边界内的实现任务
-- `subagent` 完成阶段目标后必须汇报，并等待 `mainagent` 再调度
-- `ave-data-gateway` 是稳定层，不参与自动演化
-- `analysis-core` 是演化层，允许进入反馈闭环
-- 本项目不实现 trade、私钥管理或 WSS 实时链路
+外层根目录负责：
 
-## 2. mainagent 职责
+- 仓库治理
+- 开发约束
+- distill 文档
+- CI / 验收入口
 
-`mainagent` 是唯一调度者和验收者，负责：
+内层主工程负责：
 
-- 维护阶段优先级和任务顺序
-- 给各 subagent 指派具体开发任务
-- 处理跨目录、跨模块依赖
-- 审核阶段汇报
-- 做跨模块集成测试和回归验证
-- 判定交付结论
-- 在问题未闭合前持续 loop，直到任务完成
+- 运行时代码
+- 蒸馏、反射、编译、QA
+- 前后端与脚本
+- vendored 执行适配依赖
 
-`mainagent` 可以为解决系统性阻塞直接改代码，但默认不长期占用具体功能模块。
+## 边界冻结
 
-### mainagent 验收结论
+### 唯一数据边界
 
-- `accept`
-- `revise`
-- `blocked`
-- `reassign`
+- 蒸馏、回测、置信度、市场上下文、历史交易特征提取全部只允许使用 `AVE`
+- `onchainos` 不得作为蒸馏数据源、回测数据源、信号数据源、PnL 数据源
+- 任何 `style_distillation`、`reflection`、`backtester`、`market context` 代码不得读取 vendored `onchainos` 的 market / signal / portfolio / tracker / defi 数据路径
 
-## 3. subagent 职责
+### 唯一执行边界
 
-`subagent` 负责明确 owner 范围内的实现，不负责最终验收。
+- 钱包登录、签名、安全扫描、dry-run、广播统一走 `onchainos CLI`
+- 执行入口只能通过生成 skill 的 `execute` action 触发
+- 禁止蒸馏链、反射链、回测链直接发起链上执行
+- 禁止绕过 `execute` action 直接从 `primary`、`style_distillation`、`reflection` 调用 `onchainos`
 
-每个 subagent 必须：
+## Skill 合同冻结
 
-- 只修改自己负责的目录
-- 按既有 contract 和运行边界实现
-- 在阶段结束时完成最小自测
-- 向 `mainagent` 汇报修改、结果和风险
-- 汇报后暂停，等待下一轮调度
+- `primary`
+  - `allow_network: false`
+  - 负责 recommendation + trade_plan
+  - 不做真实交易
+- `execute`
+  - `allow_network: true`
+  - 只消费已有 `trade_plan + execution_intent`
+  - 通过执行适配层调用 `onchainos CLI`
+  - 默认只要求 `dry_run_ready`
 
-不允许的行为：
+## Agent Team Write Set
 
-- 擅自改公共 contract
-- 擅自扩大 scope
-- 未汇报先继续下一阶段
-- 绕过 `mainagent` 修改其他 owner 区域
+### MainAgent
 
-## 4. 当前分工
+- 根级 `agent.md`
+- 仓库拓扑与规则裁决
+- 跨层接口审核：`StrategySpec`、`ExecutionIntent`、`execution_readiness`
 
-### subagent-1: runtime-and-bridge
+### Agent A
 
-owner:
+- 根级 README
+- 根级仓库元信息
+- 内层 `agent.md` 指针化
+- 开发入口与路径说明
 
-- `bin/`
-- `src/ot_skill_enterprise/root_cli.py`
-- `src/ot_skill_enterprise/root_runtime.py`
-- `src/ot_skill_enterprise/service_entrypoints.py`
-- `src/ot_skill_enterprise/enterprise_bridge/`
+### Agent B
 
-职责：
+- `0t-skill_hackson_v2ing/vendor/onchainos_cli/`
+- `0t-skill_hackson_v2ing/src/ot_skill_enterprise/execution/`
+- 执行配置与 subprocess 合同
 
-- 单根目录入口
-- vendored runtime bridge
-- 服务启动入口
-- 根级 smoke 路径
+### Agent C
 
-### subagent-2: ave-data-service
+- `0t-skill_hackson_v2ing/src/ot_skill_enterprise/reflection/`
+- `0t-skill_hackson_v2ing/src/ot_skill_enterprise/style_distillation/`
+- `0t-skill_hackson_v2ing/src/ot_skill_enterprise/skills_compiler/`
 
-owner:
+### Agent D
 
-- `services/ave-data-service/`
+- `0t-skill_hackson_v2ing/tests/`
+- QA 契约
+- 验收脚本与测试补充
 
-职责：
+## 禁止事项
 
-- provider 选择和真实 AVE REST 调用
-- service envelope
-- 错误码、超时、服务启动行为
+- 禁止双 git 根
+- 禁止双数据路径
+- 禁止从 `primary` 直接链上操作
+- 禁止用 `onchainos` 的市场、信号、PnL 数据回灌蒸馏
+- 禁止把 `execution_readiness` 与 `confidence` 混为一个字段
 
-### subagent-3: gateway-skill
+## 开发顺序
 
-owner:
-
-- `skills/ave-data-gateway/`
-- `src/ot_skill_enterprise/gateway/`
-
-职责：
-
-- gateway skill package
-- action wrapper
-- artifact 写出
-
-### subagent-4: analysis-core
-
-owner:
-
-- `skills/analysis-core/`
-- `src/ot_skill_enterprise/analysis/`
-
-职责：
-
-- 计划生成
-- 证据整合
-- 报告输出
-- 与 gateway artifact 的兼容读取
-
-### subagent-5: workflows-and-quality
-
-owner:
-
-- `src/ot_skill_enterprise/workflows/`
-- `workflows/`
-- `tests/` 中 workflow、runtime、bridge 相关部分
-
-职责：
-
-- preset 定义
-- workflow runtime
-- 集成测试与 smoke 用例
-
-### subagent-6: evolution-and-registry
-
-owner:
-
-- `src/ot_skill_enterprise/lab/`
-- `src/ot_skill_enterprise/registry/`
-- `tests/` 中演化闭环相关部分
-
-职责：
-
-- `analysis-core` 演化闭环
-- case / proposal / submission
-- 本地 registry 落盘和审计产物
-
-## 5. 工作循环
-
-### mainagent loop
-
-1. 汇总上一轮结果与 blocker
-2. 确认优先级和依赖关系
-3. 向 subagent 派发阶段任务
-4. 接收阶段汇报
-5. 做交叉验证和 QA
-6. 给出 `accept / revise / blocked / reassign`
-7. 继续下一轮，直到目标完成
-
-### subagent loop
-
-1. 接收阶段任务
-2. 在 owner 范围内实现
-3. 做最小自测
-4. 提交阶段汇报
-5. 等待 `mainagent` 下一轮调度
-
-## 6. 汇报要求
-
-阶段汇报统一放在：
-
-- `reports/<phase>/<agent-name>.md`
-
-每份汇报至少包含：
-
-- 目标
-- 已完成项
-- 修改文件
-- 自测命令和结果
-- 剩余风险
-- 需要 `mainagent` 决策的事项
-- 建议下一步
-
-## 7. QA 基线
-
-`mainagent` 每轮至少检查：
-
-- 修改是否落在允许目录
-- 是否破坏 `gateway -> analysis-core` 边界
-- 是否把 AVE 特定字段泄漏进分析层
-- 是否引入 trade 或 WSS
-- 是否补齐测试和必要文档
-- 是否保留了可复现的启动与验证方式
-
-## 8. 完成定义
-
-一个阶段只有在下面条件都满足时才能算完成：
-
-- 代码已经落在约定目录
-- 自测通过
-- 主线程验收通过
-- 文档与脚本同步更新
-- 没有未声明的 blocker
-
-项目对外发布前，还必须完成：
-
-- `./scripts/verify.sh`
-- README 与 docs 索引校准
-- `.env.example`、启动脚本、staging 流程可用
-- 运行产物和缓存已清理
+1. 先冻结仓库边界与规则
+2. 再接 `onchainos CLI` 执行适配
+3. 再升级蒸馏合同到 `profile + strategy + execution_intent + review`
+4. 最后补双层 QA 与端到端验证
