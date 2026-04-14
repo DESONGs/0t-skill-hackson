@@ -109,10 +109,20 @@
                 <input id="distill-wallet" class="panel-input" type="text" placeholder="0xabc... / 钱包地址">
                 <label class="field-label" for="distill-chain">链</label>
                 <input id="distill-chain" class="panel-input" type="text" placeholder="solana / ethereum / bsc">
+                <label class="field-label" for="distill-job-id">已有 Job ID（可选）</label>
+                <input id="distill-job-id" class="panel-input" type="text" placeholder="style-job-xxxx，用于查询或 resume">
                 <label class="field-label" for="distill-skill-name">Skill 名称（可选）</label>
                 <input id="distill-skill-name" class="panel-input" type="text" placeholder="wallet-style-xxxxxx">
                 <label class="field-label" for="distill-prompt">Extractor System Prompt（可选）</label>
                 <textarea id="distill-prompt" class="panel-textarea" placeholder="描述你希望重点提取的交易风格维度，例如风险偏好、节奏、代币偏好、仓位模式。"></textarea>
+                <label class="field-checkbox">
+                  <input id="distill-live-execute" type="checkbox">
+                  <span>在 resume 时触发 live 执行</span>
+                </label>
+                <label class="field-checkbox">
+                  <input id="distill-approval-granted" type="checkbox">
+                  <span>显式授予 live 广播权限</span>
+                </label>
                 <button id="distill-submit" class="btn-primary" type="submit">开始蒸馏</button>
               </form>
               <div id="distill-status" class="panel-status">提交地址后，会同步跑完整的 style skill 闭环。</div>

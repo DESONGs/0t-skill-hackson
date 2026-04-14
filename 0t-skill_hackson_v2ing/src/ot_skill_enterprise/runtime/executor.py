@@ -13,6 +13,19 @@ from .execution import RuntimeExecutionRequest, RuntimeExecutionResult
 from .transcript import RuntimeTranscript
 
 
+def _optional_timeout_seconds(request: RuntimeExecutionRequest) -> float | None:
+    raw = (
+        request.metadata.get("runtime_timeout_seconds")
+        or request.launch_spec.metadata.get("timeout_seconds")
+        or os.environ.get("OT_RUNTIME_EXEC_TIMEOUT_SECONDS")
+    )
+    try:
+        timeout = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return timeout if timeout > 0 else None
+
+
 @dataclass(slots=True)
 class SubprocessRuntimeExecutor:
     def execute(self, request: RuntimeExecutionRequest) -> RuntimeExecutionResult:
@@ -39,15 +52,62 @@ class SubprocessRuntimeExecutor:
             payload_file = Path(handle.name)
 
         command = [*launch_spec.launcher, "--payload-file", str(payload_file)]
-        completed = subprocess.run(
-            command,
-            cwd=str(Path(launch_spec.cwd or request.cwd).expanduser().resolve()),
-            capture_output=True,
-            text=True,
-            check=False,
-            env={**os.environ, **dict(launch_spec.environment)} if launch_spec.environment else None,
-        )
-        payload_file.unlink(missing_ok=True)
+        timeout_seconds = _optional_timeout_seconds(request)
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=str(Path(launch_spec.cwd or request.cwd).expanduser().resolve()),
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, **dict(launch_spec.environment)} if launch_spec.environment else None,
+                timeout=timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            payload_file.unlink(missing_ok=True)
+            finished_at = utc_now()
+            transcript = RuntimeTranscript(
+                runtime_id=request.runtime_id,
+                session_id=request.session_id,
+                invocation_id=request.invocation_id,
+                ok=False,
+                status="failed",
+                summary=f"runtime process timed out after {timeout_seconds:.0f}s",
+                output_payload={
+                    "stderr": str(exc),
+                    "returncode": None,
+                    "timeout_seconds": timeout_seconds,
+                },
+                events=[
+                    {
+                        "type": "error",
+                        "message": f"runtime process timed out after {timeout_seconds:.0f}s",
+                        "status": "failed",
+                        "metadata": {"timeout_seconds": timeout_seconds},
+                    }
+                ],
+                metadata={"timeout_seconds": timeout_seconds},
+                stdout=str(exc.stdout or ""),
+                stderr=str(exc.stderr or ""),
+            )
+            return RuntimeExecutionResult(
+                runtime_id=request.runtime_id,
+                session_id=request.session_id,
+                invocation_id=request.invocation_id,
+                launch_spec=launch_spec,
+                command=command,
+                returncode=-9,
+                transcript=transcript,
+                started_at=started_at,
+                finished_at=finished_at,
+                error=ServiceError(
+                    code="runtime_process_timeout",
+                    message=transcript.summary,
+                    details={"timeout_seconds": timeout_seconds},
+                ),
+            )
+        finally:
+            payload_file.unlink(missing_ok=True)
         finished_at = utc_now()
 
         if completed.returncode != 0:

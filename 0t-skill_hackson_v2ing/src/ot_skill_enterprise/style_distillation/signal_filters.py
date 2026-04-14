@@ -177,6 +177,40 @@ def distill_entry_factors(
             )
         )
     distilled.sort(key=lambda item: (item.frequency, item.avg_pnl_when_present), reverse=True)
+    if distilled:
+        return distilled[:5]
+    short_hold_winners = [trade for trade in profitable if trade.holding_seconds and trade.holding_seconds <= 30 * 60]
+    split_position_winners = [
+        trade
+        for trade in profitable
+        if float((trade.metadata or {}).get("matched_token_amount") or 0.0) > 0.0
+    ]
+    fallback: list[EntryFactor] = []
+    if short_hold_winners:
+        fallback.append(
+            EntryFactor(
+                factor_type="momentum_chase",
+                description="Fallback inferred from profitable short-hold trades when direct market context is unavailable.",
+                frequency=len(short_hold_winners) / len(profitable),
+                avg_pnl_when_present=sum(trade.pnl_pct for trade in short_hold_winners) / len(short_hold_winners),
+                confidence=min(0.55, 0.2 + (len(short_hold_winners) / len(profitable)) * 0.4),
+                metadata={"source_mode": "completed_trade_pattern", "match_count": len(short_hold_winners)},
+            )
+        )
+    if split_position_winners:
+        fallback.append(
+            EntryFactor(
+                factor_type="volume_spike",
+                description="Fallback inferred from profitable split-leg participation when direct liquidity context is unavailable.",
+                frequency=len(split_position_winners) / len(profitable),
+                avg_pnl_when_present=sum(trade.pnl_pct for trade in split_position_winners) / len(split_position_winners),
+                confidence=min(0.5, 0.2 + (len(split_position_winners) / len(profitable)) * 0.35),
+                metadata={"source_mode": "completed_trade_pattern", "match_count": len(split_position_winners)},
+            )
+        )
+    fallback.sort(key=lambda item: (item.frequency, item.avg_pnl_when_present), reverse=True)
+    if fallback:
+        return fallback[:5]
     return distilled[:5]
 
 

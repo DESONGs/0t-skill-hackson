@@ -1,7 +1,6 @@
 # Vendored onchainos CLI
 
-- Source repository: `https://github.com/okx/onchainos-skills.git`
-- Upstream commit: `04153f634ac837afdbe01ae04fab75f511ee673a`
+- Source repository: `/Users/chenge/Desktop/hackson/onchainos-skills`
 - Vendored subtree: `cli/`
 - Local destination: `vendor/onchainos_cli/upstream/cli/`
 

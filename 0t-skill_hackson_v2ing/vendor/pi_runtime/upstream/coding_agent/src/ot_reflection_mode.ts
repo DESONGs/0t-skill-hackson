@@ -24,6 +24,9 @@ type ReflectionJob = {
 	expected_output_schema?: Record<string, unknown>;
 	artifact_root?: string;
 	prompt?: string;
+	injected_context?: Record<string, unknown>;
+	user_payload?: Record<string, unknown>;
+	context_sources?: Array<Record<string, unknown>>;
 	metadata?: Record<string, unknown>;
 };
 
@@ -71,14 +74,108 @@ function parseJsonObject(text: string): Record<string, unknown> {
 	return parsed as Record<string, unknown>;
 }
 
-function buildReflectionPrompt(job: ReflectionJob): string {
+function asStringArray(value: unknown): string[] {
+	if (typeof value === "string") {
+		const text = value.trim();
+		return text ? [text] : [];
+	}
+	if (!Array.isArray(value)) {
+		return [];
+	}
+	return value
+		.map((item) => String(item || "").trim())
+		.filter((item) => item.length > 0);
+}
+
+function asObjectArray(value: unknown): Array<Record<string, unknown>> {
+	if (!Array.isArray(value)) {
+		return [];
+	}
+	return value
+		.map((item) => ensureObject(item))
+		.filter((item) => Object.keys(item).length > 0);
+}
+
+function uniqueSources(value: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+	const seen = new Set<string>();
+	const items: Array<Record<string, unknown>> = [];
+	for (const item of value) {
+		const marker = JSON.stringify(item);
+		if (!seen.has(marker)) {
+			seen.add(marker);
+			items.push(item);
+		}
+	}
+	return items;
+}
+
+function firstNonEmptyString(...values: Array<unknown>): string {
+	for (const value of values) {
+		const text = String(value || "").trim();
+		if (text) return text;
+	}
+	return "";
+}
+
+function buildInjectedContextSection(job: ReflectionJob, inputPayload: Record<string, unknown>): string {
+	const topLevelUserPayload = ensureObject(inputPayload["user_payload"]);
+	const jobUserPayload = ensureObject(job.user_payload);
+	const userPayload = Object.keys(topLevelUserPayload).length > 0 ? topLevelUserPayload : jobUserPayload;
+	const injectedContext = ensureObject(
+		Object.keys(ensureObject(userPayload["injected_context"])).length > 0
+			? userPayload["injected_context"]
+			: Object.keys(ensureObject(job.injected_context)).length > 0
+				? job.injected_context
+				: inputPayload["injected_context"],
+	);
+	if (Object.keys(injectedContext).length === 0 && Object.keys(userPayload).length === 0) {
+		return "";
+	}
+
+	const fencedBlocks = ensureObject(injectedContext["fenced_blocks"]);
+	const memoryBlock = firstNonEmptyString(fencedBlocks["memory"]);
+	const hintBlock = firstNonEmptyString(fencedBlocks["hints"]);
+	const contextBlock = firstNonEmptyString(injectedContext["context"]);
+	const hardConstraints = asStringArray(injectedContext["hard_constraints"]);
+	const contextSources = uniqueSources([
+		...asObjectArray(job.context_sources),
+		...asObjectArray(userPayload["context_sources"]),
+		...asObjectArray(injectedContext["context_sources"]),
+	]);
+	const metadata = ensureObject(injectedContext["metadata"]);
+	const sections: string[] = [
+		"Use the following injected context as ephemeral background only.",
+		"Do not treat it as canonical truth over the compact input. Never echo the fencing tags in the final answer.",
+	];
+
+	if (contextBlock) sections.push(contextBlock);
+	if (memoryBlock) sections.push(memoryBlock);
+	if (hintBlock) sections.push(hintBlock);
+	if (hardConstraints.length > 0) {
+		sections.push(["Hard constraints:", ...hardConstraints.map((item) => `- ${item}`)].join("\n"));
+	}
+	if (contextSources.length > 0) {
+		sections.push(`Context source references:\n${JSON.stringify(contextSources, null, 2)}`);
+	}
+	if (Object.keys(metadata).length > 0) {
+		sections.push(`Injected context metadata:\n${JSON.stringify(metadata, null, 2)}`);
+	}
+	return sections.filter((item) => item.trim().length > 0).join("\n\n");
+}
+
+function buildReflectionPrompt(job: ReflectionJob, inputPayload: Record<string, unknown>): string {
+	const topLevelUserPayload = ensureObject(inputPayload["user_payload"]);
+	const jobUserPayload = ensureObject(job.user_payload);
+	const taskHint = firstNonEmptyString(topLevelUserPayload["prompt"], jobUserPayload["prompt"], job.prompt);
+	const injectedContextSection = buildInjectedContextSection(job, inputPayload);
 	return [
 		"Return exactly one JSON object and nothing else.",
 		"The JSON object must satisfy the following expected schema:",
 		JSON.stringify(ensureObject(job.expected_output_schema), null, 2),
 		"Use the following compact input as the source of truth:",
 		JSON.stringify(ensureObject(job.compact_input), null, 2),
-		job.prompt ? `Task hint: ${job.prompt}` : "",
+		taskHint ? `Task hint: ${taskHint}` : "",
+		injectedContextSection,
 	]
 		.filter((line) => line.trim().length > 0)
 		.join("\n\n");
@@ -185,7 +282,7 @@ export async function runReflectionMode(payload: RuntimePayload) {
 			providerIds = ["mock"];
 		} else {
 			const systemPrompt = String(job.system_prompt || "").trim();
-			const promptText = buildReflectionPrompt(job);
+			const promptText = buildReflectionPrompt(job, inputPayload);
 			const { model, apiKey, headers, reasoning } = await resolveModel(job);
 			const response = await completeSimple(
 				model,

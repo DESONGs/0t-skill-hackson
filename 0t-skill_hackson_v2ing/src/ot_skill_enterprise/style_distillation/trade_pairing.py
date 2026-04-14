@@ -106,6 +106,7 @@ class TradeStatistics:
     total_trades: int
     completed_trade_count: int
     open_position_count: int
+    matching_coverage: float
     win_rate: float
     avg_pnl_pct: float
     profit_factor: float
@@ -124,6 +125,7 @@ class TradeStatistics:
             "total_trades": self.total_trades,
             "completed_trade_count": self.completed_trade_count,
             "open_position_count": self.open_position_count,
+            "matching_coverage": round(self.matching_coverage, 8),
             "win_rate": round(self.win_rate, 8),
             "avg_pnl_pct": round(self.avg_pnl_pct, 8),
             "profit_factor": round(self.profit_factor, 8),
@@ -162,41 +164,94 @@ def pair_trades(
         amount_usd = _safe_float(item.get("amount_usd")) or 0.0
         token_ref = dict(item.get("token_ref") or {})
         if action == "buy":
-            buy_queues[key].append(item)
+            buy_lot = dict(item)
+            token_amount = _safe_float(item.get("token_amount"))
+            buy_lot["_remaining_token_amount"] = token_amount if token_amount and token_amount > 0 else None
+            buy_lot["_remaining_amount_usd"] = amount_usd
+            buy_queues[key].append(buy_lot)
             buy_splits[key].append(amount_usd)
             continue
         if action != "sell" or not buy_queues[key]:
             continue
 
-        buy_leg = buy_queues[key].popleft()
-        buy_amount = _safe_float(buy_leg.get("amount_usd")) or 0.0
-        sell_amount = amount_usd
-        buy_ts = _parse_timestamp(buy_leg.get("timestamp")) or current_time
-        sell_ts = _parse_timestamp(item.get("timestamp")) or current_time
-        pnl_usd = sell_amount - buy_amount
-        pnl_pct = (pnl_usd / buy_amount) * 100.0 if buy_amount > 0 else 0.0
-        completed.append(
-            CompletedTrade(
-                token_symbol=str(token_ref.get("symbol") or buy_leg.get("token_ref", {}).get("symbol") or "").strip(),
-                token_address=_safe_text(token_ref.get("token_address") or buy_leg.get("token_ref", {}).get("token_address")),
-                token_identifier=_safe_text(token_ref.get("identifier") or buy_leg.get("token_ref", {}).get("identifier")),
-                buy_timestamp=buy_ts.isoformat(),
-                sell_timestamp=sell_ts.isoformat(),
-                buy_amount_usd=buy_amount,
-                sell_amount_usd=sell_amount,
-                holding_seconds=max(0, int((sell_ts - buy_ts).total_seconds())),
-                pnl_usd=pnl_usd,
-                pnl_pct=pnl_pct,
-                is_profitable=pnl_usd > 0,
-                buy_tx_hash=_safe_text(buy_leg.get("tx_hash")),
-                sell_tx_hash=_safe_text(item.get("tx_hash")),
-                metadata={
-                    "buy_note": buy_leg.get("note"),
-                    "sell_note": item.get("note"),
-                    "quote_symbol": item.get("quote_symbol") or buy_leg.get("quote_symbol"),
-                },
+        sell_remaining_token = _safe_float(item.get("token_amount"))
+        sell_remaining_usd = amount_usd
+        if sell_remaining_token is not None and sell_remaining_token > 0:
+            while sell_remaining_token > 0 and buy_queues[key]:
+                buy_leg = buy_queues[key][0]
+                buy_remaining_token = _safe_float(buy_leg.get("_remaining_token_amount"))
+                buy_remaining_usd = _safe_float(buy_leg.get("_remaining_amount_usd")) or 0.0
+                if not buy_remaining_token or buy_remaining_token <= 0 or buy_remaining_usd <= 0:
+                    buy_queues[key].popleft()
+                    continue
+                matched_token = min(buy_remaining_token, sell_remaining_token)
+                sell_fraction = matched_token / sell_remaining_token if sell_remaining_token > 0 else 0.0
+                buy_fraction = matched_token / buy_remaining_token if buy_remaining_token > 0 else 0.0
+                buy_amount = buy_remaining_usd * buy_fraction
+                sell_amount = sell_remaining_usd * sell_fraction
+                buy_ts = _parse_timestamp(buy_leg.get("timestamp")) or current_time
+                sell_ts = _parse_timestamp(item.get("timestamp")) or current_time
+                pnl_usd = sell_amount - buy_amount
+                pnl_pct = (pnl_usd / buy_amount) * 100.0 if buy_amount > 0 else 0.0
+                completed.append(
+                    CompletedTrade(
+                        token_symbol=str(token_ref.get("symbol") or buy_leg.get("token_ref", {}).get("symbol") or "").strip(),
+                        token_address=_safe_text(token_ref.get("token_address") or buy_leg.get("token_ref", {}).get("token_address")),
+                        token_identifier=_safe_text(token_ref.get("identifier") or buy_leg.get("token_ref", {}).get("identifier")),
+                        buy_timestamp=buy_ts.isoformat(),
+                        sell_timestamp=sell_ts.isoformat(),
+                        buy_amount_usd=buy_amount,
+                        sell_amount_usd=sell_amount,
+                        holding_seconds=max(0, int((sell_ts - buy_ts).total_seconds())),
+                        pnl_usd=pnl_usd,
+                        pnl_pct=pnl_pct,
+                        is_profitable=pnl_usd > 0,
+                        buy_tx_hash=_safe_text(buy_leg.get("tx_hash")),
+                        sell_tx_hash=_safe_text(item.get("tx_hash")),
+                        metadata={
+                            "buy_note": buy_leg.get("note"),
+                            "sell_note": item.get("note"),
+                            "quote_symbol": item.get("quote_symbol") or buy_leg.get("quote_symbol"),
+                            "matched_token_amount": round(matched_token, 8),
+                        },
+                    )
+                )
+                buy_leg["_remaining_token_amount"] = max(0.0, buy_remaining_token - matched_token)
+                buy_leg["_remaining_amount_usd"] = max(0.0, buy_remaining_usd - buy_amount)
+                sell_remaining_token = max(0.0, sell_remaining_token - matched_token)
+                sell_remaining_usd = max(0.0, sell_remaining_usd - sell_amount)
+                if (_safe_float(buy_leg.get("_remaining_token_amount")) or 0.0) <= 1e-12 or (_safe_float(buy_leg.get("_remaining_amount_usd")) or 0.0) <= 1e-8:
+                    buy_queues[key].popleft()
+        else:
+            buy_leg = buy_queues[key].popleft()
+            buy_amount = _safe_float(buy_leg.get("_remaining_amount_usd")) or _safe_float(buy_leg.get("amount_usd")) or 0.0
+            sell_amount = amount_usd
+            buy_ts = _parse_timestamp(buy_leg.get("timestamp")) or current_time
+            sell_ts = _parse_timestamp(item.get("timestamp")) or current_time
+            pnl_usd = sell_amount - buy_amount
+            pnl_pct = (pnl_usd / buy_amount) * 100.0 if buy_amount > 0 else 0.0
+            completed.append(
+                CompletedTrade(
+                    token_symbol=str(token_ref.get("symbol") or buy_leg.get("token_ref", {}).get("symbol") or "").strip(),
+                    token_address=_safe_text(token_ref.get("token_address") or buy_leg.get("token_ref", {}).get("token_address")),
+                    token_identifier=_safe_text(token_ref.get("identifier") or buy_leg.get("token_ref", {}).get("identifier")),
+                    buy_timestamp=buy_ts.isoformat(),
+                    sell_timestamp=sell_ts.isoformat(),
+                    buy_amount_usd=buy_amount,
+                    sell_amount_usd=sell_amount,
+                    holding_seconds=max(0, int((sell_ts - buy_ts).total_seconds())),
+                    pnl_usd=pnl_usd,
+                    pnl_pct=pnl_pct,
+                    is_profitable=pnl_usd > 0,
+                    buy_tx_hash=_safe_text(buy_leg.get("tx_hash")),
+                    sell_tx_hash=_safe_text(item.get("tx_hash")),
+                    metadata={
+                        "buy_note": buy_leg.get("note"),
+                        "sell_note": item.get("note"),
+                        "quote_symbol": item.get("quote_symbol") or buy_leg.get("quote_symbol"),
+                    },
+                )
             )
-        )
 
     open_positions: list[OpenPosition] = []
     for key, queue in buy_queues.items():
@@ -211,11 +266,14 @@ def pair_trades(
                     token_address=_safe_text(token_ref.get("token_address")),
                     token_identifier=_safe_text(token_ref.get("identifier")) or key,
                     buy_timestamp=buy_ts.isoformat(),
-                    buy_amount_usd=_safe_float(buy_leg.get("amount_usd")) or 0.0,
+                    buy_amount_usd=_safe_float(buy_leg.get("_remaining_amount_usd")) or _safe_float(buy_leg.get("amount_usd")) or 0.0,
                     age_seconds=age_seconds,
                     classification=classification,
                     tx_hash=_safe_text(buy_leg.get("tx_hash")),
-                    metadata={"note": buy_leg.get("note")},
+                    metadata={
+                        "note": buy_leg.get("note"),
+                        "remaining_token_amount": _safe_float(buy_leg.get("_remaining_token_amount")),
+                    },
                 )
             )
     return completed, open_positions, buy_splits
@@ -281,10 +339,14 @@ def compute_trade_statistics(
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else float(gross_profit > 0)
     avg_loss_pct = sum(trade.pnl_pct for trade in losses) / len(losses) if losses else 0.0
     averaging_pattern, avg_position_splits = _detect_averaging_pattern(buy_splits)
+    total_sell_notional = sum((_safe_float(item.get("amount_usd")) or 0.0) for item in activities if str(item.get("action") or "").strip().lower() == "sell")
+    matched_sell_notional = sum(trade.sell_amount_usd for trade in completed_trades)
+    matching_coverage = min(1.0, matched_sell_notional / total_sell_notional) if total_sell_notional > 0 else 0.0
     return TradeStatistics(
         total_trades=len([item for item in activities if str(item.get("action") or "").strip().lower() in {"buy", "sell"}]),
         completed_trade_count=len(completed_trades),
         open_position_count=len(open_positions),
+        matching_coverage=matching_coverage,
         win_rate=(len(wins) / len(completed_trades)) if completed_trades else 0.0,
         avg_pnl_pct=(sum(pnl_pct_values) / len(pnl_pct_values)) if pnl_pct_values else 0.0,
         profit_factor=profit_factor,

@@ -24,6 +24,94 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
+def _strings(values: Any) -> tuple[str, ...]:
+    items: list[str] = []
+    if values is None:
+        return ()
+    if isinstance(values, (str, bytes)):
+        values = (values,)
+    for value in values or ():
+        text = str(value or "").strip()
+        if text:
+            items.append(text)
+    return tuple(items)
+
+
+def _context_sources(value: Any) -> tuple[dict[str, Any], ...]:
+    sources: list[dict[str, Any]] = []
+    if value is None:
+        return ()
+    if hasattr(value, "model_dump"):
+        value = value.model_dump(mode="json")
+    if isinstance(value, dict):
+        value = (value,)
+    elif isinstance(value, (str, bytes)):
+        value = ({"source_id": str(value)},)
+    for item in value or ():
+        if hasattr(item, "model_dump"):
+            item = item.model_dump(mode="json")
+        if isinstance(item, dict):
+            sources.append({str(key): _json_safe(item_value) for key, item_value in item.items()})
+    return tuple(sources)
+
+
+def _fenced_block(kind: str, lines: tuple[str, ...]) -> str:
+    body = "\n".join(lines).strip()
+    if not body:
+        return ""
+    return f"```{kind}\n{body}\n```"
+
+
+@dataclass(slots=True)
+class ReflectionContextEnvelope:
+    memory: tuple[str, ...] = field(default_factory=tuple)
+    hints: tuple[str, ...] = field(default_factory=tuple)
+    context_sources: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_value(cls, value: Any) -> "ReflectionContextEnvelope":
+        if isinstance(value, cls):
+            return value
+        if hasattr(value, "model_dump"):
+            value = value.model_dump(mode="json")
+        payload = dict(value or {}) if isinstance(value, dict) else {}
+        return cls(
+            memory=_strings(payload.get("memory") or payload.get("memories")),
+            hints=_strings(payload.get("hints") or payload.get("hint_blocks")),
+            context_sources=_context_sources(payload.get("context_sources") or payload.get("sources")),
+            metadata=dict(payload.get("metadata") or {}),
+        )
+
+    @property
+    def has_context(self) -> bool:
+        return bool(self.memory or self.hints or self.context_sources or self.metadata)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "memory": list(self.memory),
+            "hints": list(self.hints),
+            "context_sources": [_json_safe(source) for source in self.context_sources],
+            "metadata": _json_safe(self.metadata),
+            "fenced_blocks": {
+                "memory": _fenced_block("memory", self.memory),
+                "hints": _fenced_block("hint", self.hints),
+            },
+            "has_context": self.has_context,
+        }
+
+    def user_payload(self) -> dict[str, Any]:
+        payload = self.to_dict()
+        return {
+            "memory": payload["memory"],
+            "hints": payload["hints"],
+            "context_sources": payload["context_sources"],
+            "metadata": payload["metadata"],
+            "fenced_blocks": payload["fenced_blocks"],
+            "has_context": payload["has_context"],
+        }
+
+
 @dataclass(slots=True)
 class ReflectionJobSpec:
     subject_kind: str
@@ -34,13 +122,31 @@ class ReflectionJobSpec:
     artifact_root: Path | str
     subject_id: str | None = None
     prompt: str = ""
+    injected_context: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def artifact_root_path(self) -> Path:
         return Path(self.artifact_root).expanduser().resolve()
 
+    def injected_context_envelope(self) -> ReflectionContextEnvelope:
+        return ReflectionContextEnvelope.from_value(self.injected_context)
+
+    def context_sources(self) -> tuple[dict[str, Any], ...]:
+        return self.injected_context_envelope().context_sources
+
+    def user_payload(self) -> dict[str, Any]:
+        envelope = self.injected_context_envelope()
+        payload = {
+            "prompt": self.prompt,
+            "injected_context": envelope.user_payload(),
+        }
+        if envelope.has_context:
+            payload["context_sources"] = [_json_safe(source) for source in envelope.context_sources]
+        return payload
+
     def to_dict(self) -> dict[str, Any]:
+        envelope = self.injected_context_envelope()
         return {
             "subject_kind": self.subject_kind,
             "subject_id": self.subject_id,
@@ -50,6 +156,9 @@ class ReflectionJobSpec:
             "expected_output_schema": _json_safe(self.expected_output_schema),
             "artifact_root": str(self.artifact_root_path),
             "prompt": self.prompt,
+            "injected_context": envelope.to_dict(),
+            "context_sources": [_json_safe(source) for source in envelope.context_sources],
+            "user_payload": self.user_payload(),
             "metadata": _json_safe(self.metadata),
         }
 

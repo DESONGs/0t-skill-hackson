@@ -1,7 +1,0 @@
-interface:
-  display_name: "AVE Proxy Wallet Trading"
-  short_description: "Default AVE trading path for proxy wallets, orders, and live order monitoring"
-  default_prompt: "Use $ave-trade-proxy-wallet as the default AVE trading path when self-custody is not required, and use REST queries as the source of truth for final order status."
-
-policy:
-  allow_implicit_invocation: false

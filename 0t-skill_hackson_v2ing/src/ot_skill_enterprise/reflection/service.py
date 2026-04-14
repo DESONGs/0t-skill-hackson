@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -272,6 +273,10 @@ class PiReflectionService:
         result_artifact = artifact_root / "reflection_job.result.json"
         failure_artifact = artifact_root / "reflection_job.failure.json"
         _write_json(request_artifact, spec.to_dict())
+        try:
+            runtime_timeout_seconds = float(str(os.environ.get("OT_PI_REFLECTION_TIMEOUT_SECONDS") or "240").strip())
+        except ValueError:
+            runtime_timeout_seconds = 240.0
 
         runtime_metadata = {
             "source": "pi-reflection-service",
@@ -282,6 +287,10 @@ class PiReflectionService:
             "agent_id": "pi-reflection-agent",
             "agent_display_name": "Pi Reflection Agent",
             "agent_execution_mode": "background-reflection",
+            "reflection_context": spec.injected_context_envelope().to_dict(),
+            "reflection_context_source_count": len(spec.context_sources()),
+            "reflection_context_sources": [_json_safe(source) for source in spec.context_sources()],
+            "reflection_context_has_content": spec.injected_context_envelope().has_context,
             "runtime_pass": True,
             "runtime_status": "succeeded",
             "runtime_summary": "Pi reflection run completed.",
@@ -291,10 +300,13 @@ class PiReflectionService:
             "task_match_threshold": 0.5,
             "task_match_summary": "Reflection review completed.",
             "disable_candidate_generation": True,
+            "runtime_timeout_seconds": runtime_timeout_seconds,
             **dict(spec.metadata or {}),
         }
         runtime_input = {
             "reflection_job": spec.runtime_payload(),
+            "user_payload": spec.user_payload(),
+            "injected_context": spec.injected_context_envelope().to_dict(),
         }
 
         try:

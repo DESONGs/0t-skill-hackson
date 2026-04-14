@@ -156,10 +156,22 @@ def summarize_market_payload(payload: dict[str, Any]) -> TokenMarketContext:
     if liquidity and liquidity > 0 and volume_24h is not None:
         vol_liq_ratio = round(volume_24h / liquidity, 8)
     price_change_1h = _pct_change(latest, previous_1h)
+    if price_change_1h is None:
+        price_change_1h = _safe_float(market_snapshot.get("price_change_1h")) or _safe_float(selected_pair.get("price_change_1h"))
     price_change_24h = _pct_change(latest, previous_24h)
+    if price_change_24h is None:
+        price_change_24h = _safe_float(market_snapshot.get("price_change_24h")) or _safe_float(selected_pair.get("price_change_24h"))
+    symbol = str(
+        base_token.get("symbol")
+        or selected_pair.get("target_symbol")
+        or selected_pair.get("token_symbol")
+        or selected_pair.get("identifier")
+        or "TOKEN"
+    ).strip()
+    token_address = _safe_text(base_token.get("token_address") or selected_pair.get("target_token") or selected_pair.get("token_address"))
     return TokenMarketContext(
-        symbol=str(base_token.get("symbol") or selected_pair.get("identifier") or "TOKEN").strip(),
-        token_address=_safe_text(base_token.get("token_address")),
+        symbol=symbol,
+        token_address=token_address,
         price_now=latest,
         price_change_1h_pct=price_change_1h,
         price_change_24h_pct=price_change_24h,
@@ -171,6 +183,8 @@ def summarize_market_payload(payload: dict[str, Any]) -> TokenMarketContext:
         metadata={
             "ohlcv_points": len(ohlcv),
             "flow_summary": dict(payload.get("flow_summary") or {}),
+            "pair_address": selected_pair.get("pair_address"),
+            "market_status": market_snapshot.get("status"),
         },
     )
 
@@ -224,3 +238,15 @@ def summarize_focus_token_contexts(market_payloads: list[dict[str, Any]]) -> lis
         seen.add(key)
         deduped.append(item)
     return deduped
+
+
+def market_context_ready(contexts: list[TokenMarketContext]) -> bool:
+    return any(
+        item.token_address
+        and (
+            item.price_change_1h_pct is not None
+            or item.price_change_24h_pct is not None
+            or item.volume_to_liquidity_ratio is not None
+        )
+        for item in contexts
+    )

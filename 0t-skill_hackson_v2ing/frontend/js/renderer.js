@@ -413,6 +413,8 @@ export function renderDashboard() {
         <div class="card-meta">候选: ${escapeHtml(latestStyleDistillation.candidate?.candidate_id || latestStyleDistillation.summary?.candidate_id || "unknown")}</div>
         <div class="card-meta">晋升: ${escapeHtml(latestStyleDistillation.promotion?.promotion_id || latestStyleDistillation.summary?.promotion_id || "unknown")}</div>
         <div class="card-meta">置信度: ${escapeHtml(String(latestStyleDistillation.profile?.confidence ?? latestStyleDistillation.summary?.confidence ?? "-"))}</div>
+        <div class="card-meta">执行就绪: ${escapeHtml(latestStyleDistillation.execution_readiness || latestStyleDistillation.summary?.execution_readiness || "unknown")}</div>
+        <div class="card-meta">示例就绪: ${escapeHtml(latestStyleDistillation.example_readiness || latestStyleDistillation.summary?.example_readiness || "unknown")}</div>
       `
       : `<div class="card-heading">最新蒸馏</div><div class="card-meta">暂无蒸馏记录</div>`;
   }
@@ -426,6 +428,7 @@ export function renderDashboard() {
         <div class="card-title">${escapeHtml(latestStyleDistillation.qa?.status || latestStyleDistillation.summary?.qa_status || "unknown")}</div>
         <div class="card-meta">Reflection 状态: ${escapeHtml(latestStyleDistillation.reflection_status || latestStyleDistillation.summary?.reflection_status || latestStyleDistillation.reflection?.status || "unknown")}</div>
         <div class="card-meta">Fallback: ${latestStyleDistillation.fallback_used || latestStyleDistillation.summary?.fallback_used ? "是" : "否"}</div>
+        <div class="card-meta">Stage: ${escapeHtml(Object.entries(latestStyleDistillation.stage_statuses || latestStyleDistillation.summary?.stage_statuses || {}).map(([stage, meta]) => `${stage}:${meta?.status || "unknown"}`).join(" / ") || "unknown")}</div>
         ${checks.map((item) => `<div class="card-meta">${escapeHtml(item.check)}: ${item.passed ? "通过" : "失败"}</div>`).join("")}
       `
       : `<div class="card-heading">QA 闭环</div><div class="card-meta">等待任务执行</div>`;
@@ -465,6 +468,8 @@ export function renderDashboard() {
         <div><span>链</span><strong>${escapeHtml(item.chain || item.summary?.chain || "unknown")}</strong></div>
         <div><span>Backend</span><strong>${escapeHtml(item.review_backend || item.summary?.review_backend || item.reflection?.review_backend || "unknown")}</strong></div>
         <div><span>Reflection</span><strong>${escapeHtml(item.reflection_status || item.summary?.reflection_status || item.reflection?.reflection_status || "unknown")}${item.fallback_used || item.summary?.fallback_used ? " / fallback" : ""}</strong></div>
+        <div><span>执行就绪</span><strong>${escapeHtml(item.execution_readiness || item.summary?.execution_readiness || "unknown")}</strong></div>
+        <div><span>示例就绪</span><strong>${escapeHtml(item.example_readiness || item.summary?.example_readiness || "unknown")}</strong></div>
         <div><span>候选</span><strong>${escapeHtml(item.candidate?.candidate_id || item.summary?.candidate_id || "unknown")}</strong></div>
         <div><span>晋升</span><strong>${escapeHtml(item.promotion?.promotion_id || item.summary?.promotion_id || "unknown")}</strong></div>
         <div><span>时间</span><strong>${escapeHtml(formatTimestamp(item.created_at || item.summary?.created_at))}</strong></div>

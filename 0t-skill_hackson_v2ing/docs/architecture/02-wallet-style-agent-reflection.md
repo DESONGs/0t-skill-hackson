@@ -1,153 +1,88 @@
 # Wallet Style Agent Reflection
 
-这份文档只讨论一个问题：  
-`wallet style distillation` 在升级到 `Pi` 后台 agent 自省器以后，系统现在到底怎么跑。
+这份文档只说明钱包风格蒸馏链里的 reflection 部分如何工作。
 
-## 1. 系统上下文图
+## Reflection 在整条链里的位置
 
 ```mermaid
 flowchart LR
-    U["用户 / CLI / Dashboard"] --> CP["Control Plane"]
-    CP --> SDS["WalletStyleDistillationService"]
-    SDS --> AVE["AVE Data Provider"]
-    SDS --> REF["PiReflectionService"]
-    REF --> PI["Pi Runtime"]
-    SDS --> PIPE["RunIngestionPipeline"]
-    PIPE --> QA["QAEvaluator"]
-    QA --> CAND["Candidate"]
-    CAND --> COMP["SkillPackageCompiler"]
-    COMP --> PROM["Promotion"]
-    PROM --> SKILLS["skills/"]
+    A["distill_features"] --> B["compact_input"]
+    B --> C["PiReflectionService"]
+    C --> D["Pi runtime reflection mode"]
+    D --> E["reflection_report"]
+    E --> F["skill_build"]
 ```
 
-结论：
+reflection 只负责把 `compact_input` 变成结构化策略报告，不负责编译、晋升或执行。
 
-- `WalletStyleDistillationService` 是应用化总入口
-- `PiReflectionService` 只负责风格提取和 review
-- skill candidate 仍然由主 distillation run 生成
+## 输入和输出
 
-## 2. 模块关系图
+### 输入
 
-```mermaid
-flowchart TD
-    SDS["style_distillation/service.py"] --> PRE["wallet preprocess"]
-    SDS --> SPEC["ReflectionJobSpec"]
-    SDS --> REF["reflection/service.py"]
-    REF --> RS["runtime/service.py"]
-    RS --> COORD["runtime/coordinator.py"]
-    COORD --> EXEC["runtime/executor.py"]
-    EXEC --> PIR["vendor/pi_runtime/dist/pi-runtime.mjs"]
-    PIR --> MODE["reflection execution mode"]
-    MODE --> OUT["normalized review json"]
-    SDS --> FALLBACK["WalletStyleExtractor fallback"]
-    SDS --> PIPE["runs/pipeline.py"]
-    PIPE --> COMP["control_plane/candidates.py + skills_compiler"]
-```
+- `compact_input`
+- 固定 schema
+- 静态 system instruction
+- 临时注入的 memory / review hints / hard constraints
 
-模块边界：
+### 输出
 
-- `reflection/`
-  - 定义 job/result/report 的最小稳定接口
-- `runtime/`
-  - 负责标准化 session、run、trace、artifact
-- `style_distillation/`
-  - 负责编排、fallback、candidate、QA 和 summary
+- `profile`
+- `strategy`
+- `execution_intent`
+- `review`
+- `reflection_status`
+- `fallback_used`
 
-## 3. Reflection Sequence
+## 上下文处理方式
+
+reflection 使用 Hermes 风格的“静态 + 临时注入”模型：
+
+- system prompt 固定版本化
+- 动态事实只进入本次调用的 `user payload`
+- memory 和 review hints 都会 fenced，避免回流污染 stage artifact
 
 ```mermaid
 sequenceDiagram
-    participant S as WalletStyleDistillationService
+    participant A as ContextAssembler
     participant R as PiReflectionService
-    participant RS as RuntimeService
-    participant PI as "Pi runtime (reflection mode)"
-    participant REG as evolution-registry
+    participant P as Pi Runtime
 
-    S->>R: run(ReflectionJobSpec)
-    R->>RS: runtime.run(metadata.pi_mode=reflection)
-    RS->>PI: built artifact + reflection job
-    PI-->>RS: transcript(output.normalized_output)
-    RS->>REG: record run/evaluation/artifacts
-    RS-->>R: reflection run result
-    R-->>S: ReflectionJobResult
-    S->>S: parse normalized output
-    alt 结构合法
-        S->>S: 生成 WalletStyleProfile + StyleReviewDecision
-    else 结构非法 / 运行失败
-        S->>S: fallback 到 WalletStyleExtractor
-    end
+    A->>R: compact_input + memory + hints + hard constraints
+    R->>R: build ephemeral envelope
+    R->>P: static instruction + injected user payload
+    P-->>R: strict JSON output
+    R->>R: schema validate
 ```
 
-关键约束：
+## 失败与 fallback
 
-- reflection run 的 `flow_id` 固定为 `wallet_style_reflection_review`
-- reflection run 的 `disable_candidate_generation=true`
-- reflection lineage 必须回写到 distillation `summary.json`
+reflection 失败有两种结果：
 
-## 4. End-to-End Distillation Sequence
+1. `reflection_status = succeeded`
+   - 使用 Pi/Kimi 结果
+   - `fallback_used = false`
+2. `reflection_status = failed`
+   - 使用本地 fallback extractor
+   - `fallback_used = true`
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant FE as CLI / Frontend
-    participant S as WalletStyleDistillationService
-    participant AVE as AVE Provider
-    participant PI as Pi Reflection
-    participant PIPE as RunIngestionPipeline
-    participant CS as CandidateSurfaceService
-    participant EB as EnterpriseBridge
+fallback 只发生在 reflection 内部，不会改变上下游阶段合同。
 
-    U->>FE: 输入钱包地址
-    FE->>S: distill_wallet_style(wallet, chain)
-    S->>AVE: inspect_wallet / inspect_token / review_signals
-    S->>S: preprocess -> compact json
-    S->>PI: reflection job
-    PI-->>S: profile + review 或失败
-    S->>S: fallback if needed
-    S->>PIPE: record main wallet_style_distillation run
-    PIPE-->>S: evaluation + candidate lifecycle
-    S->>CS: compile -> validate -> promote
-    S->>EB: discover promoted skill
-    S->>S: smoke test generated primary.py
-    S-->>FE: summary + reflection lineage + QA
-```
+## 运行记录
 
-## 5. 关键文件
+每次 reflection 都会写入：
 
-- `src/ot_skill_enterprise/reflection/models.py`
-- `src/ot_skill_enterprise/reflection/service.py`
-- `src/ot_skill_enterprise/style_distillation/service.py`
-- `src/ot_skill_enterprise/runtime/coordinator.py`
-- `src/ot_skill_enterprise/runs/pipeline.py`
-- `vendor/pi_runtime/upstream/coding_agent/src/ot_runtime_entry.ts`
-- `vendor/pi_runtime/upstream/coding_agent/src/ot_reflection_mode.ts`
-
-## 6. 数据与产物
-
-一次成功的 wallet style distillation 至少会留下三段 lineage：
-
-1. `wallet_style_reflection_review`
-   - `reflection_run_id`
-   - `reflection_session_id`
-   - `reflection_status`
-2. `wallet_style_distillation`
-   - 主 candidate 生成 run
-3. `promotion`
-   - 晋升到 `skills/` 的最终包
-
-job 目录下的关键 artifacts：
-
-- `wallet_profile.preprocessed.json`
+- `reflection_run_id`
+- `reflection_session_id`
+- `reflection_flow_id = wallet_style_reflection_review`
 - `reflection_job.json`
 - `reflection_result.json`
 - `reflection_normalized_output.json`
-- `style_profile.json`
-- `style_review.json`
-- `summary.json`
 
-## 7. 当前默认值
+这些信息会继续进入 `summary.json` 和 `stage_reflection.json`。
 
-- 默认优先走 `Pi` reflection
-- `OT_PI_REFLECTION_MOCK=1` 时走 mock reflection，用于测试和离线验证
-- reflection 失败时回退到 `WalletStyleExtractor`
-- 当前仍是单任务同步闭环，不处理并发
+## 约束
+
+- ReflectionAgent 不直接读 `full_activity_history`
+- ReflectionAgent 不自己再拉 AVE
+- Reflection 成功不等于策略可展示
+- `strategy_quality`、`example_readiness`、`execution_readiness` 由后续阶段决定

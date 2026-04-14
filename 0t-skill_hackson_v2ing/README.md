@@ -1,91 +1,98 @@
-# 0T Skill Hackson
+# 0T Skill Enterprise
 
-当前唯一仓库根目录是外层 `0t-skill-v2/`。
-本目录是主 Python 工程，根级规则见 [../agent.md](../agent.md)。
-
-`0t-skill_hackson` 是一个 runtime-first 的 SkillOps 控制面。  
-主链保持不变：
-
-`run -> evaluation -> candidate -> package -> validate -> promote`
-
-当前 hackathon 应用化链路已经升级为：
-
-`wallet address -> AVE data -> compact json -> Pi reflection agent -> candidate -> compile -> validate -> promote -> smoke QA`
+主工程目录位于外层仓库 `0t-skill-v2/` 下，本目录负责运行时代码、蒸馏链路、执行适配、测试与本地前端。
 
 ## 当前能力
 
-- 启动并记录 `Pi` runtime session
-- 记录外部 agent 的 run / trace / artifact
-- 自动做 evaluation、candidate 生成、package 编译、validate、promotion
-- 把晋升后的 skill 安装到本地 `skills/`
-- 通过前端 dashboard 查看 runtime、candidate、promotion、wallet style distillation
-- 输入一个钱包地址，生成一个可自动发现、可运行、可 smoke test 的 `wallet style skill`
+当前主线是 `wallet-style skill`：
 
-## Pi 执行模式
+- 用 AVE 拉取钱包、代币、市场和信号数据
+- 生成 `DistillationFeatures`
+- 用 Pi/Kimi 做结构化 reflection，输出 `profile + strategy + execution_intent + review`
+- 构建并晋升本地 skill 包
+- 运行 `primary` 和 `execute` 两个 action
+- 做 dry-run 和 live readiness 验收
 
-当前 `Pi` 在项目里有两条执行路径：
+同时保留通用 SkillOps 主链：
 
-- `stub runtime path`
-  - 默认通用 smoke / runtime run
-  - 入口仍是 `vendor/pi_runtime/upstream/coding_agent/src/ot_runtime_entry.ts`
-- `reflection execution mode`
-  - 专门给 wallet style reflection 用
-  - 仍通过同一个 built artifact 启动，但会根据 `pi_mode=reflection` 切换到真实的结构化 review 路径
-  - 失败时会回退到本地 `WalletStyleExtractor`
+`run -> evaluation -> candidate -> package -> validate -> promote`
 
-`Hermes` 现在只保留为设计参考，不会被 import、shell 调用，或作为运行时依赖接入项目。
+## 启动方式
 
-## 核心命令
+```bash
+cd /Users/chenge/Desktop/hackson/0t-skill-v2/0t-skill_hackson_v2ing
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+cp .env.example .env
+```
+
+命令行入口会自动读取本目录下的 `.env`。
+
+## 常用命令
 
 ```bash
 ot-enterprise runtime list
 ot-enterprise runtime overview --workspace-dir .ot-workspace
-ot-enterprise runtime start --runtime pi
-ot-enterprise runtime run --runtime pi --prompt "inspect repository"
-ot-enterprise runtime record-run --workspace-dir .ot-workspace --payload-file /tmp/run.json
-
-ot-enterprise candidate list --workspace-dir .ot-workspace
-ot-enterprise candidate compile --workspace-dir .ot-workspace --candidate-id <candidate-id>
-ot-enterprise candidate validate --workspace-dir .ot-workspace --candidate-id <candidate-id>
-ot-enterprise candidate promote --workspace-dir .ot-workspace --candidate-id <candidate-id>
 
 ot-enterprise style list --workspace-dir .ot-workspace
-ot-enterprise style distill --workspace-dir .ot-workspace --wallet 0xabc --chain solana
+ot-enterprise style get --workspace-dir .ot-workspace --job-id <job_id>
+ot-enterprise style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc
+ot-enterprise style resume --workspace-dir .ot-workspace --job-id <job_id> --live-execute --approval-granted
+
+ot-frontend
 ```
 
-## 本地启动
+前端默认地址：
 
-```bash
-cd 0t-skill_hackson_v2ing
-python3 -m venv .venv
-source .venv/bin/activate
-cp .env.example .env
-./scripts/start_stack.sh
-./scripts/bootstrap.sh
-./scripts/start_frontend.sh
-```
+- `http://127.0.0.1:8090`
 
-常用脚本：
+## 配置说明
 
-- `./scripts/bootstrap.sh`
-- `./scripts/start_frontend.sh`
-- `./scripts/start_pi_runtime.sh`
-- `./scripts/start_ave_data_service.sh`
-- `./scripts/verify.sh`
+项目不依赖硬编码密钥；外部依赖全部通过环境变量注入。
 
-## 关键环境变量
+### 数据与模型
 
-- `OT_DEFAULT_WORKSPACE`
-- `OT_PI_RUNTIME_ROOT`
-- `OT_PI_DEFAULT_MODEL`
+- `AVE_API_KEY`
+- `API_PLAN`
+- `AVE_DATA_PROVIDER`
+- `KIMI_API_KEY`
 - `OT_PI_REFLECTION_MODEL`
 - `OT_PI_REFLECTION_REASONING`
 - `OT_PI_REFLECTION_MOCK`
-- `AVE_DATA_PROVIDER`
-- `OT_DB_DSN`
-- `OT_REDIS_URL`
+
+### 执行层
+
+- `OKX_API_KEY`
+- `OKX_SECRET_KEY`
+- `OKX_PASSPHRASE`
+- `ONCHAINOS_HOME`
+- `OT_ONCHAINOS_CLI_BIN`
+- `OT_ONCHAINOS_LIVE_CAP_USD`
+- `OT_ONCHAINOS_MIN_LEG_USD`
+- `OT_ONCHAINOS_APPROVAL_WAIT_RETRIES`
+- `OT_ONCHAINOS_APPROVAL_WAIT_SECONDS`
+
+### 工作区与前端
+
+- `OT_DEFAULT_WORKSPACE`
+- `OT_FRONTEND_BIND_HOST`
+- `OT_FRONTEND_PORT`
 
 完整样例见 [.env.example](./.env.example)。
+
+## 当前目录说明
+
+- `src/ot_skill_enterprise/`
+  - 核心业务代码
+- `frontend/`
+  - 本地 dashboard 静态资源
+- `tests/`
+  - 回归测试
+- `vendor/`
+  - vendored `pi_runtime` 和 `onchainos_cli`
+- `docs/`
+  - 工程和产品说明
 
 ## 文档入口
 
@@ -93,5 +100,3 @@ cp .env.example .env
 - [docs/architecture/01-system-overview.md](./docs/architecture/01-system-overview.md)
 - [docs/architecture/02-wallet-style-agent-reflection.md](./docs/architecture/02-wallet-style-agent-reflection.md)
 - [docs/product/01-plain-language-platform-guide.md](./docs/product/01-plain-language-platform-guide.md)
-- [docs/product/02-hackathon-roadshow-wallet-style-skill.md](./docs/product/02-hackathon-roadshow-wallet-style-skill.md)
-- [docs/contracts/03-runtime-run-and-evaluation-schema.md](./docs/contracts/03-runtime-run-and-evaluation-schema.md)

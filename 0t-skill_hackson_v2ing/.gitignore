@@ -7,9 +7,12 @@ __pycache__/
 .enterprise-installs/
 .ot-workspace/
 .staging-workspace/
+skills/
 dist/
 build/
 *.egg-info/
+vendor/onchainos_cli/upstream/cli/target/
+vendor/pi_runtime/node_modules/
 
 ### AL ###
 # Template for AL projects for Dynamics 365 Business Central

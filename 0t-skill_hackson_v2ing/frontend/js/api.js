@@ -50,7 +50,15 @@ export async function fetchStyleDistillations(workspaceDir) {
   return getJson(`/api/style-distillations?workspace_dir=${encodeURIComponent(workspaceDir)}`);
 }
 
+export async function fetchStyleDistillationJob(workspaceDir, jobId) {
+  return getJson(`/api/style-distillations?workspace_dir=${encodeURIComponent(workspaceDir)}&job_id=${encodeURIComponent(jobId)}`);
+}
+
 export async function createStyleDistillation(workspaceDir, payload) {
+  return postJson(`/api/style-distillations?workspace_dir=${encodeURIComponent(workspaceDir)}`, payload);
+}
+
+export async function resumeStyleDistillation(workspaceDir, payload) {
   return postJson(`/api/style-distillations?workspace_dir=${encodeURIComponent(workspaceDir)}`, payload);
 }
 

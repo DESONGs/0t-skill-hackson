@@ -108,17 +108,32 @@ def build_parser() -> argparse.ArgumentParser:
     style_list.add_argument("--workspace-dir", default=".ot-workspace")
     style_list.add_argument("--limit", type=int, default=20)
 
+    style_get = style_subparsers.add_parser("get", help="Get a wallet style distillation job by id")
+    style_get.add_argument("--workspace-dir", default=".ot-workspace")
+    style_get.add_argument("--job-id", required=True)
+
     style_distill = style_subparsers.add_parser("distill", help="Distill a target wallet into a local style skill")
     style_distill.add_argument("--workspace-dir", default=".ot-workspace")
     style_distill.add_argument("--wallet", required=True)
     style_distill.add_argument("--chain", default=None)
     style_distill.add_argument("--skill-name", default=None)
     style_distill.add_argument("--extractor-prompt", default=None)
+    style_distill.add_argument("--live-execute", action="store_true", help="Run execution live after build using the promoted skill")
+    style_distill.add_argument("--approval-granted", action="store_true", help="Explicitly authorize live execution when --live-execute is set")
+
+    style_resume = style_subparsers.add_parser("resume", help="Resume a staged wallet style distillation job")
+    style_resume.add_argument("--workspace-dir", default=".ot-workspace")
+    style_resume.add_argument("--job-id", required=True)
+    style_resume.add_argument("--live-execute", action="store_true", help="Run execution live while resuming the job")
+    style_resume.add_argument("--approval-granted", action="store_true", help="Explicitly authorize live execution when --live-execute is set")
 
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    from ot_skill_enterprise.env_bootstrap import load_local_env
+
+    load_local_env()
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -245,12 +260,25 @@ def main(argv: list[str] | None = None) -> int:
         if args.style_command == "list":
             print(json.dumps(service.list_jobs(limit=args.limit), ensure_ascii=False, indent=2, default=str))
             return 0
+        if args.style_command == "get":
+            print(json.dumps(service.get_job(args.job_id), ensure_ascii=False, indent=2, default=str))
+            return 0
         if args.style_command == "distill":
             result = service.distill_wallet_style(
                 wallet=args.wallet,
                 chain=args.chain,
                 skill_name=args.skill_name,
                 extractor_prompt=args.extractor_prompt,
+                live_execute=bool(args.live_execute),
+                approval_granted=bool(args.approval_granted),
+            )
+            print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+            return 0
+        if args.style_command == "resume":
+            result = service.resume_job(
+                args.job_id,
+                live_execute=bool(args.live_execute),
+                approval_granted=bool(args.approval_granted),
             )
             print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
             return 0

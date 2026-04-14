@@ -431,6 +431,15 @@ def _section_dict(payload: dict[str, Any]) -> dict[str, Any]:
     return section if isinstance(section, dict) else payload
 
 
+def _nested_dict(payload: dict[str, Any], *keys: str) -> dict[str, Any]:
+    current: Any = payload
+    for key in keys:
+        if not isinstance(current, dict):
+            return {}
+        current = current.get(key)
+    return current if isinstance(current, dict) else {}
+
+
 def _section_list(payload: dict[str, Any], *keys: str) -> list[Any]:
     section = _data_section(payload)
     if isinstance(section, dict):
@@ -511,6 +520,113 @@ def _estimate_amount_usd(*, amount: Any, price: Any) -> float | None:
     if amount_value is None or price_value is None:
         return None
     return round(amount_value * price_value, 8)
+
+
+def _normalize_pair_candidate(
+    entry: dict[str, Any],
+    *,
+    chain: str,
+    fallback_token: dict[str, Any],
+) -> dict[str, Any]:
+    pair_address = _first_non_empty(entry.get("pair_address"), entry.get("pair"), entry.get("address"))
+    token0_symbol = _normalize_symbol(entry.get("token0_symbol"))
+    token1_symbol = _normalize_symbol(entry.get("token1_symbol"))
+    token0_address = _canonical_token_address(entry.get("token0_address"))
+    token1_address = _canonical_token_address(entry.get("token1_address"))
+    target_token_address = _canonical_token_address(
+        _first_non_empty(entry.get("target_token"), fallback_token.get("token_address"))
+    )
+    if target_token_address and token0_address == target_token_address:
+        base_token = {
+            "identifier": f"{chain}:{token0_address}",
+            "chain": chain,
+            "token_address": token0_address,
+            "symbol": token0_symbol,
+            "name": token0_symbol,
+            "source": "ave",
+        }
+        quote_token = {
+            "identifier": f"{chain}:{token1_address}" if token1_address else f"{chain}:{token1_symbol or 'QUOTE'}",
+            "chain": chain,
+            "token_address": token1_address,
+            "symbol": token1_symbol,
+            "name": token1_symbol,
+            "source": "ave",
+        }
+    elif target_token_address and token1_address == target_token_address:
+        base_token = {
+            "identifier": f"{chain}:{token1_address}",
+            "chain": chain,
+            "token_address": token1_address,
+            "symbol": token1_symbol,
+            "name": token1_symbol,
+            "source": "ave",
+        }
+        quote_token = {
+            "identifier": f"{chain}:{token0_address}" if token0_address else f"{chain}:{token0_symbol or 'QUOTE'}",
+            "chain": chain,
+            "token_address": token0_address,
+            "symbol": token0_symbol,
+            "name": token0_symbol,
+            "source": "ave",
+        }
+    else:
+        base_token = fallback_token
+        quote_token = {
+            "identifier": f"{chain}:USDT" if chain else "USDT",
+            "chain": chain,
+            "token_address": None,
+            "symbol": "USDT",
+            "name": "Tether USD",
+            "source": "ave",
+        }
+    identifier = _first_non_empty(
+        entry.get("identifier"),
+        entry.get("pair_identifier"),
+        f"{_first_non_empty(base_token.get('symbol'), fallback_token.get('symbol'), 'TOKEN')}/{_first_non_empty(quote_token.get('symbol'), 'USDT')}",
+    )
+    return {
+        "identifier": identifier,
+        "chain": chain,
+        "pair_address": pair_address,
+        "dex": _first_non_empty(entry.get("dex"), entry.get("amm"), entry.get("source")),
+        "base_token_ref": base_token,
+        "quote_token_ref": quote_token,
+        "liquidity_usd": _first_non_empty(entry.get("liquidity_usd"), entry.get("tvl")),
+        "volume_24h_usd": _first_non_empty(entry.get("volume_24h_usd"), entry.get("volume_u_24h"), entry.get("volume_u")),
+        "price_change_1h": _first_non_empty(entry.get("price_change_1h"), entry.get("token_price_change_1h")),
+        "price_change_24h": _first_non_empty(entry.get("price_change_24h"), entry.get("price_change_1d"), entry.get("token_price_change_24h")),
+        "price_usd": _first_non_empty(entry.get("price_usd"), entry.get("token1_price_usd"), entry.get("token0_price_usd")),
+    }
+
+
+def _best_pair_candidate(
+    token_payload: dict[str, Any],
+    pair_items: list[dict[str, Any]],
+    *,
+    chain: str,
+    fallback_token: dict[str, Any],
+) -> dict[str, Any]:
+    main_pair = _canonical_token_address(token_payload.get("main_pair"))
+    normalized = [
+        _normalize_pair_candidate(item, chain=chain, fallback_token=fallback_token)
+        for item in pair_items
+        if isinstance(item, dict)
+    ]
+    if main_pair:
+        for item in normalized:
+            if _canonical_token_address(item.get("pair_address")) == main_pair:
+                return item
+    if normalized:
+        normalized.sort(
+            key=lambda item: (
+                _safe_float(item.get("liquidity_usd")) or 0.0,
+                _safe_float(item.get("volume_24h_usd")) or 0.0,
+            ),
+            reverse=True,
+        )
+        return normalized[0]
+    return {}
 
 
 def _activity_note(*, action: str, from_symbol: str | None, to_symbol: str | None) -> str:
@@ -736,12 +852,19 @@ def _normalize_wallet_activity_item(item: dict[str, Any], *, chain: str) -> dict
     elif from_ref.get("token_address"):
         token_ref = from_ref
 
+    token_amount = None
+    if action == "buy":
+        token_amount = _safe_float(item.get("to_amount"))
+    elif action == "sell":
+        token_amount = _safe_float(item.get("from_amount"))
+
     return {
         "tx_hash": _first_non_empty(item.get("tx_hash"), item.get("hash"), item.get("transaction_hash"), item.get("transaction")),
         "timestamp": _first_non_empty(item.get("timestamp"), item.get("time"), utc_now()),
         "action": action,
         "token_ref": token_ref if isinstance(token_ref, dict) else None,
         "amount_usd": amount_usd,
+        "token_amount": token_amount,
         "note": _first_non_empty(item.get("note"), item.get("description"), _activity_note(action=action, from_symbol=from_symbol, to_symbol=to_symbol)),
         "quote_symbol": to_symbol if action == "sell" else from_symbol,
         "quote_token_address": _canonical_token_address(item.get("to_address") if action == "sell" else item.get("from_address")),
@@ -749,6 +872,8 @@ def _normalize_wallet_activity_item(item: dict[str, Any], *, chain: str) -> dict
         "to_symbol": to_symbol,
         "from_token_address": _canonical_token_address(item.get("from_address")),
         "to_token_address": _canonical_token_address(item.get("to_address")),
+        "from_amount": _safe_float(item.get("from_amount")),
+        "to_amount": _safe_float(item.get("to_amount")),
     }
 
 
@@ -908,7 +1033,8 @@ class AveRestProvider:
         token_address = self._resolve_token_address(payload)
         chain = self._resolve_chain(payload.token_ref)
         token_raw = self._cli.run_json("token", "--address", token_address, "--chain", chain)
-        token_data = _section_dict(token_raw)
+        token_data = _nested_dict(token_raw, "data", "token") or _section_dict(token_raw)
+        pair_items = _section_list(token_raw, "pairs")
         risk_raw = (
             self._cli.run_json("risk", "--address", token_address, "--chain", chain)
             if payload.include_risk
@@ -933,28 +1059,33 @@ class AveRestProvider:
             fallback_source="ave",
         )
         market_snapshot = {
-            "price_usd": _first_non_empty(token_data.get("price_usd"), token_data.get("price")),
+            "price_usd": _first_non_empty(token_data.get("current_price_usd"), token_data.get("price_usd"), token_data.get("price")),
             "market_cap_usd": _first_non_empty(token_data.get("market_cap_usd"), token_data.get("market_cap")),
             "fdv_usd": _first_non_empty(token_data.get("fdv_usd"), token_data.get("fdv")),
-            "liquidity_usd": _first_non_empty(token_data.get("liquidity_usd"), token_data.get("liquidity")),
-            "volume_24h_usd": _first_non_empty(token_data.get("volume_24h_usd"), token_data.get("volume_24h")),
+            "liquidity_usd": _first_non_empty(token_data.get("liquidity_usd"), token_data.get("tvl"), token_data.get("main_pair_tvl"), token_data.get("liquidity")),
+            "volume_24h_usd": _first_non_empty(token_data.get("token_tx_volume_usd_24h"), token_data.get("volume_24h_usd"), token_data.get("volume_24h")),
             "status": "available",
             "note": _first_non_empty(token_data.get("market_note"), None),
         }
         risk_data = _section_dict(risk_raw)
+        risk_flags = _as_list(_first_non_empty(risk_data.get("flags"), token_data.get("flags"), []))
+        if token_data.get("is_lp_not_locked") in {"1", 1, True}:
+            risk_flags.append("lp_not_locked")
+        if token_data.get("has_black_method") in {"1", 1, True}:
+            risk_flags.append("blacklist_capability")
         risk_snapshot = {
-            "risk_level": _first_non_empty(risk_data.get("risk_level"), token_data.get("risk_level")),
-            "flags": _as_list(_first_non_empty(risk_data.get("flags"), token_data.get("flags"), [])),
-            "honeypot": _first_non_empty(risk_data.get("honeypot"), token_data.get("honeypot")),
-            "buy_tax_bps": _first_non_empty(risk_data.get("buy_tax_bps"), risk_data.get("buy_tax"), token_data.get("buy_tax_bps")),
-            "sell_tax_bps": _first_non_empty(risk_data.get("sell_tax_bps"), risk_data.get("sell_tax"), token_data.get("sell_tax_bps")),
+            "risk_level": _first_non_empty(risk_data.get("risk_level"), token_data.get("ave_risk_level"), token_data.get("risk_level")),
+            "flags": risk_flags,
+            "honeypot": _first_non_empty(risk_data.get("honeypot"), token_data.get("is_honeypot"), token_data.get("honeypot")),
+            "buy_tax_bps": _first_non_empty(risk_data.get("buy_tax_bps"), risk_data.get("buy_tax"), token_data.get("buy_tax_bps"), token_data.get("buy_tax")),
+            "sell_tax_bps": _first_non_empty(risk_data.get("sell_tax_bps"), risk_data.get("sell_tax"), token_data.get("sell_tax_bps"), token_data.get("sell_tax")),
             "status": "available" if payload.include_risk else "unavailable",
             "note": _first_non_empty(risk_data.get("note"), token_data.get("risk_note")),
         }
         holders_data = _section_dict(holders_raw)
         holder_items = _section_list(holders_raw, "holders", "items", "token_holders", "results")
         holder_snapshot = {
-            "holder_count": _first_non_empty(holders_data.get("holder_count"), token_data.get("holder_count")),
+            "holder_count": _first_non_empty(holders_data.get("holder_count"), token_data.get("holders"), token_data.get("holder_count")),
             "top_holder_share_pct": _first_non_empty(holders_data.get("top_holder_share_pct"), token_data.get("top_holder_share_pct")),
             "holders": [
                 {
@@ -970,8 +1101,8 @@ class AveRestProvider:
             "status": "available" if payload.include_holders else "unavailable",
             "note": None if payload.include_holders else "holder data disabled by request",
         }
-        main_pair_data = _first_non_empty(token_data.get("main_pair_ref"), token_data.get("pair"), token_data.get("pair_ref"))
-        if isinstance(main_pair_data, dict):
+        main_pair_data = _best_pair_candidate(token_data, pair_items, chain=chain, fallback_token=identity)
+        if main_pair_data:
             main_pair_ref = _pair_reference(main_pair_data, fallback_token=identity, fallback_chain=chain)
         else:
             main_pair_ref = {
@@ -1005,9 +1136,11 @@ class AveRestProvider:
         if pair_ref is not None and pair_ref.pair_address:
             pair_address = pair_ref.pair_address
             pair_identifier = pair_ref.identifier
+            selected_pair_data = _pair_reference(pair_ref.model_dump(mode="json"), fallback_token=payload.token_ref.model_dump(mode="json"), fallback_chain=chain)
         else:
             token_detail = self._cli.run_json("token", "--address", token_address, "--chain", chain)
-            token_data = _section_dict(token_detail)
+            token_data = _nested_dict(token_detail, "data", "token") or _section_dict(token_detail)
+            pair_items = _section_list(token_detail, "pairs")
             token_identity = _token_reference(
                 {
                     **token_data,
@@ -1021,34 +1154,43 @@ class AveRestProvider:
                 chain=chain,
                 fallback_source="ave",
             )
-            pair_candidate = _first_non_empty(token_data.get("main_pair_ref"), token_data.get("pair"), token_data.get("pair_ref"))
-            if isinstance(pair_candidate, dict):
-                pair_ref = _pair_reference(pair_candidate, fallback_token=token_identity, fallback_chain=chain)
-            else:
-                pair_ref = None
+            pair_candidate = _best_pair_candidate(token_data, pair_items, chain=chain, fallback_token=token_identity)
+            pair_ref = _pair_reference(pair_candidate, fallback_token=token_identity, fallback_chain=chain) if pair_candidate else None
             pair_address = _first_non_empty(
-                _as_dict(token_data.get("main_pair_ref")).get("pair_address"),
+                _as_dict(pair_candidate).get("pair_address"),
+                token_data.get("main_pair"),
                 token_data.get("main_pair_address"),
                 token_data.get("pair_address"),
-                f"{_first_non_empty(token_identity.get('symbol'), token_identity.get('identifier'))}/USDT",
             )
             pair_identifier = _first_non_empty(
-                _as_dict(token_data.get("main_pair_ref")).get("identifier"),
+                _as_dict(pair_candidate).get("identifier"),
                 token_data.get("pair_identifier"),
                 f"{_first_non_empty(token_identity.get('symbol'), token_identity.get('identifier'))}/USDT",
             )
+            selected_pair_data = dict(pair_candidate or {})
+        if not pair_address:
+            raise ServiceError(
+                code=ErrorCode.PROVIDER_ERROR,
+                message="AVE token payload did not expose a usable main pair",
+                status_code=502,
+                details={"token_address": token_address, "chain": chain, "symbol": payload.token_ref.symbol},
+            )
         pair_raw = self._cli.run_json("pair", "--address", pair_address, "--chain", chain)
-        kline_raw = self._cli.run_json("kline-pair", "--address", pair_address, "--chain", chain, "--interval", "60", "--size", "24")
+        try:
+            kline_raw = self._cli.run_json("kline-pair", "--address", pair_address, "--chain", chain, "--interval", "60", "--size", "24")
+        except ServiceError:
+            kline_raw = {}
         swaps_raw = self._cli.run_json("txs", "--address", pair_address, "--chain", chain)
         pair_data = _section_dict(pair_raw)
         kline_data = _section_dict(kline_raw)
         swap_items = _section_list(swaps_raw, "recent_swaps", "items", "txs", "swaps", "data")
         selected_pair = _pair_reference(
             {
+                **selected_pair_data,
                 **pair_data,
                 "identifier": _first_non_empty(pair_data.get("identifier"), pair_identifier),
                 "chain": _first_non_empty(pair_data.get("chain"), chain),
-                "pair_address": _first_non_empty(pair_data.get("pair_address"), pair_address),
+                "pair_address": _first_non_empty(pair_data.get("pair_address"), pair_data.get("pair"), pair_address),
                 "dex": _first_non_empty(pair_data.get("dex"), pair_data.get("source")),
             },
             fallback_token=payload.token_ref.model_dump(mode="json"),
@@ -1088,9 +1230,11 @@ class AveRestProvider:
         if normalized_points:
             latest_close = _safe_float(normalized_points[-1].get("close"))
         market_snapshot = {
-            "price_usd": _first_non_empty(latest_close, pair_data.get("price_usd"), kline_data.get("price_usd")),
-            "liquidity_usd": _first_non_empty(pair_data.get("liquidity_usd"), pair_data.get("liquidity")),
-            "volume_24h_usd": _first_non_empty(pair_data.get("volume_24h_usd"), pair_data.get("volume_24h")),
+            "price_usd": _first_non_empty(latest_close, pair_data.get("token1_price_usd"), pair_data.get("price_usd"), kline_data.get("price_usd"), selected_pair_data.get("price_usd")),
+            "liquidity_usd": _first_non_empty(pair_data.get("liquidity_usd"), pair_data.get("tvl"), pair_data.get("liquidity"), selected_pair_data.get("liquidity_usd")),
+            "volume_24h_usd": _first_non_empty(pair_data.get("volume_24h_usd"), pair_data.get("volume_u_24h"), pair_data.get("volume_24h"), selected_pair_data.get("volume_24h_usd")),
+            "price_change_1h": _first_non_empty(pair_data.get("price_change_1h"), selected_pair_data.get("price_change_1h")),
+            "price_change_24h": _first_non_empty(pair_data.get("price_change_24h"), pair_data.get("price_change_1d"), selected_pair_data.get("price_change_24h")),
             "status": "available",
         }
         return {

@@ -216,6 +216,8 @@ def build_overview_payload(workspace_dir: Path | None = None) -> dict[str, Any]:
             "ot-enterprise candidate promote --candidate-id <id>",
             "ot-enterprise style list",
             "ot-enterprise style distill --wallet 0xabc --chain solana",
+            "ot-enterprise style get --job-id <job_id>",
+            "ot-enterprise style resume --job-id <job_id>",
         ],
         "runtime_context": {
             "workspace_dir": str(workspace),
@@ -269,6 +271,11 @@ def build_candidate_surface_payload(workspace_dir: Path | None = None) -> dict[s
 def build_style_distillation_payload(workspace_dir: Path | None = None) -> dict[str, Any]:
     service = _style_service(workspace_dir)
     return service.list_jobs(limit=12)
+
+
+def build_style_distillation_job_payload(job_id: str, workspace_dir: Path | None = None) -> dict[str, Any]:
+    service = _style_service(workspace_dir)
+    return service.get_job(job_id)
 
 
 def _workspace_from_query(query: dict[str, list[str]]) -> Path | None:
@@ -381,7 +388,11 @@ class FrontendRequestHandler(BaseHTTPRequestHandler):
             self._send_json(200, build_candidate_surface_payload(workspace_dir))
             return
         if parsed.path == "/api/style-distillations":
-            self._send_json(200, build_style_distillation_payload(workspace_dir))
+            job_id = query.get("job_id", [None])[0]
+            if job_id:
+                self._send_json(200, build_style_distillation_job_payload(job_id, workspace_dir))
+            else:
+                self._send_json(200, build_style_distillation_payload(workspace_dir))
             return
         if parsed.path == "/api/evaluations":
             self._send_json(200, build_evaluations_payload(workspace_dir))
@@ -418,12 +429,25 @@ class FrontendRequestHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/style-distillations":
             try:
-                result = _style_service(workspace_dir).distill_wallet_style(
-                    wallet=str(body.get("wallet") or ""),
-                    chain=body.get("chain"),
-                    skill_name=body.get("skill_name"),
-                    extractor_prompt=body.get("extractor_prompt"),
-                )
+                service = _style_service(workspace_dir)
+                job_id = str(body.get("job_id") or "").strip()
+                live_execute = bool(body.get("live_execute"))
+                approval_granted = bool(body.get("approval_granted"))
+                if job_id:
+                    result = service.resume_job(
+                        job_id,
+                        live_execute=live_execute,
+                        approval_granted=approval_granted,
+                    )
+                else:
+                    result = service.distill_wallet_style(
+                        wallet=str(body.get("wallet") or ""),
+                        chain=body.get("chain"),
+                        skill_name=body.get("skill_name"),
+                        extractor_prompt=body.get("extractor_prompt"),
+                        live_execute=live_execute,
+                        approval_granted=approval_granted,
+                    )
             except ValueError as exc:
                 self._send_json(400, {"error": "invalid_request", "detail": str(exc)})
                 return
@@ -437,6 +461,9 @@ class FrontendRequestHandler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
+    from ot_skill_enterprise.env_bootstrap import load_local_env
+
+    load_local_env()
     host = os.getenv("OT_FRONTEND_BIND_HOST", "127.0.0.1")
     port = int(os.getenv("OT_FRONTEND_PORT", "8090"))
     server = ThreadingHTTPServer((host, port), FrontendRequestHandler)

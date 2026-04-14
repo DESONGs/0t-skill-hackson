@@ -1,95 +1,124 @@
 # System Overview
 
-`0t-skill_hackson` 当前是一个 runtime-first 的 SkillOps 平台，目标不是替代 agent，而是把 agent 的执行结果变成可治理、可复用、可晋升的 skill 资产。
+当前系统是一条以 `wallet-style skill` 为核心的 SkillOps 链路。
 
-## 当前主链
+## 主链
 
-- 通用主链：
-  - `run -> evaluation -> candidate -> package -> validate -> promote`
-- 钱包风格蒸馏主链：
-  - `wallet address -> AVE data -> compact json -> Pi reflection agent -> candidate -> compile -> validate -> promote -> smoke QA`
+```text
+wallet -> AVE -> distill_features -> Pi/Kimi reflection -> skill_build -> execute(dry-run/live)
+```
 
-## 五层结构
+同时保留通用 SkillOps 流程：
 
-### 1. Provider / Skill Substrate
+```text
+run -> evaluation -> candidate -> package -> validate -> promote
+```
 
-- `services/ave-data-service/`
-- `skills/ave-data-gateway/`
-- `src/ot_skill_enterprise/providers/`
-
-职责：
-
-- 提供交易历史、代币信息、价格、signals
-- 保持稳定输入输出
-- 不负责 runtime session、candidate、promotion
-
-### 2. Runtime Adapter Layer
-
-- `src/ot_skill_enterprise/runtime/`
-- `vendor/pi_runtime/`
-
-职责：
-
-- 管理 session / invocation
-- 拉起 embedded `Pi`
-- 把 transcript 翻译成统一 runtime event / artifact
-
-### 3. Reflection Layer
-
-- `src/ot_skill_enterprise/reflection/`
-- `src/ot_skill_enterprise/style_distillation/service.py`
-
-职责：
-
-- 把 compact JSON 包装成结构化 reflection job
-- 通过 `Pi` reflection execution mode 获取结构化 review
-- 在失败时回退到本地 extractor
-- 保留 reflection run / session lineage
-
-### 4. SkillOps / QA Layer
-
-- `src/ot_skill_enterprise/runs/`
-- `src/ot_skill_enterprise/qa/`
-- `src/ot_skill_enterprise/lab/`
-- `src/ot_skill_enterprise/skills_compiler/`
-
-职责：
-
-- 记录 run / trace / artifact / evaluation
-- 生成 candidate
-- 编译 skill package
-- validate 和 promote
-
-### 5. Control Plane
-
-- `src/ot_skill_enterprise/control_plane/`
-- `src/ot_skill_enterprise/frontend_server.py`
-- `frontend/`
-
-职责：
-
-- 暴露 CLI / API / dashboard
-- 展示 runtime、candidate、promotion、style distillation、reflection lineage
-
-## Pi 模式说明
+## 模块视图
 
 ```mermaid
 flowchart LR
-    A["Pi built artifact"] --> B["stub runtime path"]
-    A --> C["reflection execution mode"]
-    B --> D["通用 runtime run / smoke"]
-    C --> E["wallet_style_reflection_review"]
+    U["CLI / Frontend"] --> CP["Control Plane"]
+    CP --> SDS["WalletStyleDistillationService"]
+    SDS --> AVE["AVE Provider"]
+    SDS --> CTX["Context Stores"]
+    SDS --> REF["PiReflectionService"]
+    SDS --> BUILD["SkillBuilder"]
+    SDS --> EXEC["Execution Adapter"]
+    REF --> PI["Pi Runtime"]
+    BUILD --> SKILLS["skills/"]
+    EXEC --> ONC["onchainos CLI"]
 ```
 
-- `stub runtime path`
-  - 通用 runtime run 和 smoke 仍走这条路径
-- `reflection execution mode`
-  - 只在明确的 `pi_mode=reflection` 下启用
-  - 负责产出结构化 JSON review
+## 四个阶段
 
-## 核心边界
+### 1. `distill_features`
 
-- `Pi` 是项目内 runtime，不是控制面主模型
-- reflection run 必须单独记录为 `wallet_style_reflection_review`
-- reflection run 不参与 candidate / promote
-- `Hermes` 只提供设计参考，不直接运行在当前项目里
+负责：
+
+- AVE 钱包数据拉取
+- token enrich
+- 市场上下文
+- 交易配对与统计
+- 信号与风控过滤
+- `compact_input` 生成
+
+产物：
+
+- `stage_distill_features.json`
+
+### 2. `reflection_report`
+
+负责：
+
+- Pi/Kimi 结构化反射
+- 输出 `profile + strategy + execution_intent + review`
+- reflection 失败时触发 fallback extractor
+
+产物：
+
+- `stage_reflection.json`
+
+### 3. `skill_build`
+
+负责：
+
+- backtest
+- `confidence / strategy_quality / example_readiness`
+- candidate compile / validate / promote
+- `primary.py` 和 `execute.py`
+
+产物：
+
+- `stage_build.json`
+
+### 4. `execution_outcome`
+
+负责：
+
+- `prepare_only`
+- `dry_run`
+- `live`
+
+固定执行路径：
+
+```text
+wallet login/status -> wallet addresses/balance -> security -> quote -> approval -> simulate -> broadcast
+```
+
+产物：
+
+- `stage_execution.json`
+
+## 上下文层
+
+系统采用 artifact-backed 的分层上下文：
+
+- 静态指令：固定的 stage / reflection 指令
+- canonical ledger：job 元信息、stage 状态、lineage
+- stage artifacts：四段不可变快照
+- ephemeral envelopes：reflection 调用前临时注入的上下文
+- derived memory / review hints：可复用短记忆和提示
+
+## 边界
+
+### 数据平面
+
+- 只允许 AVE
+- 不从 onchainos 读取市场、PnL、signals 或持仓数据
+
+### 执行平面
+
+- 只允许 onchainos CLI
+- 执行必须经过 `execute` action
+- 不允许从蒸馏阶段直接链上广播
+
+## 配置原则
+
+外部依赖都走环境变量：
+
+- AVE：`AVE_API_KEY`、`API_PLAN`、`AVE_DATA_PROVIDER`
+- Pi/Kimi：`KIMI_API_KEY`、`OT_PI_REFLECTION_MODEL`
+- onchainos：`OKX_API_KEY`、`OKX_SECRET_KEY`、`OKX_PASSPHRASE`
+
+CLI 和前端服务会自动加载主工程目录下的 `.env`。

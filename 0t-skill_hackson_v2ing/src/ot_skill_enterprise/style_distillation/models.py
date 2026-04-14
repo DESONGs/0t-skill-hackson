@@ -151,12 +151,18 @@ class StyleDistillationSummary:
     confidence: float
     qa_status: str
     execution_readiness: str
+    example_readiness: str
+    strategy_quality: str
     review_backend: str
     reflection_flow_id: str | None = None
     reflection_run_id: str | None = None
     reflection_session_id: str | None = None
     reflection_status: str | None = None
     fallback_used: bool = False
+    stage_statuses: dict[str, Any] = field(default_factory=dict)
+    lineage: dict[str, Any] = field(default_factory=dict)
+    cache_keys: dict[str, Any] = field(default_factory=dict)
+    context_sources: list[dict[str, Any]] = field(default_factory=list)
     created_at: datetime = field(default_factory=utc_now)
 
     def to_dict(self) -> dict[str, Any]:
@@ -171,11 +177,17 @@ class StyleDistillationSummary:
             "confidence": round(float(self.confidence), 4),
             "qa_status": self.qa_status,
             "execution_readiness": self.execution_readiness,
+            "example_readiness": self.example_readiness,
+            "strategy_quality": self.strategy_quality,
             "review_backend": self.review_backend,
             "reflection_flow_id": self.reflection_flow_id,
             "reflection_run_id": self.reflection_run_id,
             "reflection_session_id": self.reflection_session_id,
             "reflection_status": self.reflection_status,
             "fallback_used": self.fallback_used,
+            "stage_statuses": dict(self.stage_statuses),
+            "lineage": dict(self.lineage),
+            "cache_keys": dict(self.cache_keys),
+            "context_sources": list(self.context_sources),
             "created_at": self.created_at,
         }

@@ -1,4 +1,4 @@
-import { createStyleDistillation, getJson, fetchWorkspaces } from "./api.js";
+import { createStyleDistillation, fetchStyleDistillationJob, getJson, fetchWorkspaces, resumeStyleDistillation } from "./api.js";
 import { $, escapeHtml } from "./utils.js";
 import { state, updateWorkspaceDir } from "./state.js";
 import * as renderer from "./renderer.js";
@@ -66,38 +66,55 @@ async function handleStyleDistillationSubmit(event) {
   event.preventDefault();
   const wallet = $("#distill-wallet")?.value.trim() || "";
   const chain = $("#distill-chain")?.value.trim() || "";
+  const jobId = $("#distill-job-id")?.value.trim() || "";
   const skillName = $("#distill-skill-name")?.value.trim() || "";
   const extractorPrompt = $("#distill-prompt")?.value.trim() || "";
+  const liveExecute = Boolean($("#distill-live-execute")?.checked);
+  const approvalGranted = Boolean($("#distill-approval-granted")?.checked);
   const status = $("#distill-status");
   const submit = $("#distill-submit");
 
-  if (!wallet) {
+  if (!wallet && !jobId) {
     if (status) {
-      status.innerHTML = `<span class="pill pill-danger">需要地址</span> <span>请输入目标地址后再开始蒸馏。</span>`;
+      status.innerHTML = `<span class="pill pill-danger">缺少参数</span> <span>新建蒸馏需要地址，恢复或查询需要 Job ID。</span>`;
     }
     return;
   }
 
   submit?.classList.add("is-loading");
   if (status) {
-    status.innerHTML = `<span class="pill">蒸馏中</span> <span>正在拉取钱包数据，先通过 Pi reflection agent 做风格自省，再生成 skill。</span>`;
+    status.innerHTML = `<span class="pill">处理中</span> <span>${jobId ? "正在查询或恢复既有 job，并按需要推进到 build / execution 阶段。" : "正在拉取钱包数据，先通过 Pi reflection agent 做风格自省，再生成 skill。"}</span>`;
   }
 
   try {
-    const result = await createStyleDistillation(state.workspaceDir, {
-      wallet,
-      chain: chain || null,
-      skill_name: skillName || null,
-      extractor_prompt: extractorPrompt || null,
-    });
+    let result;
+    if (jobId && !wallet && !liveExecute && !approvalGranted) {
+      result = await fetchStyleDistillationJob(state.workspaceDir, jobId);
+    } else if (jobId) {
+      result = await resumeStyleDistillation(state.workspaceDir, {
+        job_id: jobId,
+        live_execute: liveExecute,
+        approval_granted: approvalGranted,
+      });
+    } else {
+      result = await createStyleDistillation(state.workspaceDir, {
+        wallet,
+        chain: chain || null,
+        skill_name: skillName || null,
+        extractor_prompt: extractorPrompt || null,
+        live_execute: liveExecute,
+        approval_granted: approvalGranted,
+      });
+    }
     state.latestStyleDistillation = result;
     await loadDashboard();
     state.latestStyleDistillation = result;
     renderer.renderDashboard();
     renderer.activateSection("style-distill");
     if (status) {
-      const backend = result.review_backend || "wallet-style";
-      status.innerHTML = `<span class="pill">完成</span> <span>${escapeHtml(result.profile?.summary || "已完成地址风格蒸馏。")} · backend: ${escapeHtml(backend)}</span>`;
+      const backend = result.review_backend || result.summary?.review_backend || "wallet-style";
+      const readiness = result.execution_readiness || result.summary?.execution_readiness || "n/a";
+      status.innerHTML = `<span class="pill">完成</span> <span>${escapeHtml(result.profile?.summary || result.summary?.summary || "已完成地址风格蒸馏。")} · backend: ${escapeHtml(backend)} · execution: ${escapeHtml(readiness)}</span>`;
     }
   } catch (error) {
     if (status) {
