@@ -135,79 +135,98 @@ class RuntimeRunCoordinator:
             metadata={"run_id": run_id, **dict(metadata or {})},
             launch_spec=self._launch_spec(adapter),
         )
-        execution = self.executor.execute(request)
-        translation = self.translator.apply(
-            adapter,
-            transcript=execution.transcript,
-            session_id=session.session_id,
-            invocation_id=invocation.invocation_id,
-        )
-        invocation = adapter.finish_invocation(
-            session.session_id,
-            invocation.invocation_id,
-            status=execution.transcript.status,
-            summary=execution.transcript.summary,
-            output_payload=execution.transcript.output_payload,
-            metadata=execution.transcript.metadata,
-        )
-        session = adapter.close_session(
-            session.session_id,
-            status="failed" if execution.transcript.status in {"failed", "error"} else "succeeded",
-            metadata=execution.transcript.metadata,
-        )
-        self.session_store.record_session(session)
-        snapshot = adapter.snapshot_session(session.session_id)
-        pipeline = RunIngestionPipeline(self.registry_root).record(
-            {
-                "run_id": run_id,
-                "runtime_id": runtime_id,
-                "runtime_session_id": snapshot.session_id,
-                "subject_kind": self._metadata_text(metadata, "subject_kind", default="runtime_session"),
-                "subject_id": self._metadata_text(metadata, "subject_id", default=snapshot.session_id),
-                "agent_id": self._metadata_text(metadata, "agent_id", default=f"{runtime_id}-runtime"),
-                "agent": {
+        execution = None
+        try:
+            execution = self.executor.execute(request)
+            translation = self.translator.apply(
+                adapter,
+                transcript=execution.transcript,
+                session_id=session.session_id,
+                invocation_id=invocation.invocation_id,
+            )
+            invocation = adapter.finish_invocation(
+                session.session_id,
+                invocation.invocation_id,
+                status=execution.transcript.status,
+                summary=execution.transcript.summary,
+                output_payload=execution.transcript.output_payload,
+                metadata=execution.transcript.metadata,
+            )
+            session = adapter.close_session(
+                session.session_id,
+                status="failed" if execution.transcript.status in {"failed", "error"} else "succeeded",
+                metadata=execution.transcript.metadata,
+            )
+            self.session_store.record_session(session)
+            snapshot = adapter.snapshot_session(session.session_id)
+            pipeline = RunIngestionPipeline(self.registry_root).record(
+                {
+                    "run_id": run_id,
+                    "runtime_id": runtime_id,
+                    "runtime_session_id": snapshot.session_id,
+                    "subject_kind": self._metadata_text(metadata, "subject_kind", default="runtime_session"),
+                    "subject_id": self._metadata_text(metadata, "subject_id", default=snapshot.session_id),
                     "agent_id": self._metadata_text(metadata, "agent_id", default=f"{runtime_id}-runtime"),
-                    "display_name": self._metadata_text(metadata, "agent_display_name", default=f"{runtime_id.upper()} Runtime"),
-                    "execution_mode": self._metadata_text(metadata, "agent_execution_mode", default="embedded"),
+                    "agent": {
+                        "agent_id": self._metadata_text(metadata, "agent_id", default=f"{runtime_id}-runtime"),
+                        "display_name": self._metadata_text(metadata, "agent_display_name", default=f"{runtime_id.upper()} Runtime"),
+                        "execution_mode": self._metadata_text(metadata, "agent_execution_mode", default="embedded"),
+                        "metadata": {
+                            "runtime_id": runtime_id,
+                            **dict((metadata or {}).get("agent_metadata") or {}),
+                        },
+                    },
+                    "flow_id": self._metadata_text(metadata, "flow_id", default=runtime_id),
+                    "status": execution.transcript.status,
+                    "ok": execution.transcript.ok,
+                    "summary": execution.transcript.summary,
+                    "input_payload": {"prompt": prompt, **dict(input_payload or {})},
+                    "output_payload": dict(execution.transcript.output_payload),
+                    "provider_ids": list(execution.transcript.provider_ids),
+                    "skill_ids": list(execution.transcript.skill_ids),
+                    "events": [self._normalize_runtime_event(run_id, item) for item in translation.runtime_events],
+                    "artifacts": [self._normalize_artifact(run_id, item) for item in translation.artifacts],
                     "metadata": {
                         "runtime_id": runtime_id,
-                        **dict((metadata or {}).get("agent_metadata") or {}),
+                        "session_id": snapshot.session_id,
+                        "invocation_id": invocation.invocation_id,
+                        "launch_spec": request.launch_spec.model_dump(mode="json"),
+                        **dict(metadata or {}),
+                        **dict(execution.transcript.metadata),
                     },
-                },
-                "flow_id": self._metadata_text(metadata, "flow_id", default=runtime_id),
-                "status": execution.transcript.status,
-                "ok": execution.transcript.ok,
-                "summary": execution.transcript.summary,
-                "input_payload": {"prompt": prompt, **dict(input_payload or {})},
-                "output_payload": dict(execution.transcript.output_payload),
-                "provider_ids": list(execution.transcript.provider_ids),
-                "skill_ids": list(execution.transcript.skill_ids),
-                "events": [self._normalize_runtime_event(run_id, item) for item in translation.runtime_events],
-                "artifacts": [self._normalize_artifact(run_id, item) for item in translation.artifacts],
-                "metadata": {
-                    "runtime_id": runtime_id,
-                    "session_id": snapshot.session_id,
-                    "invocation_id": invocation.invocation_id,
+                }
+            )
+            return RuntimeRunResult(
+                runtime_id=runtime_id,
+                session=snapshot,
+                invocation=invocation,
+                execution={
+                    "command": execution.command,
+                    "returncode": execution.returncode,
                     "launch_spec": request.launch_spec.model_dump(mode="json"),
-                    **dict(metadata or {}),
-                    **dict(execution.transcript.metadata),
+                    "started_at": execution.started_at,
+                    "finished_at": execution.finished_at,
                 },
-            }
-        )
-        return RuntimeRunResult(
-            runtime_id=runtime_id,
-            session=snapshot,
-            invocation=invocation,
-            execution={
-                "command": execution.command,
-                "returncode": execution.returncode,
-                "launch_spec": request.launch_spec.model_dump(mode="json"),
-                "started_at": execution.started_at,
-                "finished_at": execution.finished_at,
-            },
-            transcript=execution.transcript,
-            pipeline=pipeline,
-        )
+                transcript=execution.transcript,
+                pipeline=pipeline,
+            )
+        except Exception:
+            adapter.finish_invocation(
+                session.session_id,
+                invocation.invocation_id,
+                status="failed",
+                summary="runtime execution raised unhandled exception",
+                output_payload={},
+                metadata={},
+            )
+            session = adapter.close_session(
+                session.session_id,
+                status="failed",
+                metadata={},
+            )
+            final_session = session if isinstance(session, RuntimeSession) else adapter.snapshot_session(session.session_id)
+            self.session_store.record_session(final_session)
+            raise
 
     @staticmethod
     def _normalize_runtime_event(run_id: str, event: RuntimeEvent) -> dict[str, Any]:

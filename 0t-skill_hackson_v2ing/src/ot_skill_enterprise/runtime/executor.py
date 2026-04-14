@@ -13,7 +13,10 @@ from .execution import RuntimeExecutionRequest, RuntimeExecutionResult
 from .transcript import RuntimeTranscript
 
 
-def _optional_timeout_seconds(request: RuntimeExecutionRequest) -> float | None:
+_DEFAULT_RUNTIME_TIMEOUT_SECONDS = 300.0
+
+
+def _optional_timeout_seconds(request: RuntimeExecutionRequest) -> float:
     raw = (
         request.metadata.get("runtime_timeout_seconds")
         or request.launch_spec.metadata.get("timeout_seconds")
@@ -22,8 +25,8 @@ def _optional_timeout_seconds(request: RuntimeExecutionRequest) -> float | None:
     try:
         timeout = float(raw)
     except (TypeError, ValueError):
-        return None
-    return timeout if timeout > 0 else None
+        return _DEFAULT_RUNTIME_TIMEOUT_SECONDS
+    return timeout if timeout > 0 else _DEFAULT_RUNTIME_TIMEOUT_SECONDS
 
 
 @dataclass(slots=True)
@@ -144,7 +147,38 @@ class SubprocessRuntimeExecutor:
                 error=ServiceError(code="runtime_process_failed", message=transcript.summary, details={"returncode": completed.returncode}),
             )
 
-        payload = json.loads(completed.stdout)
+        try:
+            payload = json.loads(completed.stdout)
+        except (json.JSONDecodeError, ValueError) as exc:
+            transcript = RuntimeTranscript(
+                runtime_id=request.runtime_id,
+                session_id=request.session_id,
+                invocation_id=request.invocation_id,
+                ok=False,
+                status="failed",
+                summary=f"runtime process returned exit 0 but stdout is not valid JSON: {exc}",
+                output_payload={"stdout": completed.stdout[:2000], "stderr": completed.stderr.strip()},
+                events=[],
+                metadata={"returncode": 0},
+                stdout=completed.stdout,
+                stderr=completed.stderr,
+            )
+            return RuntimeExecutionResult(
+                runtime_id=request.runtime_id,
+                session_id=request.session_id,
+                invocation_id=request.invocation_id,
+                launch_spec=launch_spec,
+                command=command,
+                returncode=completed.returncode,
+                transcript=transcript,
+                started_at=started_at,
+                finished_at=finished_at,
+                error=ServiceError(
+                    code="runtime_stdout_parse_failed",
+                    message=transcript.summary,
+                    details={"returncode": 0},
+                ),
+            )
         transcript = RuntimeTranscript.from_payload(
             payload,
             runtime_id=request.runtime_id,

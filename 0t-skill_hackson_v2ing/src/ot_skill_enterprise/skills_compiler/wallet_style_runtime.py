@@ -5,11 +5,9 @@ import math
 import re
 from typing import Any
 
+from ot_skill_enterprise.chain_assets import chain_benchmark_defaults, chain_quote_symbols, chain_wrapped_native
 
-QUOTE_TOKENS = {"USDT", "USDC", "DAI", "FDUSD", "TUSD", "WBNB", "BNB", "WETH", "ETH"}
-WRAPPED_NATIVE = {
-    "bsc": ("WBNB", "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c", 600.0),
-}
+QUOTE_TOKENS = {"USDT", "USDC", "DAI", "FDUSD", "TUSD"} | chain_quote_symbols()
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -21,6 +19,17 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
 
 def _safe_text(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _safe_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return _safe_text(value).lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _is_evm_address(value: Any) -> bool:
+    text = _safe_text(value)
+    return len(text) == 42 and text.startswith("0x") and all(char in "0123456789abcdefABCDEF" for char in text[2:])
 
 
 def _json_safe(value: Any) -> Any:
@@ -54,10 +63,42 @@ def _focus_context_by_symbol(market_context: dict[str, Any]) -> dict[str, dict[s
     for item in focus:
         if not isinstance(item, dict):
             continue
-        symbol = _safe_text(item.get("symbol")).upper()
+        symbol = _safe_text(item.get("symbol") or item.get("token_symbol") or item.get("token_name") or item.get("name")).upper()
         if symbol and symbol not in indexed:
             indexed[symbol] = item
     return indexed
+
+
+def _focus_tokens(market_context: dict[str, Any]) -> list[str]:
+    values: list[str] = []
+    for item in list(market_context.get("focus_token_context") or []):
+        if not isinstance(item, dict):
+            continue
+        symbol = _safe_text(item.get("symbol") or item.get("token_symbol") or item.get("token_name") or item.get("name"))
+        if symbol and symbol.upper() not in QUOTE_TOKENS and symbol not in values:
+            values.append(symbol)
+    return values
+
+
+def _match_focus_context(target: str, market_context: dict[str, Any]) -> dict[str, Any]:
+    needle = _safe_text(target)
+    if not needle:
+        return {}
+    upper = needle.upper()
+    lower = needle.lower()
+    for item in list(market_context.get("focus_token_context") or []):
+        if not isinstance(item, dict):
+            continue
+        aliases = {
+            _safe_text(item.get("symbol")).upper(),
+            _safe_text(item.get("token_symbol")).upper(),
+            _safe_text(item.get("token_name")).upper(),
+            _safe_text(item.get("name")).upper(),
+        }
+        token_address = _safe_text(item.get("token_address") or item.get("address")).lower()
+        if upper in aliases or (_is_evm_address(needle) and token_address == lower):
+            return dict(item)
+    return {}
 
 
 def _merged_market_context(context: dict[str, Any], strategy: dict[str, Any]) -> dict[str, Any]:
@@ -72,45 +113,99 @@ def _merged_signal_context(context: dict[str, Any], strategy: dict[str, Any]) ->
     return merged
 
 
-def _pick_target_token(context: dict[str, Any], profile: dict[str, Any], strategy: dict[str, Any], market_context: dict[str, Any]) -> str:
+def _pick_target_token(context: dict[str, Any], profile: dict[str, Any], strategy: dict[str, Any], market_context: dict[str, Any]) -> tuple[str, str]:
     explicit = _safe_text(context.get("target_token"))
     if explicit:
-        return explicit
-    focus_index = _focus_context_by_symbol(market_context)
+        return explicit, "explicit_target"
+    focus_tokens = _focus_tokens(market_context)
+    focus_index = {item.upper() for item in focus_tokens}
     candidates = _non_quote_tokens(list(context.get("candidate_tokens") or []) + list((strategy.get("metadata") or {}).get("preferred_tokens") or []))
     for token in candidates:
         if token.upper() in focus_index:
-            return token
+            return token, "runtime_focus"
+    if focus_tokens:
+        return focus_tokens[0], "runtime_focus"
     if candidates:
-        return candidates[0]
+        return candidates[0], "candidate_watchlist"
     preferred = _non_quote_tokens(profile.get("preferred_tokens") or [])
     if preferred:
-        return preferred[0]
-    return "watchlist"
+        return preferred[0], "profile_preferred"
+    return "watchlist", "fallback_watchlist"
 
 
-def _resolve_token(symbol: str, token_catalog: dict[str, Any], execution_intent: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
-    token = dict(token_catalog.get(symbol) or {})
+def _resolve_token(
+    symbol: str,
+    token_catalog: dict[str, Any],
+    execution_intent: dict[str, Any],
+    profile: dict[str, Any],
+    *,
+    target_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     metadata = dict(execution_intent.get("metadata") or {})
-    if not token and symbol == _safe_text(metadata.get("default_target_token")):
-        token = {
-            "symbol": symbol,
-            "token_address": metadata.get("default_target_token_address"),
-            "chain": metadata.get("chain") or profile.get("chain"),
+    chain = _safe_text(metadata.get("chain") or profile.get("chain"))
+    context_token = dict(target_context or {})
+    context_address = _safe_text(context_token.get("token_address") or context_token.get("address"))
+    context_price = (
+        _safe_float(context_token.get("price_now"))
+        or _safe_float(context_token.get("price"))
+        or _safe_float(context_token.get("unit_price_usd"))
+        or None
+    )
+    context_symbol = _safe_text(
+        context_token.get("symbol")
+        or context_token.get("token_symbol")
+        or context_token.get("token_name")
+        or context_token.get("name")
+        or symbol
+    )
+    if context_address and _is_evm_address(context_address):
+        return {
+            "symbol": context_symbol or symbol,
+            "token_address": context_address,
+            "chain": chain,
+            "unit_price_usd": context_price,
         }
-    return token
+    if _is_evm_address(symbol):
+        return {
+            "symbol": context_symbol or symbol,
+            "token_address": symbol,
+            "chain": chain,
+            "unit_price_usd": context_price,
+        }
+    for key in (symbol, symbol.upper(), symbol.lower()):
+        token = dict(token_catalog.get(key) or {})
+        if token:
+            return token
+    target_lower = _safe_text(symbol).lower()
+    for token in list(token_catalog.values()):
+        if not isinstance(token, dict):
+            continue
+        if _safe_text(token.get("token_address")).lower() == target_lower:
+            return dict(token)
+    wrapped = chain_wrapped_native(chain)
+    if wrapped and _safe_text(symbol).upper() in chain_quote_symbols(chain):
+        return {
+            "symbol": wrapped[0],
+            "token_address": wrapped[1],
+            "chain": chain,
+            "unit_price_usd": wrapped[2],
+        }
+    return {}
 
 
 def _source_meta(chain: str, route_symbols: list[str], execution_intent: dict[str, Any], token_catalog: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
     metadata = dict(execution_intent.get("metadata") or {})
-    prefer_wrapped = "WBNB" in " ".join(str(item) for item in profile.get("execution_rules") or []).upper()
-    wrapped = WRAPPED_NATIVE.get(chain)
+    wrapped = chain_wrapped_native(chain)
+    wrapped_symbols = chain_quote_symbols(chain)
+    rules_upper = " ".join(str(item) for item in profile.get("execution_rules") or []).upper()
+    prefer_wrapped = any(symbol in rules_upper for symbol in wrapped_symbols)
     if prefer_wrapped and wrapped and wrapped[0] in route_symbols:
         return {"symbol": wrapped[0], "token_address": wrapped[1], "chain": chain, "unit_price_usd": wrapped[2]}
     default_symbol = _safe_text(metadata.get("default_source_token"))
     default_address = _safe_text(metadata.get("default_source_token_address"))
     if default_symbol and default_address:
-        return {"symbol": default_symbol, "token_address": default_address, "chain": chain, "unit_price_usd": _safe_float(metadata.get("default_source_unit_price_usd"), wrapped[2] if wrapped else 1.0)}
+        unit_price = _safe_float(metadata.get("default_source_unit_price_usd"), wrapped[2] if wrapped and wrapped[2] is not None else 0.0)
+        return {"symbol": default_symbol, "token_address": default_address, "chain": chain, "unit_price_usd": unit_price or None}
     for symbol in route_symbols:
         token = dict(token_catalog.get(symbol) or {})
         if token:
@@ -125,18 +220,82 @@ def _infer_route(context: dict[str, Any], execution_intent: dict[str, Any], prof
     if explicit:
         return explicit if explicit[-1] == target_token else [*explicit, target_token]
     route: list[str] = []
+    chain = _safe_text(context.get("chain") or profile.get("chain"))
+    default_source_symbol = _safe_text(
+        dict(execution_intent.get("metadata") or {}).get("default_source_token")
+        or chain_benchmark_defaults(chain).get("default_source_token")
+    )
+    chain_quotes = chain_quote_symbols(chain)
     rules = " ".join(str(item) for item in profile.get("execution_rules") or []).upper()
     for symbol in list(context.get("available_routes") or []) + list(execution_intent.get("route_preferences") or []):
         text = _safe_text(symbol)
         if text and text.upper() in QUOTE_TOKENS and text not in route:
             route.append(text)
-    if "WBNB" in rules and "WBNB" not in route:
-        route.insert(0, "WBNB")
+    if default_source_symbol and any(symbol in rules for symbol in chain_quotes) and default_source_symbol not in route:
+        route.insert(0, default_source_symbol)
     if not route:
-        route = ["USDC"]
+        route = [default_source_symbol or "USDC"]
     if route[-1] != target_token:
         route.append(target_token)
     return route
+
+
+def _market_discovery_defaults(
+    *,
+    chain: str,
+    profile: dict[str, Any],
+    strategy: dict[str, Any],
+    execution_intent: dict[str, Any],
+    context: dict[str, Any],
+    source_symbol: str,
+) -> dict[str, Any]:
+    profile_text = " ".join(
+        [
+            _safe_text(profile.get("summary")),
+            _safe_text(profile.get("style_label")),
+            _safe_text(profile.get("risk_appetite")),
+            _safe_text(profile.get("execution_tempo")),
+            " ".join(str(item) for item in profile.get("execution_rules") or []),
+            " ".join(str(item) for item in strategy.get("preferred_setups") or []),
+        ]
+    ).lower()
+    aggressive = any(marker in profile_text for marker in ("degen", "aggressive", "memecoin", "microcap", "burst", "scalp"))
+    discovery = dict(((execution_intent.get("metadata") or {}).get("market_discovery") or {}))
+    runtime_discovery = dict(context.get("market_discovery") or {})
+    if runtime_discovery:
+        discovery.update(runtime_discovery)
+    filters = dict(discovery.get("filters") or {})
+    runtime_filters = dict(runtime_discovery.get("filters") or {})
+    if runtime_filters:
+        filters.update(runtime_filters)
+    filters.setdefault("chain", chain)
+    filters.setdefault("ranking_type", "4")
+    filters.setdefault("time_frame", "2" if any(marker in profile_text for marker in ("same-minute", "burst", "scalp")) else "4")
+    filters.setdefault("stable_token_filter", True)
+    filters.setdefault("risk_filter", not aggressive)
+    filters.setdefault("volume_min", 10000 if aggressive else 25000)
+    filters.setdefault("liquidity_min", 5000 if aggressive else 15000)
+    filters.setdefault("txs_min", 25 if aggressive else 50)
+    if aggressive and any(marker in profile_text for marker in ("microcap", "memecoin")):
+        filters.setdefault("market_cap_max", 250000000)
+    tags: list[str] = []
+    for marker in ("volume_spike", "same-minute-burst", "scalp", "microcap", "memecoin", "momentum", "pyramid"):
+        if marker.replace("_", " ") in profile_text or marker in profile_text:
+            tags.append(marker)
+    discovery.setdefault("enabled", True)
+    discovery.setdefault("scan_mode", "hot_tokens")
+    discovery.setdefault("wss_price_enabled", True)
+    discovery.setdefault("allow_target_override", False)
+    discovery.setdefault("novelty_preferred", True)
+    discovery.setdefault("max_candidates", 8)
+    discovery.setdefault(
+        "preferred_quote_symbol",
+        source_symbol or _safe_text((execution_intent.get("metadata") or {}).get("default_source_token")),
+    )
+    discovery.setdefault("historical_tokens", _non_quote_tokens(profile.get("preferred_tokens") or []))
+    discovery["style_tags"] = sorted(set(list(discovery.get("style_tags") or []) + tags))
+    discovery["filters"] = filters
+    return discovery
 
 
 def _match_condition(
@@ -159,10 +318,17 @@ def _match_condition(
         legs = int(trade_statistics.get("avg_position_splits") or condition.get("metadata", {}).get("legs") or 1)
         if legs >= 2:
             return True, "trade_statistics.avg_position_splits >= 2"
-    if "quote token" in condition_text or "wbnb" in condition_text:
+    chain = _safe_text(profile.get("chain") or context.get("chain") or "bsc")
+    chain_quotes = chain_quote_symbols(chain)
+    if "quote token" in condition_text or any(symbol.lower() in condition_text for symbol in chain_quotes):
+        default_source_symbol = _safe_text(chain_benchmark_defaults(chain).get("default_source_token")).upper()
         routes = [str(item).upper() for item in context.get("available_routes") or []]
-        if "WBNB" in routes or "WBNB" in " ".join(str(item) for item in profile.get("execution_rules") or []).upper():
-            return True, "available route includes WBNB"
+        if (
+            (default_source_symbol and default_source_symbol in routes)
+            or any(symbol in routes for symbol in chain_quotes)
+            or any(symbol in " ".join(str(item) for item in profile.get("execution_rules") or []).upper() for symbol in chain_quotes)
+        ):
+            return True, "available route includes configured benchmark source"
     if "liquidity" in condition_text or "volume" in condition_text or "momentum" in condition_text:
         if target_context and (
             target_context.get("vol_liq_ratio") is not None
@@ -189,8 +355,8 @@ def build_primary_payload(
     signal_context = _merged_signal_context(context, strategy)
     trade_statistics = dict((strategy.get("metadata") or {}).get("trade_statistics") or {})
     focus_index = _focus_context_by_symbol(market_context)
-    target_token = _pick_target_token(context, profile, strategy, market_context)
-    target_context = dict(focus_index.get(target_token.upper()) or {})
+    target_token, target_source = _pick_target_token(context, profile, strategy, market_context)
+    target_context = _match_focus_context(target_token, market_context) or dict(focus_index.get(target_token.upper()) or {})
     hard_blocks = [str(item) for item in signal_context.get("hard_blocks") or [] if _safe_text(item)]
     warnings = [str(item) for item in signal_context.get("warnings") or [] if _safe_text(item)]
     decision_trace: list[dict[str, Any]] = []
@@ -259,9 +425,37 @@ def build_primary_payload(
     )
     if blocking_reasons:
         confidence = min(confidence, 0.35)
+    chain = _safe_text(profile.get("chain") or context.get("chain") or "bsc")
+    requested_target_token = target_token
     route_symbols = _infer_route(context, execution_intent, profile, target_token)
-    target_meta = _resolve_token(target_token, token_catalog, execution_intent, profile)
-    source_meta = _source_meta(_safe_text(profile.get("chain") or context.get("chain") or "bsc"), route_symbols, execution_intent, token_catalog, profile)
+    target_meta = _resolve_token(target_token, token_catalog, execution_intent, profile, target_context=target_context)
+    source_meta = _source_meta(chain, route_symbols, execution_intent, token_catalog, profile)
+    market_discovery = _market_discovery_defaults(
+        chain=chain,
+        profile=profile,
+        strategy=strategy,
+        execution_intent=execution_intent,
+        context=context,
+        source_symbol=_safe_text(source_meta.get("symbol")),
+    )
+    target_address = _safe_text(target_meta.get("token_address"))
+    if target_address:
+        target_resolution = {
+            "runtime_focus": "runtime_context",
+            "explicit_target": "explicit_target",
+            "candidate_watchlist": "style_watchlist_candidate",
+            "profile_preferred": "style_preferred_catalog",
+            "fallback_watchlist": "style_watchlist_candidate",
+        }.get(target_source, "runtime_context")
+    else:
+        scan_requested = _safe_bool(market_discovery.get("allow_target_override")) or _safe_bool(market_discovery.get("scan_requested"))
+        target_resolution = {
+            "explicit_target": "market_search_pending",
+            "runtime_focus": "market_search_pending",
+            "candidate_watchlist": "market_scan_pending" if scan_requested else "unresolved_target",
+            "profile_preferred": "market_scan_pending" if scan_requested else "unresolved_target",
+            "fallback_watchlist": "market_scan_pending" if scan_requested else "unresolved_target",
+        }.get(target_source, "unresolved_target")
     sizing = dict(strategy.get("position_sizing") or {})
     sizing_range = sizing.get("usd_range") if isinstance(sizing.get("usd_range"), list) else []
     desired_notional = _safe_float(context.get("desired_notional_usd"), 0.0)
@@ -289,6 +483,15 @@ def build_primary_payload(
         ],
         "guardrails": profile.get("anti_patterns") or [],
     }
+    execution_payload = _json_safe(execution_intent)
+    execution_metadata = dict(execution_payload.get("metadata") or {})
+    execution_metadata["market_discovery"] = _json_safe(market_discovery)
+    execution_payload["metadata"] = execution_metadata
+    candidate_tokens = _non_quote_tokens(
+        list(context.get("candidate_tokens") or [])
+        + _focus_tokens(market_context)
+        + list(profile.get("preferred_tokens") or [])
+    )
     context_sources = _json_safe(
         {
             "style_profile": {"kind": "static_payload"},
@@ -302,11 +505,13 @@ def build_primary_payload(
     )
     trade_plan = {
         "mode": "style-simulated-trade",
-        "chain": _safe_text(profile.get("chain") or context.get("chain") or "bsc"),
+        "chain": chain,
         "wallet_address": profile.get("wallet"),
         "entry_action": recommendation.get("action"),
         "target_token": target_token,
         "target_token_address": target_meta.get("token_address"),
+        "requested_target_token": requested_target_token,
+        "target_token_resolution": target_resolution,
         "route": route_symbols,
         "desired_notional_usd": round(desired_notional, 2),
         "max_leg_usd": round(max(per_leg_usd, _safe_float(sizing.get("max_usd"), per_leg_usd)), 2),
@@ -316,6 +521,12 @@ def build_primary_payload(
         "execution_source_address": source_meta.get("token_address"),
         "execution_source_unit_price_usd": source_meta.get("unit_price_usd"),
         "execution_source_readable_amount": round(per_leg_usd / float(source_meta.get("unit_price_usd")), 8) if source_meta.get("unit_price_usd") else None,
+        "candidate_tokens": candidate_tokens,
+        "historical_tokens": _non_quote_tokens(profile.get("preferred_tokens") or []),
+        "market_context": _json_safe(market_context),
+        "signal_context": _json_safe(signal_context),
+        "target_token_context": _json_safe(target_context),
+        "market_discovery": _json_safe(market_discovery),
         "execution_windows": [str(item) for item in profile.get("active_windows") or [] if _safe_text(item)],
         "burst_profile": _safe_text(context.get("burst_profile") or trade_statistics.get("burst_profile") or profile.get("execution_tempo")),
         "tempo": profile.get("execution_tempo"),
@@ -330,7 +541,7 @@ def build_primary_payload(
         "summary": summary,
         "style_profile": _json_safe(profile),
         "strategy": _json_safe(strategy),
-        "execution_intent": _json_safe(execution_intent),
+        "execution_intent": execution_payload,
         "input_context": _json_safe(context),
         "recommendation": _json_safe(recommendation),
         "trade_plan": _json_safe(trade_plan),

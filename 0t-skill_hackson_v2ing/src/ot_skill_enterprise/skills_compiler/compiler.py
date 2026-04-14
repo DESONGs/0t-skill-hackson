@@ -30,6 +30,7 @@ from skill_contract.validators.package_structure import validate_package_structu
 
 SUPPORTED_PACKAGE_KINDS = {"prompt", "script", "provider-adapter"}
 ADAPTER_TARGETS = ("generic",)
+_MODULE_SRC_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _json_safe(value: Any) -> Any:
@@ -116,6 +117,35 @@ def _write_yaml(path: Path, payload: Mapping[str, Any]) -> None:
     path.write_text(yaml.safe_dump(_json_safe(payload), sort_keys=False, allow_unicode=True), encoding="utf-8")
 
 
+def _compact_text(value: Any, *, max_chars: int) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= max_chars:
+        return text
+    trimmed = text[: max_chars - 3].rsplit(" ", 1)[0].strip()
+    if not trimmed:
+        trimmed = text[: max_chars - 3].strip()
+    return f"{trimmed}..."
+
+
+def _compact_bullets(
+    values: list[Any] | tuple[Any, ...] | None,
+    *,
+    limit: int,
+    max_chars: int,
+    overflow_note: str | None = None,
+) -> list[str]:
+    lines: list[str] = []
+    for raw in list(values or [])[:limit]:
+        text = _compact_text(raw, max_chars=max_chars)
+        if text:
+            lines.append(f"- {text}")
+    if not lines:
+        return []
+    if overflow_note and len(list(values or [])) > limit:
+        lines.append(f"- {overflow_note}")
+    return lines
+
+
 def _wallet_style_profile(candidate: SkillCandidate) -> dict[str, Any] | None:
     payload = candidate.generation_spec.get("wallet_style_profile")
     if isinstance(payload, Mapping):
@@ -174,9 +204,10 @@ def _wallet_token_catalog(candidate: SkillCandidate) -> dict[str, dict[str, Any]
 def _render_skill_md(candidate: SkillCandidate, package_kind: str) -> str:
     package_name = candidate.candidate_slug
     style_profile = _wallet_style_profile(candidate)
+    short_summary = _compact_text(candidate.change_summary, max_chars=200)
     frontmatter = {
         "name": package_name,
-        "description": candidate.change_summary,
+        "description": short_summary,
         "version": "1.0.0",
         "owner": "mainagent",
         "status": "experimental",
@@ -197,12 +228,21 @@ def _render_skill_md(candidate: SkillCandidate, package_kind: str) -> str:
         },
     }
     if style_profile is not None:
-        execution_rule_lines = [f"- {rule}" for rule in list(style_profile.get("execution_rules") or [])]
-        anti_pattern_lines = [f"- {rule}" for rule in list(style_profile.get("anti_patterns") or [])] or ["- No anti-patterns captured"]
+        execution_rule_lines = _compact_bullets(
+            style_profile.get("execution_rules") or [],
+            limit=5,
+            max_chars=96,
+        ) or ["- No execution rules captured"]
+        anti_pattern_lines = _compact_bullets(
+            style_profile.get("anti_patterns") or [],
+            limit=6,
+            max_chars=96,
+            overflow_note="Additional risk notes are preserved in references/style_profile.json.",
+        ) or ["- No anti-patterns captured"]
         body_lines = [
             f"# {candidate.target_skill_name}",
             "",
-            candidate.change_summary,
+            short_summary,
             "",
             "## Wallet Style Signature",
             "",
@@ -406,7 +446,13 @@ def _build_interface(candidate: SkillCandidate, package_kind: str) -> dict[str, 
     }
 
 
-def _write_type_specific_files(package_root: Path, candidate: SkillCandidate, package_kind: str) -> tuple[str, ...]:
+def _write_type_specific_files(
+    package_root: Path,
+    candidate: SkillCandidate,
+    package_kind: str,
+    *,
+    fallback_src_root: Path,
+) -> tuple[str, ...]:
     generated: list[str] = []
     style_profile = _wallet_style_profile(candidate)
     strategy_spec = _wallet_strategy_spec(candidate)
@@ -476,7 +522,15 @@ def _write_type_specific_files(package_root: Path, candidate: SkillCandidate, pa
             "def main() -> int:",
             "    context = _load_context()",
             "    project_root = Path(__file__).resolve().parents[3]",
-            "    sys.path.insert(0, str(project_root / 'src'))",
+            "    source_roots = [",
+            "        project_root / 'src',",
+            f"        Path({json.dumps(str(fallback_src_root.resolve()), ensure_ascii=False)}),",
+            "    ]",
+            "    for source_root in source_roots:",
+            "        if source_root.is_dir():",
+            "            resolved = str(source_root.resolve())",
+            "            if resolved not in sys.path:",
+            "                sys.path.insert(0, resolved)",
             "    from ot_skill_enterprise.skills_compiler.wallet_style_runtime import build_primary_payload",
             "    payload = build_primary_payload(",
             f"        summary={json.dumps(candidate.change_summary, ensure_ascii=False)},",
@@ -522,8 +576,18 @@ def _write_type_specific_files(package_root: Path, candidate: SkillCandidate, pa
             "def main() -> int:",
             "    context = _load_context()",
             "    project_root = Path(__file__).resolve().parents[3]",
-            "    sys.path.insert(0, str(project_root / 'src'))",
-            "    from ot_skill_enterprise.execution import collect_execution_result, prepare_execution, run_dry_run, run_live",
+            "    source_roots = [",
+            "        project_root / 'src',",
+            f"        Path({json.dumps(str(fallback_src_root.resolve()), ensure_ascii=False)}),",
+            "    ]",
+            "    for source_root in source_roots:",
+            "        if source_root.is_dir():",
+            "            resolved = str(source_root.resolve())",
+            "            if resolved not in sys.path:",
+            "                sys.path.insert(0, resolved)",
+            "    from ot_skill_enterprise.env_bootstrap import load_local_env",
+            "    from ot_skill_enterprise.execution import prepare_only_result, run_dry_run, run_live",
+            "    load_local_env()",
             "    trade_plan = dict(context.get('trade_plan') or {})",
             "    execution_intent = dict(context.get('execution_intent') or EXECUTION_INTENT)",
             "    mode = str(context.get('mode') or 'prepare_only').strip() or 'prepare_only'",
@@ -539,8 +603,7 @@ def _write_type_specific_files(package_root: Path, candidate: SkillCandidate, pa
             "        print(json.dumps(payload, ensure_ascii=False, indent=2))",
             "        return 1",
             "    if mode == 'prepare_only':",
-            "        prepared = prepare_execution(trade_plan, execution_intent, project_root=project_root)",
-            "        result = collect_execution_result(prepared, mode='dry_run')",
+            "        result = prepare_only_result(trade_plan, execution_intent, project_root=project_root)",
             "    elif mode == 'dry_run':",
             "        result = run_dry_run(trade_plan, execution_intent, project_root=project_root)",
             "    elif mode == 'live':",
@@ -562,7 +625,7 @@ def _write_type_specific_files(package_root: Path, candidate: SkillCandidate, pa
             f"        'summary': {json.dumps(candidate.change_summary, ensure_ascii=False)},",
             "        'execution_readiness': result.get('execution_readiness'),",
             "        'execution_intent': execution_intent,",
-            "        'trade_plan': trade_plan,",
+            "        'trade_plan': result.get('trade_plan') or trade_plan,",
             "        'prepared_execution': result.get('prepared_execution'),",
             "        'checks': result.get('checks'),",
             "        'execution_result': result.get('execution'),",
@@ -574,7 +637,7 @@ def _write_type_specific_files(package_root: Path, candidate: SkillCandidate, pa
             "        'live_cap_usd': result.get('live_cap_usd'),",
             "        'executed_leg_count': result.get('executed_leg_count'),",
             "        'artifacts': [],",
-            "        'metadata': {'skill_family': 'wallet_style'},",
+            "        'metadata': {'skill_family': 'wallet_style', **dict(result.get('metadata') or {})},",
             "    }",
             "    print(json.dumps(payload, ensure_ascii=False, indent=2))",
             "    return 0 if payload['ok'] else 1",
@@ -674,7 +737,14 @@ class SkillPackageCompiler:
         _write_yaml(package_root / "actions.yaml", actions)
         _write_yaml(package_root / "agents" / "interface.yaml", interface)
         generated_files = ["SKILL.md", "manifest.json", "actions.yaml", "agents/interface.yaml"]
-        generated_files.extend(_write_type_specific_files(package_root, normalized, resolved_kind))
+        generated_files.extend(
+            _write_type_specific_files(
+                package_root,
+                normalized,
+                resolved_kind,
+                fallback_src_root=_MODULE_SRC_ROOT,
+            )
+        )
 
         bundle_sha256 = _tree_sha256(package_root)
         return PackageBuildResult(

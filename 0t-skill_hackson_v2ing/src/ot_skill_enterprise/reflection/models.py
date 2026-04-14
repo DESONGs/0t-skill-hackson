@@ -67,6 +67,10 @@ class ReflectionContextEnvelope:
     memory: tuple[str, ...] = field(default_factory=tuple)
     hints: tuple[str, ...] = field(default_factory=tuple)
     context_sources: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    context: str = ""
+    hard_constraints: tuple[str, ...] = field(default_factory=tuple)
+    memory_items: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    review_hints: tuple[dict[str, Any], ...] = field(default_factory=tuple)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -80,12 +84,25 @@ class ReflectionContextEnvelope:
             memory=_strings(payload.get("memory") or payload.get("memories")),
             hints=_strings(payload.get("hints") or payload.get("hint_blocks")),
             context_sources=_context_sources(payload.get("context_sources") or payload.get("sources")),
+            context=str(payload.get("context") or ""),
+            hard_constraints=_strings(payload.get("hard_constraints")),
+            memory_items=tuple(dict(item) for item in (payload.get("memory_items") or []) if isinstance(item, dict)),
+            review_hints=tuple(dict(item) for item in (payload.get("review_hints") or []) if isinstance(item, dict)),
             metadata=dict(payload.get("metadata") or {}),
         )
 
     @property
     def has_context(self) -> bool:
-        return bool(self.memory or self.hints or self.context_sources or self.metadata)
+        return bool(
+            self.memory
+            or self.hints
+            or self.context_sources
+            or self.metadata
+            or self.context
+            or self.hard_constraints
+            or self.memory_items
+            or self.review_hints
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -93,6 +110,10 @@ class ReflectionContextEnvelope:
             "hints": list(self.hints),
             "context_sources": [_json_safe(source) for source in self.context_sources],
             "metadata": _json_safe(self.metadata),
+            "context": self.context,
+            "hard_constraints": list(self.hard_constraints),
+            "memory_items": [_json_safe(item) for item in self.memory_items],
+            "review_hints": [_json_safe(item) for item in self.review_hints],
             "fenced_blocks": {
                 "memory": _fenced_block("memory", self.memory),
                 "hints": _fenced_block("hint", self.hints),
@@ -107,6 +128,10 @@ class ReflectionContextEnvelope:
             "hints": payload["hints"],
             "context_sources": payload["context_sources"],
             "metadata": payload["metadata"],
+            "context": payload["context"],
+            "hard_constraints": payload["hard_constraints"],
+            "memory_items": payload["memory_items"],
+            "review_hints": payload["review_hints"],
             "fenced_blocks": payload["fenced_blocks"],
             "has_context": payload["has_context"],
         }

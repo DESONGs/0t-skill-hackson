@@ -86,13 +86,14 @@ class SkillCandidate:
         source_evaluation_id = body.get("source_evaluation_id") or metadata.get("source_evaluation_id") or body.get("evaluation_id")
         candidate_id = str(body.get("candidate_id") or metadata.get("candidate_id") or "").strip()
         if not candidate_id:
-            candidate_id = f"candidate-{_short_hash({
+            hash_input = {
                 "target_skill_name": target_skill_name,
                 "candidate_type": candidate_type,
                 "change_summary": change_summary,
                 "source_run_id": source_run_id,
                 "source_evaluation_id": source_evaluation_id,
-            })}"
+            }
+            candidate_id = f"candidate-{_short_hash(hash_input)}"
         candidate_slug = str(
             body.get("candidate_slug")
             or metadata.get("candidate_slug")

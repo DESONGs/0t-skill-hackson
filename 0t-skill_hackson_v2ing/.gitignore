@@ -1,28 +1,11 @@
 .env
 .env.local
 .venv/
+.ot-workspace/
+.pytest_cache/
 __pycache__/
 *.py[cod]
-.pytest_cache/
-.enterprise-installs/
-.ot-workspace/
-.staging-workspace/
-skills/
+*.egg-info/
 dist/
 build/
-*.egg-info/
-vendor/onchainos_cli/upstream/cli/target/
-vendor/pi_runtime/node_modules/
-
-### AL ###
-# Template for AL projects for Dynamics 365 Business Central
 .vscode/
-.alcache/
-.alpackages/
-.snapshots/
-.output/
-*.app
-rad.json
-*.g.xlf
-*.flf
-TestResults.xml

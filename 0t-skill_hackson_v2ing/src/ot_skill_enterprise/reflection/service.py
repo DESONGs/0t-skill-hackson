@@ -65,10 +65,30 @@ def _optional_float(value: Any, *, default: Any = 0.0) -> Any:
         return default
 
 
+_GENERIC_STYLE_LABELS = {"balanced", "default", "generic", "neutral"}
+_GENERIC_SETUP_LABELS = {"balanced", "default", "generic", "neutral"}
+_GENERIC_SUMMARY_MARKERS = (
+    "balanced risk profile with moderate conviction",
+    "standard entry and exit strategy",
+)
+_GENERIC_ENTRY_CONDITIONS = {"price above support"}
+def _lower_text(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
+def _is_generic_summary(text: Any) -> bool:
+    lowered = _lower_text(text)
+    return any(marker in lowered for marker in _GENERIC_SUMMARY_MARKERS)
+
+
+class ReflectionQualityError(ValueError):
+    """Raised when reflection returns structurally valid but strategically unusable output."""
+
+
 def build_wallet_style_output_schema() -> dict[str, Any]:
     return {
         "type": "object",
-        "required": ["profile", "strategy", "execution_intent", "review"],
+        "required": ["profile", "strategy", "review"],
         "properties": {
             "profile": {
                 "type": "object",
@@ -131,22 +151,6 @@ def build_wallet_style_output_schema() -> dict[str, Any]:
                     "metadata": {"type": "object"},
                 },
             },
-            "execution_intent": {
-                "type": "object",
-                "required": ["adapter", "mode", "preferred_workflow", "preflight_checks"],
-                "properties": {
-                    "adapter": {"type": "string"},
-                    "mode": {"type": "string"},
-                    "preferred_workflow": {"type": "string"},
-                    "preflight_checks": {"type": "array", "items": {"type": "string"}},
-                    "route_preferences": {"type": "array", "items": {"type": "string"}},
-                    "split_legs": {"type": "boolean"},
-                    "leg_count": {"type": "integer"},
-                    "max_position_pct": {"type": "number"},
-                    "requires_explicit_approval": {"type": "boolean"},
-                    "metadata": {"type": "object"},
-                },
-            },
             "review": {
                 "type": "object",
                 "required": ["status", "should_generate_candidate", "reasoning", "nudge_prompt"],
@@ -167,18 +171,29 @@ def parse_wallet_style_review_report(
     *,
     wallet: str,
     chain: str,
+    execution_intent: ExecutionIntent | None = None,
 ) -> WalletStyleReviewReport:
     payload = _mapping(normalized_output)
     profile_payload = _mapping(payload.get("profile"))
     strategy_payload = _mapping(payload.get("strategy"))
-    execution_intent_payload = _mapping(payload.get("execution_intent"))
     review_payload = _mapping(payload.get("review"))
-    if not profile_payload or not strategy_payload or not execution_intent_payload or not review_payload:
-        raise ValueError("reflection output must include profile, strategy, execution_intent, and review objects")
+    if not profile_payload or not strategy_payload or not review_payload:
+        raise ValueError("reflection output must include profile, strategy, and review objects")
+
+    auto_fixes: list[dict[str, str]] = []
+
+    output_wallet = str(profile_payload.get("wallet") or "").strip()
+    output_chain = str(profile_payload.get("chain") or "").strip()
+    resolved_wallet = wallet
+    resolved_chain = chain
+    if output_wallet and output_wallet != wallet:
+        auto_fixes.append({"field": "profile.wallet", "from": output_wallet, "to": wallet})
+    if output_chain and output_chain != chain:
+        auto_fixes.append({"field": "profile.chain", "from": output_chain, "to": chain})
 
     profile = WalletStyleProfile(
-        wallet=str(profile_payload.get("wallet") or wallet).strip() or wallet,
-        chain=str(profile_payload.get("chain") or chain).strip() or chain,
+        wallet=resolved_wallet,
+        chain=resolved_chain,
         style_label=_required_text(profile_payload, "style_label"),
         summary=_required_text(profile_payload, "summary"),
         confidence=max(0.0, min(_optional_float(profile_payload.get("confidence"), default=0.0), 1.0)),
@@ -219,22 +234,9 @@ def parse_wallet_style_review_report(
         invalidation_rules=_strings(strategy_payload.get("invalidation_rules") or ()),
         metadata=dict(strategy_payload.get("metadata") or {}),
     )
-    execution_intent = ExecutionIntent(
-        adapter=_required_text(execution_intent_payload, "adapter"),
-        mode=_required_text(execution_intent_payload, "mode"),
-        preferred_workflow=_required_text(execution_intent_payload, "preferred_workflow"),
-        preflight_checks=_strings(execution_intent_payload.get("preflight_checks") or ()),
-        route_preferences=_strings(execution_intent_payload.get("route_preferences") or ()),
-        split_legs=bool(execution_intent_payload.get("split_legs")),
-        leg_count=max(1, int(execution_intent_payload.get("leg_count") or 1)),
-        max_position_pct=_optional_float(execution_intent_payload.get("max_position_pct"), default=None),  # type: ignore[arg-type]
-        requires_explicit_approval=bool(
-            execution_intent_payload.get("requires_explicit_approval")
-            if execution_intent_payload.get("requires_explicit_approval") is not None
-            else True
-        ),
-        metadata=dict(execution_intent_payload.get("metadata") or {}),
-    )
+    resolved_execution_intent = execution_intent
+    if resolved_execution_intent is None:
+        raise ValueError("execution_intent must be provided by caller")
     review = StyleReviewDecision(
         status=_required_text(review_payload, "status"),
         should_generate_candidate=bool(review_payload.get("should_generate_candidate")),
@@ -242,10 +244,28 @@ def parse_wallet_style_review_report(
         nudge_prompt=_required_text(review_payload, "nudge_prompt"),
         metadata=dict(review_payload.get("metadata") or {}),
     )
+
+    if _lower_text(profile.style_label) in _GENERIC_STYLE_LABELS or _is_generic_summary(profile.summary):
+        raise ReflectionQualityError("reflection output profile is too generic for wallet style generation")
+    if not profile.dominant_actions or not profile.preferred_tokens or not profile.execution_rules:
+        raise ReflectionQualityError("reflection output profile is missing concrete trading behaviors")
+    if _lower_text(strategy.setup_label) in _GENERIC_SETUP_LABELS or _is_generic_summary(strategy.summary):
+        raise ReflectionQualityError("reflection output strategy is too generic for wallet style generation")
+    if any(
+        _lower_text(condition.condition) in _GENERIC_ENTRY_CONDITIONS
+        or _lower_text(condition.data_source) in {"", "onchain"}
+        for condition in strategy.entry_conditions
+    ):
+        raise ReflectionQualityError("reflection output strategy.entry_conditions are too generic")
+
+    if auto_fixes:
+        metadata = dict(payload.get("metadata") or {})
+        metadata.setdefault("_auto_fixes", auto_fixes)
+        payload["metadata"] = metadata
     return WalletStyleReviewReport(
         profile=profile,
         strategy=strategy,
-        execution_intent=execution_intent,
+        execution_intent=resolved_execution_intent,
         review=review,
         normalized_output=payload,
     )
@@ -274,9 +294,19 @@ class PiReflectionService:
         failure_artifact = artifact_root / "reflection_job.failure.json"
         _write_json(request_artifact, spec.to_dict())
         try:
-            runtime_timeout_seconds = float(str(os.environ.get("OT_PI_REFLECTION_TIMEOUT_SECONDS") or "240").strip())
+            runtime_timeout_seconds = float(str(os.environ.get("OT_PI_REFLECTION_TIMEOUT_SECONDS") or "180").strip())
         except ValueError:
-            runtime_timeout_seconds = 240.0
+            runtime_timeout_seconds = 180.0
+        try:
+            request_timeout_seconds = float(
+                str(os.environ.get("OT_PI_REFLECTION_REQUEST_TIMEOUT_SECONDS") or max(45.0, min(runtime_timeout_seconds - 15.0, 75.0))).strip()
+            )
+        except ValueError:
+            request_timeout_seconds = max(45.0, min(runtime_timeout_seconds - 15.0, 75.0))
+        try:
+            max_tokens = int(str(os.environ.get("OT_PI_REFLECTION_MAX_TOKENS") or "3500").strip())
+        except ValueError:
+            max_tokens = 3500
 
         runtime_metadata = {
             "source": "pi-reflection-service",
@@ -301,6 +331,8 @@ class PiReflectionService:
             "task_match_summary": "Reflection review completed.",
             "disable_candidate_generation": True,
             "runtime_timeout_seconds": runtime_timeout_seconds,
+            "reflection_request_timeout_seconds": request_timeout_seconds,
+            "reflection_max_tokens": max_tokens,
             **dict(spec.metadata or {}),
         }
         runtime_input = {

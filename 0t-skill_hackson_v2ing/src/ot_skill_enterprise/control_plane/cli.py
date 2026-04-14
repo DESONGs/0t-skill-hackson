@@ -118,6 +118,7 @@ def build_parser() -> argparse.ArgumentParser:
     style_distill.add_argument("--chain", default=None)
     style_distill.add_argument("--skill-name", default=None)
     style_distill.add_argument("--extractor-prompt", default=None)
+    style_distill.add_argument("--max-attempts", type=int, default=3, help="Maximum automatic distillation attempts per wallet (clamped to 3)")
     style_distill.add_argument("--live-execute", action="store_true", help="Run execution live after build using the promoted skill")
     style_distill.add_argument("--approval-granted", action="store_true", help="Explicitly authorize live execution when --live-execute is set")
 
@@ -264,14 +265,22 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(service.get_job(args.job_id), ensure_ascii=False, indent=2, default=str))
             return 0
         if args.style_command == "distill":
-            result = service.distill_wallet_style(
-                wallet=args.wallet,
-                chain=args.chain,
-                skill_name=args.skill_name,
-                extractor_prompt=args.extractor_prompt,
-                live_execute=bool(args.live_execute),
-                approval_granted=bool(args.approval_granted),
-            )
+            try:
+                result = service.distill_wallet_style(
+                    wallet=args.wallet,
+                    chain=args.chain,
+                    skill_name=args.skill_name,
+                    extractor_prompt=args.extractor_prompt,
+                    live_execute=bool(args.live_execute),
+                    approval_granted=bool(args.approval_granted),
+                    max_attempts=int(args.max_attempts or 3),
+                )
+            except Exception as exc:  # noqa: BLE001
+                report = getattr(exc, "report", None)
+                if isinstance(report, dict):
+                    print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
+                    return 1
+                raise
             print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
             return 0
         if args.style_command == "resume":

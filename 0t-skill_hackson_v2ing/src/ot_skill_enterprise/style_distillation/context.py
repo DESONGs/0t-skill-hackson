@@ -716,7 +716,7 @@ class ContextAssembler:
         review_hints: Iterable[dict[str, Any]] = (),
         retry_reason: str | None = None,
         hard_constraints: Iterable[str] = (),
-        max_bytes: int = 2048,
+        max_bytes: int = 1024,
     ) -> EphemeralContextEnvelope:
         memory_items = [dict(item) for item in derived_memories if isinstance(item, dict)]
         hint_items = [dict(item) for item in review_hints if isinstance(item, dict)]

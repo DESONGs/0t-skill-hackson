@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -46,6 +47,15 @@ _PRICE_HINTS_USD = {
 }
 _DEFAULT_LIVE_CAP_USD = 10.0
 _MIN_EXECUTION_LEG_USD = 5.0
+_DEFAULT_CLI_TIMEOUT_SECONDS = 120.0
+_OKX_REQUIRED_ENV_VARS = ("OKX_API_KEY", "OKX_SECRET_KEY", "OKX_PASSPHRASE")
+_DEFAULT_AVE_WSS_TIMEOUT_SECONDS = 12.0
+
+
+class ExecutionPreparationError(ValueError):
+    def __init__(self, message: str, *, discovery_meta: dict[str, Any] | None = None) -> None:
+        self.discovery_meta = dict(discovery_meta or {})
+        super().__init__(message)
 
 
 def _project_root(project_root: Path | None) -> Path:
@@ -108,6 +118,10 @@ def _safe_text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _json_safe(value: Any) -> Any:
+    return json.loads(json.dumps(value, ensure_ascii=False, default=str))
+
+
 def _safe_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
@@ -128,6 +142,15 @@ def _configured_live_cap_usd() -> float:
 
 def _configured_min_leg_usd() -> float:
     return max(0.0, _safe_float(os.environ.get("OT_ONCHAINOS_MIN_LEG_USD"), default=_MIN_EXECUTION_LEG_USD))
+
+
+def _configured_cli_timeout_seconds() -> float:
+    raw = os.environ.get("OT_ONCHAINOS_CLI_TIMEOUT_SECONDS")
+    try:
+        timeout = float(raw)
+    except (TypeError, ValueError):
+        return _DEFAULT_CLI_TIMEOUT_SECONDS
+    return timeout if timeout > 0 else _DEFAULT_CLI_TIMEOUT_SECONDS
 
 
 def _safe_bool(value: Any) -> bool:
@@ -157,7 +180,7 @@ def _execution_env(project_root: Path | None = None, env: dict[str, str] | None 
     merged.setdefault("ONCHAINOS_HOME", _onchainos_home(project_root))
     missing = [
         key
-        for key in ("OKX_API_KEY", "OKX_SECRET_KEY", "OKX_PASSPHRASE")
+        for key in _OKX_REQUIRED_ENV_VARS
         if not _safe_text(merged.get(key))
     ]
     return merged, missing
@@ -180,6 +203,417 @@ def _unwrap_payload(value: Any) -> dict[str, Any]:
             return dict(value["data"])
         return value
     return {}
+
+
+def _command_arg(command: list[str], flag: str) -> str:
+    try:
+        index = command.index(flag)
+    except ValueError:
+        return ""
+    if index + 1 >= len(command):
+        return ""
+    return _safe_text(command[index + 1])
+
+
+def _result_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
+    parsed = result.get("parsed_output")
+    if not isinstance(parsed, dict):
+        return []
+    data = parsed.get("data")
+    if isinstance(data, list):
+        return [dict(item) for item in data if isinstance(item, dict)]
+    if isinstance(data, dict):
+        return [dict(data)]
+    return []
+
+
+def _append_optional_arg(command: list[str], flag: str, value: Any) -> None:
+    if value is None:
+        return
+    if isinstance(value, bool):
+        command.extend([flag, "true" if value else "false"])
+        return
+    text = _safe_text(value)
+    if text:
+        command.extend([flag, text])
+
+
+def _build_token_search_command(query: str, chain: str, *, project_root: Path | None = None) -> list[str]:
+    cli_prefix = _cli_command(project_root)
+    return cli_prefix + ["token", "search", "--query", query, "--chains", chain]
+
+
+def _build_token_price_info_command(address: str, chain: str, *, project_root: Path | None = None) -> list[str]:
+    cli_prefix = _cli_command(project_root)
+    return cli_prefix + ["token", "price-info", "--address", address, "--chain", chain]
+
+
+def _build_token_hot_tokens_command(chain: str, filters: dict[str, Any], *, project_root: Path | None = None) -> list[str]:
+    cli_prefix = _cli_command(project_root)
+    command = cli_prefix + ["token", "hot-tokens", "--chain", chain]
+    for key, flag in (
+        ("ranking_type", "--ranking-type"),
+        ("time_frame", "--time-frame"),
+        ("volume_min", "--volume-min"),
+        ("volume_max", "--volume-max"),
+        ("market_cap_min", "--market-cap-min"),
+        ("market_cap_max", "--market-cap-max"),
+        ("liquidity_min", "--liquidity-min"),
+        ("liquidity_max", "--liquidity-max"),
+        ("txs_min", "--txs-min"),
+        ("txs_max", "--txs-max"),
+        ("unique_trader_min", "--unique-trader-min"),
+        ("unique_trader_max", "--unique-trader-max"),
+    ):
+        _append_optional_arg(command, flag, filters.get(key))
+    if "risk_filter" in filters:
+        _append_optional_arg(command, "--risk-filter", filters.get("risk_filter"))
+    if "stable_token_filter" in filters:
+        _append_optional_arg(command, "--stable-token-filter", filters.get("stable_token_filter"))
+    return command
+
+
+def _candidate_from_context(row: dict[str, Any], *, source: str) -> dict[str, Any]:
+    symbol = _safe_text(
+        row.get("symbol")
+        or row.get("token_symbol")
+        or row.get("tokenSymbol")
+        or row.get("tokenName")
+        or row.get("name")
+    )
+    address = _safe_text(row.get("token_address") or row.get("tokenContractAddress") or row.get("address"))
+    return {
+        "source": source,
+        "symbol": symbol,
+        "token_address": address,
+        "price_usd": _safe_float(row.get("price_now") or row.get("price"), default=0.0) or None,
+        "price_change_1h_pct": _safe_float(row.get("price_change_1h") or row.get("priceChange1H") or row.get("price_1h_pct"), default=0.0) or None,
+        "price_change_24h_pct": _safe_float(row.get("price_change_24h") or row.get("priceChange24H") or row.get("price_24h_pct") or row.get("change"), default=0.0) or None,
+        "liquidity_usd": _safe_float(row.get("liquidity_usd") or row.get("liquidity"), default=0.0) or None,
+        "volume_24h_usd": _safe_float(row.get("volume_24h_usd") or row.get("volume24H") or row.get("volume"), default=0.0) or None,
+        "market_cap_usd": _safe_float(row.get("market_cap_usd") or row.get("marketCap"), default=0.0) or None,
+        "txs": _safe_float(row.get("txs") or row.get("txs24H"), default=0.0) or None,
+        "unique_traders": _safe_float(row.get("uniqueTraders"), default=0.0) or None,
+        "risk_level": _safe_int(row.get("riskLevelControl"), default=0) or None,
+    }
+
+
+def _merge_candidate(base: dict[str, Any], update: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in update.items():
+        if value not in (None, "", [], {}):
+            merged[key] = value
+    return merged
+
+
+def _candidate_score(candidate: dict[str, Any], trade_plan: dict[str, Any], discovery: dict[str, Any]) -> float:
+    volume = _safe_float(candidate.get("volume_24h_usd"), default=0.0)
+    liquidity = _safe_float(candidate.get("liquidity_usd"), default=0.0)
+    market_cap = _safe_float(candidate.get("market_cap_usd"), default=0.0)
+    txs = _safe_float(candidate.get("txs"), default=0.0)
+    unique_traders = _safe_float(candidate.get("unique_traders"), default=0.0)
+    change_1h = _safe_float(candidate.get("price_change_1h_pct"), default=0.0)
+    change_24h = _safe_float(candidate.get("price_change_24h_pct"), default=0.0)
+    vol_liq = volume / liquidity if volume > 0 and liquidity > 0 else 0.0
+    score = abs(change_1h) * 0.25 + abs(change_24h) * 0.1 + min(vol_liq, 12.0) * 2.5
+    score += min(volume / 100000.0, 12.0)
+    score += min(liquidity / 50000.0, 8.0)
+    score += min(txs / 500.0, 8.0) + min(unique_traders / 150.0, 6.0)
+    if change_1h > 0:
+        score += 1.5
+    if change_24h > 0:
+        score += 0.75
+    historical = {str(item).upper() for item in discovery.get("historical_tokens") or trade_plan.get("historical_tokens") or [] if _safe_text(item)}
+    if _safe_bool(discovery.get("novelty_preferred")) and _safe_text(candidate.get("symbol")).upper() not in historical:
+        score += 2.5
+    filters = dict(discovery.get("filters") or {})
+    if _safe_bool(filters.get("risk_filter")) and _safe_int(candidate.get("risk_level"), default=0) > 1:
+        score -= 5.0
+    market_cap_max = _safe_float(filters.get("market_cap_max"), default=0.0)
+    if market_cap_max > 0 and market_cap > market_cap_max:
+        score -= 3.0
+    target = _safe_text(trade_plan.get("requested_target_token") or trade_plan.get("target_token")).upper()
+    if target and _safe_text(candidate.get("symbol")).upper() == target:
+        score += 4.0
+    return round(score, 6)
+
+
+def _pick_best_candidate(candidates: list[dict[str, Any]], trade_plan: dict[str, Any], discovery: dict[str, Any]) -> dict[str, Any]:
+    best: dict[str, Any] = {}
+    best_score = float("-inf")
+    for candidate in candidates:
+        if not _is_evm_address(candidate.get("token_address")):
+            continue
+        score = _candidate_score(candidate, trade_plan, discovery)
+        if score > best_score:
+            best = _merge_candidate(candidate, {"score": score})
+            best_score = score
+    return best
+
+
+def _extract_market_context_candidates(trade_plan: dict[str, Any]) -> list[dict[str, Any]]:
+    market_context = dict(trade_plan.get("market_context") or {})
+    focus = list(market_context.get("focus_token_context") or [])
+    candidates = [_candidate_from_context(item, source="runtime_market_context") for item in focus if isinstance(item, dict)]
+    target_context = dict(trade_plan.get("target_token_context") or {})
+    if target_context:
+        candidates.insert(0, _candidate_from_context(target_context, source="runtime_target_context"))
+    return candidates
+
+
+def _resolve_candidate_from_search(
+    token: str,
+    chain: str,
+    *,
+    project_root: Path | None = None,
+    env: dict[str, str] | None = None,
+    executor: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    command = _build_token_search_command(token, chain, project_root=project_root)
+    runtime_env, _ = _execution_env(project_root, env)
+    result = _run_command(command, env=runtime_env, executor=executor)
+    rows = [_candidate_from_context(row, source="token_search") for row in _result_rows(result)]
+    target_upper = _safe_text(token).upper()
+    for row in rows:
+        if _safe_text(row.get("symbol")).upper() == target_upper:
+            return row, {"command": command, "result": result}
+    return (rows[0] if rows else {}), {"command": command, "result": result}
+
+
+def _enrich_candidate_with_price_info(
+    candidate: dict[str, Any],
+    chain: str,
+    *,
+    project_root: Path | None = None,
+    env: dict[str, str] | None = None,
+    executor: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    address = _safe_text(candidate.get("token_address"))
+    if not _is_evm_address(address):
+        return candidate, {}
+    command = _build_token_price_info_command(address, chain, project_root=project_root)
+    runtime_env, _ = _execution_env(project_root, env)
+    result = _run_command(command, env=runtime_env, executor=executor)
+    rows = _result_rows(result)
+    if rows:
+        candidate = _merge_candidate(candidate, _candidate_from_context(rows[0], source="token_price_info"))
+    return candidate, {"command": command, "result": result}
+
+
+def _ave_wss_script_path(project_root: Path | None = None) -> Path | None:
+    root = _project_root(project_root)
+    candidates = [
+        root / "vendor" / "skill_enterprise" / "upstream" / "ave-cloud-skill" / "scripts" / "ave_data_wss.py",
+        root / "vendor" / "ave_cloud_skill" / "scripts" / "ave_data_wss.py",
+    ]
+    for path in candidates:
+        if path.is_file():
+            return path
+    return None
+
+
+def _parse_first_json_object(raw: str) -> dict[str, Any]:
+    decoder = json.JSONDecoder()
+    text = str(raw or "")
+    index = 0
+    while index < len(text):
+        brace = text.find("{", index)
+        if brace < 0:
+            break
+        try:
+            payload, end = decoder.raw_decode(text[brace:])
+        except json.JSONDecodeError:
+            index = brace + 1
+            continue
+        if isinstance(payload, dict):
+            return payload
+        index = brace + max(1, end)
+    return {}
+
+
+def _collect_ave_wss_price_snapshot(
+    token_address: str,
+    chain: str,
+    *,
+    project_root: Path | None = None,
+    env: dict[str, str] | None = None,
+    executor: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    timeout: float | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    script_path = _ave_wss_script_path(project_root)
+    if script_path is None:
+        return {}, {"reason": "ave_wss_script_missing"}
+    runtime_env, _ = _execution_env(project_root, env)
+    if not _safe_text(runtime_env.get("AVE_API_KEY")) or _safe_text(runtime_env.get("API_PLAN")).lower() != "pro":
+        return {}, {"reason": "ave_wss_not_configured"}
+    runtime_env.setdefault("AVE_USE_DOCKER", "true")
+    runtime_env["AVE_WSS_DIRECT"] = "true"
+    runtime_env["AVE_WSS_FIRST_EVENT_ONLY"] = "true"
+    command = [sys.executable, str(script_path), "watch-price", "--tokens", f"{token_address}-{chain}"]
+    effective_timeout = timeout or _DEFAULT_AVE_WSS_TIMEOUT_SECONDS
+    try:
+        completed = executor(
+            command,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=runtime_env,
+            timeout=effective_timeout,
+        )
+        raw = completed.stdout or ""
+    except subprocess.TimeoutExpired as exc:
+        raw = _safe_text(exc.stdout or exc.output or "")
+    payload = _parse_first_json_object(raw)
+    event_type = _safe_text(payload.get("type")).lower()
+    result_payload = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    if not event_type:
+        event_type = _safe_text(result_payload.get("type") or result_payload.get("topic")).lower()
+    price_payload = payload
+    if event_type == "price" and result_payload:
+        prices = result_payload.get("prices")
+        if isinstance(prices, list) and prices:
+            first_price = prices[0]
+            if isinstance(first_price, dict):
+                price_payload = {
+                    "type": "price",
+                    "token_id": first_price.get("target_token"),
+                    "price": first_price.get("uprice") or first_price.get("price"),
+                    "price_change_5m": first_price.get("change"),
+                    "price_change_1h": first_price.get("price_change"),
+                    "price_change_24h": first_price.get("price_change_24h"),
+                    "time": first_price.get("time"),
+                }
+    if event_type != "price":
+        return {}, {"command": command, "reason": "price_event_not_observed", "raw_output": raw[:1000]}
+    snapshot = {
+        "source": "ave_wss_price",
+        "token_id": _safe_text(price_payload.get("token_id")),
+        "price_usd": _safe_float(price_payload.get("price"), default=0.0) or None,
+        "price_change_5m_pct": _safe_float(price_payload.get("price_change_5m"), default=0.0) or None,
+        "price_change_1h_pct": _safe_float(price_payload.get("price_change_1h"), default=0.0) or None,
+        "time": price_payload.get("time"),
+    }
+    return snapshot, {"command": command, "raw_output": raw[:1000]}
+
+
+def _resolve_trade_plan_market(
+    trade_plan: dict[str, Any],
+    execution_intent: dict[str, Any],
+    *,
+    project_root: Path | None = None,
+    env: dict[str, str] | None = None,
+    executor: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    resolved = dict(trade_plan)
+    discovery = dict(resolved.get("market_discovery") or ((execution_intent.get("metadata") or {}).get("market_discovery") or {}))
+    chain = _safe_text(resolved.get("chain") or (execution_intent.get("metadata") or {}).get("chain"))
+    current_target_address = _safe_text(resolved.get("target_token_address"))
+    target_resolution = _safe_text(resolved.get("target_token_resolution"))
+    current_target_valid = _is_evm_address(current_target_address)
+    explicit_target = target_resolution == "explicit_target"
+    allow_override = _safe_bool(discovery.get("allow_target_override")) and not explicit_target
+    discovery_enabled = _safe_bool(discovery.get("enabled"))
+    search_pending = target_resolution == "market_search_pending"
+    scan_pending = target_resolution == "market_scan_pending"
+    should_search = discovery_enabled and search_pending
+    should_scan = discovery_enabled and (scan_pending or allow_override)
+    meta: dict[str, Any] = {
+        "market_discovery": _json_safe(discovery),
+        "market_discovery_used": should_search or should_scan,
+        "market_scan_attempted": False,
+        "wss_price_used": False,
+    }
+    context_candidates = _extract_market_context_candidates(resolved)
+    candidates: list[dict[str, Any]] = []
+    requested_target = _safe_text(resolved.get("requested_target_token") or resolved.get("target_token"))
+    if requested_target:
+        for candidate in context_candidates:
+            if _safe_text(candidate.get("symbol")).upper() == requested_target.upper() or _safe_text(candidate.get("token_address")).lower() == requested_target.lower():
+                candidates.append(candidate)
+                break
+    if should_search and not candidates and requested_target and chain:
+        search_candidate, search_meta = _resolve_candidate_from_search(
+            requested_target,
+            chain,
+            project_root=project_root,
+            env=env,
+            executor=executor,
+        )
+        if search_candidate:
+            candidates.append(search_candidate)
+        meta["target_search"] = search_meta
+    if should_scan and chain:
+        filters = dict(discovery.get("filters") or {})
+        command = _build_token_hot_tokens_command(chain, filters, project_root=project_root)
+        runtime_env, _ = _execution_env(project_root, env)
+        hot_result = _run_command(command, env=runtime_env, executor=executor)
+        hot_candidates = [_candidate_from_context(row, source="hot_tokens") for row in _result_rows(hot_result)]
+        candidates.extend(hot_candidates)
+        meta["market_scan_attempted"] = True
+        meta["market_scan"] = {"command": command, "result": hot_result}
+    for candidate in context_candidates:
+        if candidate not in candidates:
+            candidates.append(candidate)
+    chosen = _pick_best_candidate(candidates, resolved, discovery)
+    if not chosen and current_target_valid:
+        chosen = {
+            "source": "existing_trade_plan",
+            "symbol": _safe_text(resolved.get("target_token")),
+            "token_address": current_target_address,
+        }
+    if not chosen:
+        meta["resolution_reason"] = "no_market_candidate"
+        return resolved, meta
+    if chosen.get("source") != "existing_trade_plan":
+        chosen, price_meta = _enrich_candidate_with_price_info(
+            chosen,
+            chain,
+            project_root=project_root,
+            env=env,
+            executor=executor,
+        )
+        if price_meta:
+            meta["token_price_info"] = price_meta
+    resolved["requested_target_token"] = _safe_text(resolved.get("requested_target_token") or resolved.get("target_token") or chosen.get("symbol"))
+    resolved["target_token"] = _safe_text(chosen.get("symbol") or resolved.get("target_token") or resolved.get("requested_target_token"))
+    resolved["target_token_address"] = _safe_text(chosen.get("token_address"))
+    resolved["target_token_resolution"] = "market_discovery" if chosen.get("source") != "existing_trade_plan" else target_resolution or "trade_plan"
+    resolved["target_market_snapshot"] = {
+        "source": chosen.get("source"),
+        "price_usd": chosen.get("price_usd"),
+        "price_change_1h_pct": chosen.get("price_change_1h_pct"),
+        "price_change_24h_pct": chosen.get("price_change_24h_pct"),
+        "liquidity_usd": chosen.get("liquidity_usd"),
+        "volume_24h_usd": chosen.get("volume_24h_usd"),
+        "market_cap_usd": chosen.get("market_cap_usd"),
+        "txs": chosen.get("txs"),
+        "unique_traders": chosen.get("unique_traders"),
+    }
+    if (
+        chosen.get("source") != "existing_trade_plan"
+        and _safe_bool(discovery.get("wss_price_enabled"))
+        and _is_evm_address(resolved.get("target_token_address"))
+        and chain
+    ):
+        wss_snapshot, wss_meta = _collect_ave_wss_price_snapshot(
+            _safe_text(resolved.get("target_token_address")),
+            chain,
+            project_root=project_root,
+            env=env,
+            executor=executor,
+            timeout=_safe_float(discovery.get("wss_timeout_seconds"), default=_DEFAULT_AVE_WSS_TIMEOUT_SECONDS),
+        )
+        meta["wss_price"] = wss_meta
+        if wss_snapshot:
+            resolved["market_stream_snapshot"] = wss_snapshot
+            meta["wss_price_used"] = True
+    meta["resolved_target"] = {
+        "symbol": resolved.get("target_token"),
+        "token_address": resolved.get("target_token_address"),
+        "resolution": resolved.get("target_token_resolution"),
+        "source": chosen.get("source"),
+    }
+    return resolved, meta
 
 
 def _build_gateway_simulate_command(prepared: dict[str, Any], swap_payload: dict[str, Any], *, project_root: Path | None = None) -> list[str] | None:
@@ -513,23 +947,32 @@ def prepare_execution(
     execution_intent: dict[str, Any],
     *,
     project_root: Path | None = None,
+    env: dict[str, str] | None = None,
+    executor: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> dict[str, Any]:
-    chain = _safe_text(trade_plan.get("chain") or execution_intent.get("metadata", {}).get("chain"))
-    target_token = _safe_text(trade_plan.get("target_token"))
-    target_token_address = _safe_text(trade_plan.get("target_token_address"))
-    source_symbol = _safe_text(trade_plan.get("execution_source_symbol"))
-    source_address = _safe_text(trade_plan.get("execution_source_address"))
+    resolved_trade_plan, discovery_meta = _resolve_trade_plan_market(
+        trade_plan,
+        execution_intent,
+        project_root=project_root,
+        env=env,
+        executor=executor,
+    )
+    chain = _safe_text(resolved_trade_plan.get("chain") or execution_intent.get("metadata", {}).get("chain"))
+    target_token = _safe_text(resolved_trade_plan.get("target_token"))
+    target_token_address = _safe_text(resolved_trade_plan.get("target_token_address"))
+    source_symbol = _safe_text(resolved_trade_plan.get("execution_source_symbol"))
+    source_address = _safe_text(resolved_trade_plan.get("execution_source_address"))
     preferred_workflow = _safe_text(execution_intent.get("preferred_workflow")) or "swap_execute"
-    requested_leg_count = max(1, _safe_int(execution_intent.get("leg_count") or trade_plan.get("leg_count"), default=1))
-    requested_notional_usd = _desired_notional_usd(trade_plan, requested_leg_count)
+    requested_leg_count = max(1, _safe_int(execution_intent.get("leg_count") or resolved_trade_plan.get("leg_count"), default=1))
+    requested_notional_usd = _desired_notional_usd(resolved_trade_plan, requested_leg_count)
     live_cap_usd = _safe_float((execution_intent.get("metadata") or {}).get("live_cap_usd"), default=_configured_live_cap_usd())
     effective_notional_usd, leg_count, per_leg_usd, routing_amount_too_small = _compress_leg_plan(
         requested_notional_usd,
         requested_leg_count,
         live_cap_usd,
     )
-    source_readable_amount = _safe_float(trade_plan.get("execution_source_readable_amount"), default=0.0)
-    source_price_hint_usd = _resolved_price_hint_usd(chain, source_symbol, trade_plan.get("execution_source_unit_price_usd"))
+    source_readable_amount = _safe_float(resolved_trade_plan.get("execution_source_readable_amount"), default=0.0)
+    source_price_hint_usd = _resolved_price_hint_usd(chain, source_symbol, resolved_trade_plan.get("execution_source_unit_price_usd"))
     if source_readable_amount > 0:
         requested_per_leg = requested_notional_usd / requested_leg_count if requested_leg_count and requested_notional_usd > 0 else per_leg_usd
         ratio = per_leg_usd / requested_per_leg if requested_per_leg > 0 else 1.0
@@ -541,19 +984,26 @@ def prepare_execution(
     else:
         readable_amount = None
     if not target_token_address or not _is_evm_address(target_token_address):
-        raise ValueError("trade_plan.target_token_address must be a valid EVM address")
+        reason = _safe_text(discovery_meta.get("resolution_reason")) or "missing_target_token_address"
+        raise ExecutionPreparationError(
+            f"trade_plan.target_token_address must be a valid EVM address ({reason})",
+            discovery_meta=discovery_meta,
+        )
     if not source_address or not _is_evm_address(source_address):
-        raise ValueError("trade_plan.execution_source_address must be a valid EVM address")
+        raise ExecutionPreparationError(
+            "trade_plan.execution_source_address must be a valid EVM address",
+            discovery_meta=discovery_meta,
+        )
     if not chain:
-        raise ValueError("trade_plan.chain is required")
+        raise ExecutionPreparationError("trade_plan.chain is required", discovery_meta=discovery_meta)
     if readable_amount is None or readable_amount <= 0:
-        raise ValueError("execution source must resolve to a readable amount")
+        raise ExecutionPreparationError("execution source must resolve to a readable amount", discovery_meta=discovery_meta)
 
     cli_prefix, cli_resolution = _resolve_cli_invocation(project_root)
     prepared = {
         "adapter": "onchainos_cli",
         "chain": chain,
-        "wallet_address": _safe_text(trade_plan.get("wallet_address")),
+        "wallet_address": _safe_text(resolved_trade_plan.get("wallet_address")),
         "execution_wallet_address": "",
         "target_token": target_token,
         "target_token_address": target_token_address,
@@ -575,9 +1025,91 @@ def prepare_execution(
         "routing_amount_too_small": routing_amount_too_small,
         "cli_manifest": str(_cli_manifest(project_root)),
         "cli_resolution": cli_resolution,
+        "resolved_trade_plan": resolved_trade_plan,
+        "market_discovery_meta": discovery_meta,
+        "market_snapshot": _json_safe(resolved_trade_plan.get("target_market_snapshot") or {}),
+        "market_stream_snapshot": _json_safe(resolved_trade_plan.get("market_stream_snapshot") or {}),
     }
     prepared["command_groups"] = _build_command_groups(prepared, project_root=project_root)
     return prepared
+
+
+def _preparation_failure_reason(message: str) -> str:
+    lowered = str(message or "").lower()
+    if "target_token_address" in lowered:
+        return "missing_target_token_address"
+    if "execution_source_address" in lowered:
+        return "missing_execution_source_address"
+    if "readable amount" in lowered:
+        return "missing_execution_source_amount"
+    if "trade_plan.chain" in lowered:
+        return "missing_chain"
+    return "prepare_execution_failed"
+
+
+def _preparation_failure_result(
+    trade_plan: dict[str, Any],
+    execution_intent: dict[str, Any],
+    *,
+    mode: str,
+    error: Exception,
+) -> dict[str, Any]:
+    message = str(error)
+    reason = _preparation_failure_reason(message)
+    discovery_meta = dict(getattr(error, "discovery_meta", {}) or {})
+    metadata = {
+        "verification_status": "not_executable",
+        "readiness_reason": reason,
+        "readiness_detail": message,
+        "target_token": _safe_text(trade_plan.get("target_token") or trade_plan.get("requested_target_token")),
+        "execution_source_symbol": _safe_text(trade_plan.get("execution_source_symbol")),
+        "chain": _safe_text(trade_plan.get("chain") or execution_intent.get("metadata", {}).get("chain")),
+        **({"market_discovery": discovery_meta} if discovery_meta else {}),
+    }
+    return {
+        "ok": False,
+        "mode": mode,
+        "execution_readiness": "blocked_by_risk",
+        "prepared_execution": {},
+        "trade_plan": _json_safe(trade_plan),
+        "checks": [
+            {
+                "ok": False,
+                "step": "prepare_execution",
+                "summary": message,
+                "reason": reason,
+            }
+        ],
+        "execution": {},
+        "approval_required": False,
+        "approval_result": {},
+        "simulation_result": {},
+        "broadcast_results": [],
+        "tx_hashes": [],
+        "live_cap_usd": _safe_float((execution_intent.get("metadata") or {}).get("live_cap_usd"), default=_configured_live_cap_usd()),
+        "executed_leg_count": 0,
+        "metadata": metadata,
+    }
+
+
+def prepare_only_result(
+    trade_plan: dict[str, Any],
+    execution_intent: dict[str, Any],
+    *,
+    project_root: Path | None = None,
+    env: dict[str, str] | None = None,
+    executor: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> dict[str, Any]:
+    try:
+        prepared = prepare_execution(trade_plan, execution_intent, project_root=project_root, env=env, executor=executor)
+    except ValueError as exc:
+        return _preparation_failure_result(trade_plan, execution_intent, mode="prepare_only", error=exc)
+    return collect_execution_result(
+        prepared,
+        mode="prepare_only",
+        trade_plan=prepared.get("resolved_trade_plan") or trade_plan,
+        metadata=dict(prepared.get("market_discovery_meta") or {}),
+    )
 
 
 def _approval_wait_config() -> tuple[int, float]:
@@ -590,15 +1122,37 @@ def _run_command(
     command: list[str],
     *,
     env: dict[str, str] | None = None,
+    timeout: float | None = None,
     executor: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> dict[str, Any]:
-    completed = executor(
-        command,
-        text=True,
-        capture_output=True,
-        check=False,
-        env=env,
-    )
+    effective_timeout = timeout or _configured_cli_timeout_seconds()
+    try:
+        completed = executor(
+            command,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env,
+            timeout=effective_timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "ok": False,
+            "returncode": -9,
+            "command": command,
+            "stdout": str(exc.stdout or ""),
+            "stderr": f"CLI command timed out after {effective_timeout:.0f}s: {exc}",
+            "parsed_output": str(exc.stderr or exc.stdout or ""),
+        }
+    except OSError as exc:
+        return {
+            "ok": False,
+            "returncode": -1,
+            "command": command,
+            "stdout": "",
+            "stderr": str(exc),
+            "parsed_output": {},
+        }
     stdout = completed.stdout.strip()
     stderr = completed.stderr.strip()
     parsed: Any = None
@@ -949,7 +1503,10 @@ def run_dry_run(
     env: dict[str, str] | None = None,
     executor: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> dict[str, Any]:
-    prepared = prepare_execution(trade_plan, execution_intent, project_root=project_root)
+    try:
+        prepared = prepare_execution(trade_plan, execution_intent, project_root=project_root, env=env, executor=executor)
+    except ValueError as exc:
+        return _preparation_failure_result(trade_plan, execution_intent, mode="dry_run", error=exc)
     preflight = _preflight_execution(
         prepared,
         project_root=project_root,
@@ -959,10 +1516,11 @@ def run_dry_run(
     return collect_execution_result(
         preflight["prepared"],
         mode="dry_run",
+        trade_plan=preflight["prepared"].get("resolved_trade_plan") or trade_plan,
         checks=preflight["checks"],
         execution=preflight["execution"],
         readiness=preflight["readiness"],
-        metadata=preflight["metadata"],
+        metadata={**dict(preflight["prepared"].get("market_discovery_meta") or {}), **dict(preflight["metadata"] or {})},
         approval_required=preflight["approval_required"],
         approval_result=preflight["approval_result"],
         simulation_result=preflight["simulation_result"],
@@ -979,7 +1537,10 @@ def run_live(
     env: dict[str, str] | None = None,
     executor: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> dict[str, Any]:
-    prepared = prepare_execution(trade_plan, execution_intent, project_root=project_root)
+    try:
+        prepared = prepare_execution(trade_plan, execution_intent, project_root=project_root, env=env, executor=executor)
+    except ValueError as exc:
+        return _preparation_failure_result(trade_plan, execution_intent, mode="live", error=exc)
     if prepared["requires_explicit_approval"]:
         raise ValueError("live execution requires explicit approval")
     preflight = _preflight_execution(
@@ -992,10 +1553,11 @@ def run_live(
         return collect_execution_result(
             preflight["prepared"],
             mode="live",
+            trade_plan=preflight["prepared"].get("resolved_trade_plan") or trade_plan,
             checks=preflight["checks"],
             execution=preflight["execution"],
             readiness=preflight["readiness"],
-            metadata=preflight["metadata"],
+            metadata={**dict(preflight["prepared"].get("market_discovery_meta") or {}), **dict(preflight["metadata"] or {})},
             approval_required=preflight["approval_required"],
             approval_result=preflight["approval_result"],
             simulation_result=preflight["simulation_result"],
@@ -1006,10 +1568,15 @@ def run_live(
         return collect_execution_result(
             preflight["prepared"],
             mode="live",
+            trade_plan=preflight["prepared"].get("resolved_trade_plan") or trade_plan,
             checks=preflight["checks"],
             execution={},
             readiness="blocked_by_config",
-            metadata={**(preflight["metadata"] or {}), "wallet_error": "execution wallet has no funded balance on chain"},
+            metadata={
+                **dict(preflight["prepared"].get("market_discovery_meta") or {}),
+                **(preflight["metadata"] or {}),
+                "wallet_error": "execution wallet has no funded balance on chain",
+            },
             approval_required=preflight["approval_required"],
             approval_result=preflight["approval_result"],
             simulation_result=preflight["simulation_result"],
@@ -1045,6 +1612,7 @@ def run_live(
             return collect_execution_result(
                 preflight["prepared"],
                 mode="live",
+                trade_plan=preflight["prepared"].get("resolved_trade_plan") or trade_plan,
                 checks=checks,
                 execution=approval_broadcast.get("broadcast") or {},
                 readiness="blocked_by_risk",
@@ -1071,6 +1639,7 @@ def run_live(
     return collect_execution_result(
         preflight["prepared"],
         mode="live",
+        trade_plan=preflight["prepared"].get("resolved_trade_plan") or trade_plan,
         checks=checks,
         execution=final_execution,
         readiness=readiness,
@@ -1089,6 +1658,7 @@ def collect_execution_result(
     prepared_execution: dict[str, Any],
     *,
     mode: str,
+    trade_plan: dict[str, Any] | None = None,
     checks: list[dict[str, Any]] | None = None,
     execution: dict[str, Any] | None = None,
     readiness: str | None = None,
@@ -1106,18 +1676,38 @@ def collect_execution_result(
     approval_payload = dict(approval_result or {})
     simulation_payload = dict(simulation_result or {})
     broadcasts = list(broadcast_results or [])
+    metadata_payload = dict(metadata or {})
+    prepare_only = mode == "prepare_only"
     blocked = any(not item.get("ok") for item in check_results)
     if prepared_execution.get("routing_amount_too_small"):
         blocked = True
-    default_readiness = "blocked_by_risk" if blocked else "dry_run_ready" if mode == "dry_run" else "live_ready"
+    default_readiness = (
+        "blocked_by_config"
+        if prepare_only
+        else "blocked_by_risk"
+        if blocked
+        else "dry_run_ready"
+        if mode == "dry_run"
+        else "live_ready"
+    )
     resolved_readiness = readiness or default_readiness
     execution_ok = execution_result.get("ok") if execution_result else True
     if broadcasts:
         execution_ok = execution_ok and all(item.get("ok") for item in broadcasts)
+    if prepare_only:
+        metadata_payload.setdefault("verification_status", "not_executed")
+        metadata_payload.setdefault("readiness_reason", "okx_credentials_required_for_verification")
+        metadata_payload.setdefault(
+            "readiness_detail",
+            "prepare_only skips dry-run execution; each user must configure OKX credentials before verification or live execution.",
+        )
+        metadata_payload.setdefault("configuration_required", list(_OKX_REQUIRED_ENV_VARS))
+    result_ok = (not blocked and execution_ok) if prepare_only else resolved_readiness in {"dry_run_ready", "live_ready"} and not blocked and execution_ok
     return {
-        "ok": resolved_readiness in {"dry_run_ready", "live_ready"} and not blocked and execution_ok,
+        "ok": result_ok,
         "mode": mode,
         "execution_readiness": resolved_readiness,
+        "trade_plan": _json_safe(trade_plan or prepared_execution.get("resolved_trade_plan") or {}),
         "prepared_execution": prepared_execution,
         "checks": check_results,
         "execution": execution_result,
@@ -1128,5 +1718,5 @@ def collect_execution_result(
         "tx_hashes": list(tx_hashes or []),
         "live_cap_usd": live_cap_usd if live_cap_usd is not None else prepared_execution.get("live_cap_usd"),
         "executed_leg_count": executed_leg_count if executed_leg_count is not None else 0,
-        "metadata": dict(metadata or {}),
+        "metadata": metadata_payload,
     }

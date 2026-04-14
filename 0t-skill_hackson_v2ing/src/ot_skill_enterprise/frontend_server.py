@@ -447,11 +447,16 @@ class FrontendRequestHandler(BaseHTTPRequestHandler):
                         extractor_prompt=body.get("extractor_prompt"),
                         live_execute=live_execute,
                         approval_granted=approval_granted,
+                        max_attempts=int(body.get("max_attempts") or 3),
                     )
             except ValueError as exc:
                 self._send_json(400, {"error": "invalid_request", "detail": str(exc)})
                 return
             except Exception as exc:  # noqa: BLE001
+                report = getattr(exc, "report", None)
+                if isinstance(report, dict):
+                    self._send_json(500, {"error": "style_distillation_failed", "detail": str(exc), "report": report})
+                    return
                 self._send_json(500, {"error": "style_distillation_failed", "detail": str(exc)})
                 return
             self._send_json(200, result)

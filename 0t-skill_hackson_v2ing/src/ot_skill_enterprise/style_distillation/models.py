@@ -189,5 +189,5 @@ class StyleDistillationSummary:
             "lineage": dict(self.lineage),
             "cache_keys": dict(self.cache_keys),
             "context_sources": list(self.context_sources),
-            "created_at": self.created_at,
+            "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else str(self.created_at),
         }

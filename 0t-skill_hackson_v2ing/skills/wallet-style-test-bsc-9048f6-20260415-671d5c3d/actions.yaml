@@ -1,0 +1,29 @@
+schema_version: actions.v1
+skill: wallet-style-test-bsc-9048f6-20260415-671d5c3d
+default_action: primary
+actions:
+- id: primary
+  title: Primary Script
+  kind: script
+  entry: scripts/primary.py
+  runtime: python3
+  timeout_sec: 300
+  sandbox: workspace-write
+  allow_network: false
+  default: true
+  side_effects:
+  - workspace
+  idempotency: best_effort
+- id: execute
+  title: Execute Plan
+  kind: script
+  entry: scripts/execute.py
+  runtime: python3
+  timeout_sec: 300
+  sandbox: workspace-write
+  allow_network: true
+  default: false
+  side_effects:
+  - workspace
+  - network
+  idempotency: best_effort

@@ -65,7 +65,15 @@ def build_risk_filters(token_profiles: list[dict[str, Any]]) -> list[RiskFilter]
         symbol = str(identity.get("symbol") or "").strip() or None
         risk = dict(profile.get("risk_snapshot") or {})
         holder = dict(profile.get("holder_snapshot") or {})
+        risk_meta = dict(risk.get("metadata") or {})
+        risk_summary = dict(risk_meta.get("ai_report_summary") or {})
+        ai_risk_names = [
+            str(item).strip().lower().replace(" ", "_")
+            for item in list(risk_meta.get("ai_risk_names") or [])
+            if str(item).strip()
+        ]
         flags = [str(item).strip().lower() for item in risk.get("flags") or [] if str(item).strip()]
+        flags.extend(ai_risk_names)
         if risk.get("honeypot") is True:
             filters.append(
                 RiskFilter(
@@ -91,6 +99,54 @@ def build_risk_filters(token_profiles: list[dict[str, Any]]) -> list[RiskFilter]
                     metadata={"buy_tax_bps": buy_tax, "sell_tax_bps": sell_tax},
                 )
             )
+        risk_level = str(risk.get("risk_level") or risk_summary.get("risk_level") or "").strip().lower()
+        if risk_level in {"high", "critical"}:
+            filters.append(
+                RiskFilter(
+                    filter_type="elevated_risk_level",
+                    description=f"{symbol or 'token'} carries {risk_level} protocol risk",
+                    threshold=risk_level,
+                    is_hard_block=risk_level == "critical",
+                    source="inspect_token.risk_snapshot.risk_level",
+                    symbol=symbol,
+                )
+            )
+        if risk_summary.get("has_freeze_mechanism") is True or any("transfer_restriction" in flag or "freeze_mechanism" in flag for flag in flags):
+            filters.append(
+                RiskFilter(
+                    filter_type="transfer_restriction",
+                    description=f"{symbol or 'token'} can restrict transfers or freeze holders",
+                    threshold=True,
+                    is_hard_block=True,
+                    source="inspect_token.risk_snapshot.metadata.ai_report_summary",
+                    symbol=symbol,
+                    metadata={"risk_names": ai_risk_names},
+                )
+            )
+        if risk_summary.get("has_transfer_risk") is True or any("transfer_controlled_mode" in flag or "blacklist" in flag for flag in flags):
+            filters.append(
+                RiskFilter(
+                    filter_type="owner_transfer_control",
+                    description=f"{symbol or 'token'} has owner-controlled transfer rules",
+                    threshold=True,
+                    is_hard_block=False,
+                    source="inspect_token.risk_snapshot.metadata.ai_report_summary",
+                    symbol=symbol,
+                    metadata={"risk_names": ai_risk_names},
+                )
+            )
+        if risk_summary.get("has_mint_burn_risk") is True or any("mint_burn" in flag or "owner-only_initialization" in flag for flag in flags):
+            filters.append(
+                RiskFilter(
+                    filter_type="mint_burn_risk",
+                    description=f"{symbol or 'token'} has owner-controlled supply or burn risk",
+                    threshold=True,
+                    is_hard_block=False,
+                    source="inspect_token.risk_snapshot.metadata.ai_report_summary",
+                    symbol=symbol,
+                    metadata={"risk_names": ai_risk_names},
+                )
+            )
         top_holder_share = _safe_float(holder.get("top_holder_share_pct")) or 0.0
         if top_holder_share > 50:
             filters.append(
@@ -98,6 +154,18 @@ def build_risk_filters(token_profiles: list[dict[str, Any]]) -> list[RiskFilter]
                     filter_type="holder_concentration",
                     description=f"{symbol or 'token'} top holders control {round(top_holder_share, 2)}% of supply",
                     threshold=50,
+                    is_hard_block=False,
+                    source="inspect_token.holder_snapshot",
+                    symbol=symbol,
+                    metadata={"top_holder_share_pct": top_holder_share},
+                )
+            )
+        elif top_holder_share > 20:
+            filters.append(
+                RiskFilter(
+                    filter_type="holder_concentration",
+                    description=f"{symbol or 'token'} top holders control {round(top_holder_share, 2)}% of supply",
+                    threshold=20,
                     is_hard_block=False,
                     source="inspect_token.holder_snapshot",
                     symbol=symbol,
@@ -116,7 +184,15 @@ def build_risk_filters(token_profiles: list[dict[str, Any]]) -> list[RiskFilter]
                     metadata={"flags": flags},
                 )
             )
-    return filters
+    unique: list[RiskFilter] = []
+    seen: set[tuple[str, str | None]] = set()
+    for item in filters:
+        marker = (item.filter_type, item.symbol)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        unique.append(item)
+    return unique
 
 
 def filters_to_anti_patterns(filters: list[RiskFilter]) -> list[str]:

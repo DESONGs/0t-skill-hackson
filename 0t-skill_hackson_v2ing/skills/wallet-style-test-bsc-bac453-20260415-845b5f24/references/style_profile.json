@@ -1,0 +1,61 @@
+{
+  "wallet": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89",
+  "chain": "bsc",
+  "style_label": "BSC Microcap Day-Scalper",
+  "summary": "High-velocity BSC day-trader deploying same-minute bursts into microcaps like XMONEY and PP, pyramid-averaging into positions with zero stablecoin cushion and holding through -85% drawdowns.",
+  "confidence": 0.90070651,
+  "execution_tempo": "same-minute-burst day-trading (~3.8h average hold)",
+  "risk_appetite": "extreme microcap degen",
+  "conviction_profile": "diamond-hands pyramid accumulator",
+  "stablecoin_bias": "zero-stablecoin fully deployed",
+  "dominant_actions": [
+    "sell",
+    "same-minute-burst swap",
+    "pyramid accumulation"
+  ],
+  "preferred_tokens": [
+    "XMONEY",
+    "PP",
+    "PIZZA"
+  ],
+  "active_windows": [
+    "us-session"
+  ],
+  "sizing_note": "Sub-3% initial probes (~$607 median, ~$3.5K max) against $45K stack with 2.95x average pyramid splits.",
+  "execution_rules": [
+    "Enter in same-minute bursts during US session",
+    "Use WBNB as primary quote pair",
+    "Pyramid-average into existing positions (avg 2.95 splits)",
+    "Hold through >80% drawdowns",
+    "Maintain zero stablecoin allocation"
+  ],
+  "anti_patterns": [
+    "No stablecoin risk-off buffer",
+    "Accumulating tokens with freeze/transfer restrictions (PP)",
+    "Holding through extreme drawdowns rather than cutting losses",
+    "BLOCK: PP can restrict transfers or freeze holders",
+    "WARN: PP has owner-controlled transfer rules",
+    "WARN: 哔哔大队 has owner-controlled transfer rules",
+    "WARN: 哔哔大队 top holders control 93.23% of supply",
+    "BLOCK: XMONEY can restrict transfers or freeze holders",
+    "WARN: XMONEY top holders control 60.0% of supply",
+    "WARN: PIZZA top holders control 75.77% of supply"
+  ],
+  "prompt_focus": [
+    "same-minute entry timing on BSC microcaps",
+    "WBNB pair liquidity",
+    "pyramid add-on levels",
+    "diamond-hands drawdown tolerance"
+  ],
+  "metadata": {
+    "review_backend": "pi-reflection-agent:kimi-coding/kimi-k2-thinking",
+    "reflection_flow_id": "wallet_style_reflection_review",
+    "reflection_run_id": "run-42d52fc10115",
+    "reflection_session_id": "pi-session-85a327b6e0",
+    "reflection_status": "succeeded",
+    "fallback_used": false,
+    "reflection_confidence": 0.82,
+    "backtest_confidence_label": "high",
+    "strategy_quality": "high"
+  }
+}

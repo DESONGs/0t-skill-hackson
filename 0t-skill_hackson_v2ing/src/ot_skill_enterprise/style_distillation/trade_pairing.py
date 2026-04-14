@@ -223,35 +223,47 @@ def pair_trades(
                 if (_safe_float(buy_leg.get("_remaining_token_amount")) or 0.0) <= 1e-12 or (_safe_float(buy_leg.get("_remaining_amount_usd")) or 0.0) <= 1e-8:
                     buy_queues[key].popleft()
         else:
-            buy_leg = buy_queues[key].popleft()
-            buy_amount = _safe_float(buy_leg.get("_remaining_amount_usd")) or _safe_float(buy_leg.get("amount_usd")) or 0.0
-            sell_amount = amount_usd
-            buy_ts = _parse_timestamp(buy_leg.get("timestamp")) or current_time
             sell_ts = _parse_timestamp(item.get("timestamp")) or current_time
-            pnl_usd = sell_amount - buy_amount
-            pnl_pct = (pnl_usd / buy_amount) * 100.0 if buy_amount > 0 else 0.0
-            completed.append(
-                CompletedTrade(
-                    token_symbol=str(token_ref.get("symbol") or buy_leg.get("token_ref", {}).get("symbol") or "").strip(),
-                    token_address=_safe_text(token_ref.get("token_address") or buy_leg.get("token_ref", {}).get("token_address")),
-                    token_identifier=_safe_text(token_ref.get("identifier") or buy_leg.get("token_ref", {}).get("identifier")),
-                    buy_timestamp=buy_ts.isoformat(),
-                    sell_timestamp=sell_ts.isoformat(),
-                    buy_amount_usd=buy_amount,
-                    sell_amount_usd=sell_amount,
-                    holding_seconds=max(0, int((sell_ts - buy_ts).total_seconds())),
-                    pnl_usd=pnl_usd,
-                    pnl_pct=pnl_pct,
-                    is_profitable=pnl_usd > 0,
-                    buy_tx_hash=_safe_text(buy_leg.get("tx_hash")),
-                    sell_tx_hash=_safe_text(item.get("tx_hash")),
-                    metadata={
-                        "buy_note": buy_leg.get("note"),
-                        "sell_note": item.get("note"),
-                        "quote_symbol": item.get("quote_symbol") or buy_leg.get("quote_symbol"),
-                    },
+            while buy_queues[key]:
+                buy_leg = buy_queues[key][0]
+                buy_remaining_usd = _safe_float(buy_leg.get("_remaining_amount_usd")) or _safe_float(buy_leg.get("amount_usd")) or 0.0
+                if buy_remaining_usd <= 1e-8:
+                    buy_queues[key].popleft()
+                    continue
+                buy_ts = _parse_timestamp(buy_leg.get("timestamp")) or current_time
+                matched_identifier = dict(buy_leg.get("token_ref") or {})
+                pnl_usd = sell_remaining_usd - buy_remaining_usd
+                pnl_pct = (pnl_usd / buy_remaining_usd) * 100.0 if buy_remaining_usd > 0 else 0.0
+                unmatched_sell_usd = max(0.0, sell_remaining_usd - buy_remaining_usd)
+                unmatched_buy_usd = max(0.0, buy_remaining_usd - sell_remaining_usd)
+                completed.append(
+                    CompletedTrade(
+                        token_symbol=str(token_ref.get("symbol") or matched_identifier.get("symbol") or "").strip(),
+                        token_address=_safe_text(token_ref.get("token_address") or matched_identifier.get("token_address")),
+                        token_identifier=_safe_text(token_ref.get("identifier") or matched_identifier.get("identifier")),
+                        buy_timestamp=buy_ts.isoformat(),
+                        sell_timestamp=sell_ts.isoformat(),
+                        buy_amount_usd=buy_remaining_usd,
+                        sell_amount_usd=sell_remaining_usd,
+                        holding_seconds=max(0, int((sell_ts - buy_ts).total_seconds())),
+                        pnl_usd=pnl_usd,
+                        pnl_pct=pnl_pct,
+                        is_profitable=pnl_usd > 0,
+                        buy_tx_hash=_safe_text(buy_leg.get("tx_hash")),
+                        sell_tx_hash=_safe_text(item.get("tx_hash")),
+                        metadata={
+                            "buy_note": buy_leg.get("note"),
+                            "sell_note": item.get("note"),
+                            "quote_symbol": item.get("quote_symbol") or buy_leg.get("quote_symbol"),
+                            "usd_only_matching": True,
+                            "matching_mode": "event_fifo",
+                            "unmatched_sell_amount_usd": round(unmatched_sell_usd, 8),
+                            "unmatched_buy_amount_usd": round(unmatched_buy_usd, 8),
+                        },
+                    )
                 )
-            )
+                buy_queues[key].popleft()
+                break
 
     open_positions: list[OpenPosition] = []
     for key, queue in buy_queues.items():

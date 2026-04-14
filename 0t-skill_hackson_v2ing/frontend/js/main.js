@@ -111,10 +111,17 @@ async function handleStyleDistillationSubmit(event) {
     state.latestStyleDistillation = result;
     renderer.renderDashboard();
     renderer.activateSection("style-distill");
+    
+    // 如果任务正在运行，开始轮询
+    const jobId = result.job_id || (result.summary && result.summary.job_id);
+    if (jobId) {
+      startPollingJob(jobId);
+    }
+
     if (status) {
       const backend = result.review_backend || result.summary?.review_backend || "wallet-style";
       const readiness = result.execution_readiness || result.summary?.execution_readiness || "n/a";
-      status.innerHTML = `<span class="pill">完成</span> <span>${escapeHtml(result.profile?.summary || result.summary?.summary || "已完成地址风格蒸馏。")} · backend: ${escapeHtml(backend)} · execution: ${escapeHtml(readiness)}</span>`;
+      status.innerHTML = `<span class="pill">已启动</span> <span>${escapeHtml(result.profile?.summary || result.summary?.summary || "任务已启动，正在实时更新进度...")} · backend: ${escapeHtml(backend)}</span>`;
     }
   } catch (error) {
     if (status) {
@@ -123,6 +130,35 @@ async function handleStyleDistillationSubmit(event) {
   } finally {
     submit?.classList.remove("is-loading");
   }
+}
+
+let pollingInterval = null;
+function startPollingJob(jobId) {
+  if (pollingInterval) clearInterval(pollingInterval);
+  
+  let attempts = 0;
+  const maxAttempts = 20; // 轮询约1分钟
+
+  pollingInterval = setInterval(async () => {
+    attempts++;
+    if (attempts > maxAttempts) {
+      clearInterval(pollingInterval);
+      return;
+    }
+
+    try {
+      const result = await fetchStyleDistillationJob(state.workspaceDir, jobId);
+      state.latestStyleDistillation = result;
+      renderer.renderDashboard();
+      
+      const qaStatus = result.qa?.status || result.summary?.qa_status;
+      if (qaStatus === "succeeded" || qaStatus === "failed") {
+        clearInterval(pollingInterval);
+      }
+    } catch (e) {
+      console.error("Polling error:", e);
+    }
+  }, 3000);
 }
 
 window.app = {

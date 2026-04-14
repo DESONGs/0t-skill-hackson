@@ -479,4 +479,90 @@ export function renderDashboard() {
       </div>
     </article>
   `, "当前还没有地址蒸馏任务。");
+
+  renderThoughtProcess(latestStyleDistillation);
+}
+
+function renderThoughtProcess(distill) {
+  const thoughtBox = $("#style-distill-thought-process");
+  const traceBox = $("#style-distill-trace");
+  if (!thoughtBox || !traceBox) return;
+
+  if (!distill) {
+    thoughtBox.innerHTML = '<div class="empty-state">等待蒸馏任务启动...</div>';
+    traceBox.innerHTML = '<div class="empty-state">暂无执行轨迹</div>';
+    return;
+  }
+
+  // 1. 渲染执行轨迹 (Trace)
+  const trace = distill.trace || distill.summary?.trace || [];
+  if (trace.length > 0) {
+    traceBox.innerHTML = trace.map((event, idx) => {
+      const type = event.event_type || event.type || "event";
+      const message = event.message || event.text || JSON.stringify(event.payload || event);
+      return `
+        <div class="thought-step" style="animation-delay: ${idx * 0.05}s">
+          <div class="thought-header">
+            <span>${escapeHtml(type)}</span>
+            <span>${escapeHtml(formatTimestamp(event.timestamp || event.created_at))}</span>
+          </div>
+          <div class="thought-content">${escapeHtml(message)}</div>
+        </div>
+      `;
+    }).join("");
+  } else {
+    traceBox.innerHTML = '<div class="empty-state">当前任务尚无轨迹记录</div>';
+  }
+
+  // 2. 渲染深度思考过程 (Reflection Events / Invocations)
+  // 结合 reflection 数据中的 events
+  const events = distill.reflection?.events || distill.summary?.reflection?.events || distill.events || [];
+  
+  if (events.length === 0) {
+    thoughtBox.innerHTML = '<div class="empty-state">尚未捕获到 Agent 思考细节</div>';
+    return;
+  }
+
+  thoughtBox.innerHTML = events.map((event, idx) => {
+    let typeClass = "is-thought";
+    let title = "Agent 思考";
+    let content = "";
+    let meta = "";
+
+    const type = (event.event_type || event.type || "").toLowerCase();
+    
+    if (type.includes("thought") || type.includes("reflection")) {
+      typeClass = "is-thought";
+      title = "THOUGHT";
+      content = event.message || event.payload?.thought || "";
+    } else if (type.includes("call") || type.includes("invoke")) {
+      typeClass = "is-call";
+      title = "TOOL CALL";
+      content = `${event.payload?.tool_name || "unknown_tool"}(${JSON.stringify(event.payload?.args || {})})`;
+      meta = `Call ID: ${event.payload?.tool_call_id || "n/a"}`;
+    } else if (type.includes("result") || type.includes("response")) {
+      typeClass = "is-result";
+      title = "TOOL RESULT";
+      content = JSON.stringify(event.payload?.result || event.payload || {}, null, 2);
+    } else {
+      title = type.toUpperCase();
+      content = event.message || JSON.stringify(event.payload || event);
+    }
+
+    if (!content && event.message) content = event.message;
+
+    return `
+      <div class="thought-step ${typeClass}" style="animation-delay: ${idx * 0.1}s">
+        <div class="thought-header">
+          <span>${escapeHtml(title)}</span>
+          <span>${escapeHtml(formatTimestamp(event.timestamp || event.created_at))}</span>
+        </div>
+        <div class="thought-content ${content.length > 200 ? "is-collapsed" : ""}" 
+             onclick="this.classList.toggle('is-collapsed')">
+          ${escapeHtml(content)}
+        </div>
+        ${meta ? `<div class="thought-meta">${escapeHtml(meta)}</div>` : ""}
+      </div>
+    `;
+  }).join("");
 }
