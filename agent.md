@@ -1,100 +1,66 @@
-# 0t-skill-v2 Agent Guide
+# 0T-Skill Collaboration Guide
 
-`0t-skill-v2/` 是当前唯一 git 根、唯一对外交付仓、唯一开发入口。
+## Repository Scope
 
-## 仓库拓扑
+This is the public release repository for the 0T-Skill wallet-style distillation system.
 
-- 根级开发指引：`distill-modules/`
-- 根级权威规则：`agent.md`
-- 主工程目录：`0t-skill_hackson_v2ing/`
-- 业务代码：`0t-skill_hackson_v2ing/src/ot_skill_enterprise/`
-- vendored 依赖：`0t-skill_hackson_v2ing/vendor/`
+### Directory Layout
 
-外层根目录负责：
+```
+0t-skill-hackson-public/
+├── README.md                        # Project overview & AVE integration highlights
+├── CONFIGURATION.md                 # Environment setup & dependency guide
+├── agent.md                         # This file — collaboration rules
+├── docs/                            # Public documentation
+│   ├── PROJECT_INTRODUCTION.md      # Project introduction & example skills
+│   ├── ARCHITECTURE.md              # System architecture & agent framework
+│   ├── INTEGRATION.md               # AVE + OKX + Skill-OS integration
+│   └── AVE_SKILLS.md                # AVE Skills documentation (hackathon)
+└── 0t-skill_hackson_v2ing/          # Main project
+    ├── src/ot_skill_enterprise/     # Core business logic
+    ├── services/                    # AVE data service
+    ├── vendor/                      # Vendored dependencies
+    ├── skills/                      # Distilled skill packages
+    ├── tests/                       # Test suite
+    ├── scripts/                     # Bootstrap & startup
+    └── frontend/                    # Dashboard
+```
 
-- 仓库治理
-- 开发约束
-- distill 文档
-- CI / 验收入口
+## Boundary Rules
 
-内层主工程负责：
+### Data Boundary — AVE Only
 
-- 运行时代码
-- 蒸馏、反射、编译、QA
-- 前后端与脚本
-- vendored 执行适配依赖
+- All distillation, backtest, market context, and feature extraction uses **AVE exclusively**
+- OnchainOS must **never** serve as a data source for distillation, backtest, signal analysis, or PnL calculation
+- No code in `style_distillation/`, `reflection/`, `backtesting/`, or `market_context/` may read from OnchainOS data paths
 
-## 边界冻结
+### Execution Boundary — OKX OnchainOS Only
 
-### 唯一数据边界
+- Wallet login, signing, security scan, dry-run, and broadcast use **OnchainOS CLI exclusively**
+- Execution is only triggered through the `execute` action of a compiled Skill package
+- Direct chain execution from `primary`, `style_distillation`, or `reflection` is prohibited
 
-- 蒸馏、回测、置信度、市场上下文、历史交易特征提取全部只允许使用 `AVE`
-- `onchainos` 不得作为蒸馏数据源、回测数据源、信号数据源、PnL 数据源
-- 任何 `style_distillation`、`reflection`、`backtester`、`market context` 代码不得读取 vendored `onchainos` 的 market / signal / portfolio / tracker / defi 数据路径
+### Skill Contract
 
-### 唯一执行边界
+| Script | Network | Responsibility |
+|--------|---------|---------------|
+| `primary` | `allow_network: false` | Recommendation + trade plan generation |
+| `execute` | `allow_network: true` | Consumes trade plan + execution_intent via OnchainOS CLI |
 
-- 钱包登录、签名、安全扫描、dry-run、广播统一走 `onchainos CLI`
-- 执行入口只能通过生成 skill 的 `execute` action 触发
-- 禁止蒸馏链、反射链、回测链直接发起链上执行
-- 禁止绕过 `execute` action 直接从 `primary`、`style_distillation`、`reflection` 调用 `onchainos`
+## Security
 
-## Skill 合同冻结
+- No hardcoded secrets, API keys, or credentials in the repository
+- All sensitive configuration via environment variables (see `CONFIGURATION.md`)
+- `.env`, `.venv`, `.ot-workspace` are gitignored
+- Live execution requires explicit human approval (`requires_explicit_approval: true`)
 
-- `primary`
-  - `allow_network: false`
-  - 负责 recommendation + trade_plan
-  - 不做真实交易
-- `execute`
-  - `allow_network: true`
-  - 只消费已有 `trade_plan + execution_intent`
-  - 通过执行适配层调用 `onchainos CLI`
-  - 默认只要求 `dry_run_ready`
+## Documentation
 
-## Agent Team Write Set
-
-### MainAgent
-
-- 根级 `agent.md`
-- 仓库拓扑与规则裁决
-- 跨层接口审核：`StrategySpec`、`ExecutionIntent`、`execution_readiness`
-
-### Agent A
-
-- 根级 README
-- 根级仓库元信息
-- 内层 `agent.md` 指针化
-- 开发入口与路径说明
-
-### Agent B
-
-- `0t-skill_hackson_v2ing/vendor/onchainos_cli/`
-- `0t-skill_hackson_v2ing/src/ot_skill_enterprise/execution/`
-- 执行配置与 subprocess 合同
-
-### Agent C
-
-- `0t-skill_hackson_v2ing/src/ot_skill_enterprise/reflection/`
-- `0t-skill_hackson_v2ing/src/ot_skill_enterprise/style_distillation/`
-- `0t-skill_hackson_v2ing/src/ot_skill_enterprise/skills_compiler/`
-
-### Agent D
-
-- `0t-skill_hackson_v2ing/tests/`
-- QA 契约
-- 验收脚本与测试补充
-
-## 禁止事项
-
-- 禁止双 git 根
-- 禁止双数据路径
-- 禁止从 `primary` 直接链上操作
-- 禁止用 `onchainos` 的市场、信号、PnL 数据回灌蒸馏
-- 禁止把 `execution_readiness` 与 `confidence` 混为一个字段
-
-## 开发顺序
-
-1. 先冻结仓库边界与规则
-2. 再接 `onchainos CLI` 执行适配
-3. 再升级蒸馏合同到 `profile + strategy + execution_intent + review`
-4. 最后补双层 QA 与端到端验证
+| Document | Purpose |
+|----------|---------|
+| `README.md` | Project overview, quick start, AVE integration |
+| `docs/AVE_SKILLS.md` | Detailed AVE Skills usage documentation |
+| `docs/PROJECT_INTRODUCTION.md` | Background, flow, example skills |
+| `docs/ARCHITECTURE.md` | Agent framework, pipeline architecture |
+| `docs/INTEGRATION.md` | Three-component integration guide |
+| `CONFIGURATION.md` | Environment variables & setup |
