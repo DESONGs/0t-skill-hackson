@@ -1,0 +1,12 @@
+{
+  "GENIUS": {
+    "symbol": "GENIUS",
+    "token_address": "0x1f12b85aac097e43aa1555b2881e98a51090e9a6",
+    "chain": "bsc"
+  },
+  "USDT": {
+    "symbol": "USDT",
+    "token_address": "0x55d398326f99059ff775485246999027b3197955",
+    "chain": "bsc"
+  }
+}

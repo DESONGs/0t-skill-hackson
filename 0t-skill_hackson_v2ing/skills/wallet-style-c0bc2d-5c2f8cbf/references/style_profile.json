@@ -1,0 +1,116 @@
+{
+  "wallet": "0x9998c32dc444709f7b613aa05666325edbc0bc2d",
+  "chain": "bsc",
+  "style_label": "meme_hunter",
+  "summary": "0x9998c32dc444709f7b613aa05666325edbc0bc2d on bsc maps to meme_hunter, trades with high-frequency rotation, leans conservative, shows distributed basket, and most often acts through swap around GENIUS.",
+  "confidence": 0.392,
+  "execution_tempo": "high-frequency rotation",
+  "risk_appetite": "conservative",
+  "conviction_profile": "distributed basket",
+  "stablecoin_bias": "fully deployed",
+  "dominant_actions": [
+    "swap"
+  ],
+  "preferred_tokens": [
+    "GENIUS"
+  ],
+  "active_windows": [
+    "europe-overlap"
+  ],
+  "sizing_note": "Typical recent ticket is about $566, against an observed balance near $4,842,698.",
+  "execution_rules": [
+    "Honor archetype signal: meme_hunter.",
+    "Secondary archetypes observed: asymmetric_bettor.",
+    "Behavioral patterns observed: small_cap_bias (1.00): first_buy_avg_mcap_usd=552085.83; small_cap_trade_ratio=1.00.",
+    "Evidence signals: trades_per_day=3.44.",
+    "Bias decisions toward swap setups instead of all-market participation.",
+    "Keep focus on GENIUS when selecting tokens to imitate this wallet.",
+    "Respect a fully deployed capital posture before increasing exposure.",
+    "Operate mainly during europe-overlap windows unless stronger context overrides it.",
+    "Typical recent ticket is about $566, against an observed balance near $4,842,698."
+  ],
+  "anti_patterns": [
+    "WARN: DiamondBalls top holders control 100.0% of supply",
+    "WARN: 坎杜拉 top holders control 100.0% of supply",
+    "WARN: ASTER top holders control 39.14% of supply",
+    "WARN: GENIUS top holders control 56.0% of supply"
+  ],
+  "prompt_focus": [
+    "risk"
+  ],
+  "metadata": {
+    "source_activity_count": 20,
+    "top_holding_allocation_pct": 0.0,
+    "stablecoin_allocation_pct": 0.0,
+    "avg_activity_usd": 565.57,
+    "archetype": {
+      "primary_archetype": "meme_hunter",
+      "secondary_archetypes": [
+        "asymmetric_bettor"
+      ],
+      "behavioral_patterns": [
+        "small_cap_bias (1.00): first_buy_avg_mcap_usd=552085.83; small_cap_trade_ratio=1.00"
+      ],
+      "archetype_confidence": 0.8186,
+      "evidence": [
+        "trades_per_day=3.44"
+      ],
+      "token_preference": [
+        "GENIUS"
+      ]
+    },
+    "review_backend": "wallet-style-extractor-fallback",
+    "reflection_flow_id": "wallet_style_reflection_review",
+    "reflection_run_id": "run-7c50d919995c",
+    "reflection_session_id": "pi-session-1aa915ec08",
+    "reflection_status": "failed",
+    "fallback_used": true,
+    "reflection_confidence": 0.8186,
+    "backtest_confidence_label": "low",
+    "strategy_quality": "low",
+    "primary_archetype": "meme_hunter",
+    "secondary_archetypes": [
+      "asymmetric_bettor",
+      "degen_sniper"
+    ],
+    "behavioral_patterns": [
+      "small_cap_bias",
+      "profit_recycling",
+      "fast_rotation",
+      "conviction_holding"
+    ],
+    "archetype_confidence": 0.8186,
+    "archetype_evidence_summary": [
+      "trades_per_day=3.44",
+      "avg_holding_seconds=287",
+      "open_position_ratio=0.50",
+      "small_cap_trade_ratio=1.00",
+      "profit_add_ratio=0.00"
+    ],
+    "archetype_token_preference": [
+      "GENIUS",
+      "the",
+      "EGGIFY"
+    ]
+  },
+  "archetype": {
+    "primary_archetype": "no_stable_archetype",
+    "secondary_archetypes": [],
+    "behavioral_patterns": [],
+    "behavioral_pattern_labels": [],
+    "archetype_confidence": 0.392,
+    "archetype_evidence_summary": "",
+    "archetype_token_preference": [
+      "GENIUS"
+    ],
+    "summary": "no stable archetype yet; token preference: GENIUS; confidence 0.39"
+  },
+  "primary_archetype": "no_stable_archetype",
+  "secondary_archetypes": [],
+  "behavioral_patterns": [],
+  "archetype_confidence": 0.392,
+  "archetype_evidence_summary": "",
+  "archetype_token_preference": [
+    "GENIUS"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "primary_archetype": "no_stable_archetype",
+  "secondary_archetypes": [],
+  "behavioral_patterns": [],
+  "behavioral_pattern_labels": [],
+  "archetype_confidence": 0.392,
+  "archetype_evidence_summary": "",
+  "archetype_token_preference": [
+    "GENIUS"
+  ],
+  "summary": "no stable archetype yet; token preference: GENIUS; confidence 0.39"
+}

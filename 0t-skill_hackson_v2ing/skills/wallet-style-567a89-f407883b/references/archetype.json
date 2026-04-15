@@ -1,0 +1,18 @@
+{
+  "primary_archetype": "meme_hunter",
+  "secondary_archetypes": [
+    "degen_sniper"
+  ],
+  "behavioral_patterns": [
+    "small_cap_bias (1.00): first_buy_avg_mcap_usd=752390.34; small_cap_trade_ratio=1.00"
+  ],
+  "behavioral_pattern_labels": [
+    "small_cap_bias (1.00): first_buy_avg_mcap_usd=752390.34; small_cap_trade_ratio=1.00"
+  ],
+  "archetype_confidence": 0.95,
+  "archetype_evidence_summary": "['trades_per_day=27.00']",
+  "archetype_token_preference": [
+    "PP"
+  ],
+  "summary": "meme hunter trader; secondary patterns: degen sniper; behavioral patterns: small cap bias (1.00): first buy avg mcap usd=752390.34; small cap trade ratio=1.00; token preference: PP; confidence 0.95; evidence: ['trades_per_day=27.00']"
+}

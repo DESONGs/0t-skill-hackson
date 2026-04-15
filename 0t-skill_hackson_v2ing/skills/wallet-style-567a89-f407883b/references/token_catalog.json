@@ -1,0 +1,12 @@
+{
+  "PP": {
+    "symbol": "PP",
+    "token_address": "0xb29de8455acd47bb10755a133c54d0e595c6ffff",
+    "chain": "bsc"
+  },
+  "USD1": {
+    "symbol": "USD1",
+    "token_address": "0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d",
+    "chain": "bsc"
+  }
+}

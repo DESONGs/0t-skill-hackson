@@ -1,0 +1,917 @@
+{
+  "schema_version": "v1",
+  "name": "wallet-style-567a89-f407883b",
+  "description": "This BSC wallet behaves like a meme hunter trader with degen sniper secondary traits. Its execution tempo is high frequency rotation, its risk posture is conservative, and its conviction profile is distributed basket. It rotates most often through PP and is most active during us session. The archetype signal is rated at 0.95 confidence.",
+  "version": "1.0.0",
+  "owner": "mainagent",
+  "kind": "script",
+  "updated_at": "2026-04-15",
+  "status": "experimental",
+  "maturity_tier": "scaffold",
+  "review_cadence": "per-release",
+  "target_platforms": [
+    "generic"
+  ],
+  "factory_components": [
+    "scripts"
+  ],
+  "risk_level": "low",
+  "default_runtime_profile": "script",
+  "generated_from": {
+    "candidate_id": "candidate-c264d6d5a6fc",
+    "candidate_slug": "wallet-style-567a89-f407883b",
+    "runtime_session_id": "style-session-style-job-06e02dce03",
+    "source_run_id": "style-distill-run-style-job-06e02dce03",
+    "source_evaluation_id": "eval-79d3aec7be05",
+    "target_skill_name": "wallet-style-567a89",
+    "target_skill_kind": "wallet_style",
+    "candidate_type": "script"
+  },
+  "metadata": {
+    "skill_family": "wallet_style",
+    "wallet_style_profile": {
+      "wallet": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89",
+      "chain": "bsc",
+      "style_label": "meme_hunter",
+      "summary": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89 on bsc maps to meme_hunter, trades with high-frequency rotation, leans conservative, shows distributed basket, and most often acts through sell around PP.",
+      "confidence": 0.594,
+      "execution_tempo": "high-frequency rotation",
+      "risk_appetite": "conservative",
+      "conviction_profile": "distributed basket",
+      "stablecoin_bias": "fully deployed",
+      "dominant_actions": [
+        "sell"
+      ],
+      "preferred_tokens": [
+        "PP"
+      ],
+      "active_windows": [
+        "us-session"
+      ],
+      "sizing_note": "Typical recent ticket is about $739, against an observed balance near $45,075.",
+      "execution_rules": [
+        "Honor archetype signal: meme_hunter.",
+        "Secondary archetypes observed: degen_sniper.",
+        "Behavioral patterns observed: small_cap_bias (1.00): first_buy_avg_mcap_usd=752390.34; small_cap_trade_ratio=1.00.",
+        "Evidence signals: trades_per_day=27.00.",
+        "Bias decisions toward sell setups instead of all-market participation.",
+        "Keep focus on PP when selecting tokens to imitate this wallet.",
+        "Respect a fully deployed capital posture before increasing exposure.",
+        "Operate mainly during us-session windows unless stronger context overrides it.",
+        "Typical recent ticket is about $739, against an observed balance near $45,075."
+      ],
+      "anti_patterns": [
+        "WARN: PIZZA top holders control 95.47% of supply",
+        "WARN: 哔哔大队 has owner-controlled transfer rules",
+        "WARN: 哔哔大队 top holders control 93.23% of supply",
+        "BLOCK: PP can restrict transfers or freeze holders",
+        "WARN: PP has owner-controlled transfer rules",
+        "BLOCK: CX can restrict transfers or freeze holders",
+        "WARN: CX has owner-controlled transfer rules",
+        "WARN: CX has owner-controlled supply or burn risk",
+        "WARN: CX top holders control 26.05% of supply"
+      ],
+      "prompt_focus": [
+        "risk"
+      ],
+      "metadata": {
+        "source_activity_count": 20,
+        "top_holding_allocation_pct": 0.209,
+        "stablecoin_allocation_pct": 0.0,
+        "avg_activity_usd": 739.47,
+        "archetype": {
+          "primary_archetype": "meme_hunter",
+          "secondary_archetypes": [
+            "degen_sniper"
+          ],
+          "behavioral_patterns": [
+            "small_cap_bias (1.00): first_buy_avg_mcap_usd=752390.34; small_cap_trade_ratio=1.00"
+          ],
+          "archetype_confidence": 0.95,
+          "evidence": [
+            "trades_per_day=27.00"
+          ],
+          "token_preference": [
+            "PP"
+          ],
+          "archetype_evidence_summary": "['trades_per_day=27.00']",
+          "archetype_token_preference": [
+            "PP"
+          ]
+        },
+        "review_backend": "wallet-style-extractor-fallback",
+        "reflection_flow_id": "wallet_style_reflection_review",
+        "reflection_run_id": "run-e0fe9b20a6a2",
+        "reflection_session_id": "pi-session-eb9ef53b40",
+        "reflection_status": "failed",
+        "fallback_used": true,
+        "reflection_confidence": 0.95,
+        "backtest_confidence_label": "medium",
+        "strategy_quality": "medium",
+        "primary_archetype": "meme_hunter",
+        "secondary_archetypes": [
+          "degen_sniper",
+          "scalper"
+        ],
+        "behavioral_patterns": [
+          "small_cap_bias",
+          "profit_recycling",
+          "fast_rotation",
+          "conviction_holding"
+        ],
+        "archetype_confidence": 0.95,
+        "archetype_evidence_summary": [
+          "trades_per_day=27.00",
+          "avg_holding_seconds=15301",
+          "open_position_ratio=0.10",
+          "small_cap_trade_ratio=1.00",
+          "profit_add_ratio=0.27"
+        ],
+        "archetype_token_preference": [
+          "PP",
+          "10亿",
+          "Crypto Summer"
+        ]
+      },
+      "archetype": {
+        "primary_archetype": "meme_hunter",
+        "secondary_archetypes": [
+          "degen_sniper"
+        ],
+        "behavioral_patterns": [
+          "small_cap_bias (1.00): first_buy_avg_mcap_usd=752390.34; small_cap_trade_ratio=1.00"
+        ],
+        "archetype_confidence": 0.95,
+        "archetype_evidence_summary": "['trades_per_day=27.00']",
+        "archetype_token_preference": [
+          "PP"
+        ]
+      },
+      "primary_archetype": "meme_hunter",
+      "secondary_archetypes": [
+        "degen_sniper"
+      ],
+      "behavioral_patterns": [
+        "small_cap_bias (1.00): first_buy_avg_mcap_usd=752390.34; small_cap_trade_ratio=1.00"
+      ],
+      "archetype_confidence": 0.95,
+      "archetype_evidence_summary": "['trades_per_day=27.00']",
+      "archetype_token_preference": [
+        "PP"
+      ]
+    },
+    "strategy_spec": {
+      "setup_label": "meme_hunter",
+      "summary": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89 on bsc maps to meme_hunter, trades with high-frequency rotation, leans conservative, shows distributed basket, and most often acts through sell around PP.",
+      "entry_conditions": [
+        {
+          "condition": "market_bias in ['bullish','range'] and candidate_token in ['PIZZA']",
+          "data_source": "ave.compact_input.derived_stats",
+          "weight": 0.82,
+          "rationale": "Prefer the same rotated token set and market regime seen in AVE trade samples.",
+          "metadata": {
+            "preferred_tokens": [
+              "PIZZA"
+            ],
+            "market_context": {
+              "btc_24h_pct": null,
+              "eth_24h_pct": -3.10293036,
+              "regime": "neutral"
+            }
+          }
+        },
+        {
+          "condition": "burst_profile == 'same-minute-burst'",
+          "data_source": "ave.compact_input.derived_stats",
+          "weight": 0.68,
+          "rationale": "Keep execution cadence aligned with observed wallet burst profile.",
+          "metadata": {
+            "burst_profile": "same-minute-burst"
+          }
+        },
+        {
+          "condition": "entry_factor == 'volume_spike'",
+          "data_source": "ave.signal_context.top_entry_factors",
+          "weight": 0.4938,
+          "rationale": "Observed profitable entry pattern.",
+          "metadata": {
+            "factor_type": "volume_spike",
+            "frequency": 0.41975309,
+            "confidence": 0.49382716
+          }
+        }
+      ],
+      "exit_conditions": {
+        "stop_loss_model": "soft-percent",
+        "stop_loss_pct": 12,
+        "take_profit_model": "ladder",
+        "take_profit_targets": [
+          {
+            "pct_gain": 18,
+            "size_pct": 0.5
+          },
+          {
+            "pct_gain": 35,
+            "size_pct": 0.5
+          }
+        ]
+      },
+      "position_sizing": {
+        "model": "split_by_observed_leg_size",
+        "max_position_pct": 12,
+        "split_legs": true,
+        "leg_count": 4
+      },
+      "risk_controls": [],
+      "preferred_setups": [
+        "PIZZA"
+      ],
+      "invalidation_rules": [
+        "block_if_security_scan_fails"
+      ],
+      "metadata": {
+        "source": "fallback",
+        "entry_factors": [
+          {
+            "factor_type": "volume_spike",
+            "description": "Entry when volume-to-liquidity ratio indicated strong participation.",
+            "frequency": 0.41975309,
+            "avg_pnl_when_present": 220.65591941,
+            "confidence": 0.49382716,
+            "metadata": {
+              "match_count": 34,
+              "profitable_trade_count": 81
+            }
+          },
+          {
+            "factor_type": "volatility_play",
+            "description": "Entry when volatility regime was elevated.",
+            "frequency": 0.41975309,
+            "avg_pnl_when_present": 220.65591941,
+            "confidence": 0.49382716,
+            "metadata": {
+              "match_count": 34,
+              "profitable_trade_count": 81
+            }
+          },
+          {
+            "factor_type": "dip_buy",
+            "description": "Entry when price retraced sharply over the last hour.",
+            "frequency": 0.02469136,
+            "avg_pnl_when_present": 41.06874275,
+            "confidence": 0.21728395,
+            "metadata": {
+              "match_count": 2,
+              "profitable_trade_count": 81
+            }
+          }
+        ],
+        "market_context": {
+          "macro": {
+            "btc_24h_pct": null,
+            "eth_24h_pct": -3.10293036,
+            "regime": "neutral"
+          },
+          "focus_token_context": [
+            {
+              "symbol": "CX",
+              "price_change_1h_pct": null,
+              "price_change_24h_pct": null,
+              "momentum_label": null,
+              "volatility_regime": "extreme",
+              "volume_to_liquidity_ratio": null,
+              "liquidity_usd": null
+            }
+          ]
+        },
+        "risk_filters": [
+          {
+            "filter_type": "holder_concentration",
+            "description": "PIZZA top holders control 95.47% of supply",
+            "threshold": 50,
+            "is_hard_block": false,
+            "source": "inspect_token.holder_snapshot",
+            "symbol": "PIZZA",
+            "metadata": {
+              "top_holder_share_pct": 95.46979761849074
+            }
+          },
+          {
+            "filter_type": "owner_transfer_control",
+            "description": "哔哔大队 has owner-controlled transfer rules",
+            "threshold": true,
+            "is_hard_block": false,
+            "source": "inspect_token.risk_snapshot.metadata.ai_report_summary",
+            "symbol": "哔哔大队",
+            "metadata": {
+              "risk_names": [
+                "incomplete_blacklist_mechanism",
+                "missing_max_transaction_amount_limit",
+                "transfer_mode_can_be_permanently_changed_to_normal",
+                "potential_precision_loss_in_fee_calculation"
+              ]
+            }
+          },
+          {
+            "filter_type": "holder_concentration",
+            "description": "哔哔大队 top holders control 93.23% of supply",
+            "threshold": 50,
+            "is_hard_block": false,
+            "source": "inspect_token.holder_snapshot",
+            "symbol": "哔哔大队",
+            "metadata": {
+              "top_holder_share_pct": 93.23144368320406
+            }
+          },
+          {
+            "filter_type": "transfer_restriction",
+            "description": "PP can restrict transfers or freeze holders",
+            "threshold": true,
+            "is_hard_block": true,
+            "source": "inspect_token.risk_snapshot.metadata.ai_report_summary",
+            "symbol": "PP",
+            "metadata": {
+              "risk_names": [
+                "special_fee_exemption_for_token_manager_2",
+                "reentrancy_in_reward_claim_via_external_blacklist_dependency",
+                "centralized_transfer_mode_freeze",
+                "slippage_and_external_dependency_risk_in_fee_swaps"
+              ]
+            }
+          },
+          {
+            "filter_type": "owner_transfer_control",
+            "description": "PP has owner-controlled transfer rules",
+            "threshold": true,
+            "is_hard_block": false,
+            "source": "inspect_token.risk_snapshot.metadata.ai_report_summary",
+            "symbol": "PP",
+            "metadata": {
+              "risk_names": [
+                "special_fee_exemption_for_token_manager_2",
+                "reentrancy_in_reward_claim_via_external_blacklist_dependency",
+                "centralized_transfer_mode_freeze",
+                "slippage_and_external_dependency_risk_in_fee_swaps"
+              ]
+            }
+          },
+          {
+            "filter_type": "transfer_restriction",
+            "description": "CX can restrict transfers or freeze holders",
+            "threshold": true,
+            "is_hard_block": true,
+            "source": "inspect_token.risk_snapshot.metadata.ai_report_summary",
+            "symbol": "CX",
+            "metadata": {
+              "risk_names": [
+                "transfer_restriction_mode",
+                "transfer_controlled_mode",
+                "owner-only_initialization_and_mode_setting"
+              ]
+            }
+          },
+          {
+            "filter_type": "owner_transfer_control",
+            "description": "CX has owner-controlled transfer rules",
+            "threshold": true,
+            "is_hard_block": false,
+            "source": "inspect_token.risk_snapshot.metadata.ai_report_summary",
+            "symbol": "CX",
+            "metadata": {
+              "risk_names": [
+                "transfer_restriction_mode",
+                "transfer_controlled_mode",
+                "owner-only_initialization_and_mode_setting"
+              ]
+            }
+          },
+          {
+            "filter_type": "mint_burn_risk",
+            "description": "CX has owner-controlled supply or burn risk",
+            "threshold": true,
+            "is_hard_block": false,
+            "source": "inspect_token.risk_snapshot.metadata.ai_report_summary",
+            "symbol": "CX",
+            "metadata": {
+              "risk_names": [
+                "transfer_restriction_mode",
+                "transfer_controlled_mode",
+                "owner-only_initialization_and_mode_setting"
+              ]
+            }
+          },
+          {
+            "filter_type": "holder_concentration",
+            "description": "CX top holders control 26.05% of supply",
+            "threshold": 20,
+            "is_hard_block": false,
+            "source": "inspect_token.holder_snapshot",
+            "symbol": "CX",
+            "metadata": {
+              "top_holder_share_pct": 26.051968327047963
+            }
+          }
+        ],
+        "preferred_tokens": [
+          "PIZZA"
+        ],
+        "signal_context": {
+          "top_entry_factors": [
+            {
+              "factor_type": "volume_spike",
+              "frequency": 0.41975309,
+              "confidence": 0.49382716
+            }
+          ],
+          "hard_blocks": [
+            "transfer_restriction"
+          ],
+          "warnings": [
+            "holder_concentration"
+          ],
+          "active_signals": 0,
+          "high_severity_count": 0,
+          "derived_memory_summary": [],
+          "derived_memory_style_labels": []
+        },
+        "trade_statistics": {
+          "total_trades": 216,
+          "completed_trade_count": 155,
+          "open_position_count": 17,
+          "matching_coverage": 0.97059589,
+          "win_rate": 0.52258065,
+          "avg_pnl_pct": 140.49481761,
+          "profit_factor": 3.21155798,
+          "expectancy_usd": 163.31946659,
+          "avg_holding_seconds": 15301,
+          "median_holding_seconds": 120,
+          "holding_classification": "day_trading",
+          "max_drawdown_pct": -84.95023182,
+          "avg_loss_pct": -38.30150317,
+          "loss_tolerance_label": "diamond_hands",
+          "averaging_pattern": "pyramid",
+          "avg_position_splits": 3.0,
+          "trades_per_day": 0.0,
+          "open_position_ratio": 0.0,
+          "pnl_multiplier_max": 0.0,
+          "pnl_multiplier_median": 0.0,
+          "profitable_avg_holding_seconds": 0.0,
+          "losing_avg_holding_seconds": 0.0,
+          "profit_reinvestment_rate": 0.0,
+          "first_buy_avg_mcap_usd": 0.0,
+          "small_cap_trade_ratio": 0.0,
+          "profit_add_ratio": 0.0
+        },
+        "context_sources": [
+          {
+            "kind": "job_request",
+            "identifier": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89:bsc",
+            "metadata": {
+              "wallet": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89",
+              "chain": "bsc",
+              "target_skill_name": "wallet-style-567a89"
+            }
+          },
+          {
+            "kind": "retry_reason"
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Treat injected context as background only."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Return strict JSON only."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Use wallet exactly 0xbac453b9b7f53b35ac906b641925b2f5f2567a89."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Use chain exactly bsc."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Produce only the minimal distill contract; Python will assemble the final profile, strategy, and execution intent."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Use derived_stats.primary_archetype, secondary_archetypes, behavioral_patterns, archetype_confidence, and archetype_evidence_summary as the primary taxonomy when present."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Legal review_status values are generate, generate_with_low_confidence, insufficient_signal, no_pattern_detected, needs_manual_review, and runtime_failed."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "insufficient_signal, no_pattern_detected, and needs_manual_review are successful outcomes and should not fabricate a strong setup."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "If you are unsure, keep optional fields empty and still return valid wallet-specific JSON."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "The previous attempt failed. Keep the response shorter and preserve only wallet-specific evidence."
+          },
+          {
+            "kind": "stage_artifact",
+            "identifier": "style-job-06e02dce03:distill_features",
+            "path": "/redacted/.ot-workspace/style-distillations/style-job-06e02dce03/context/stage_distill_features.json"
+          },
+          {
+            "kind": "stage_artifact",
+            "identifier": "style-job-06e02dce03:reflection_report",
+            "path": "/redacted/.ot-workspace/style-distillations/style-job-06e02dce03/context/stage_reflection.json"
+          }
+        ],
+        "primary_archetype": "meme_hunter",
+        "secondary_archetypes": [
+          "degen_sniper",
+          "scalper"
+        ],
+        "behavioral_patterns": [
+          "small_cap_bias",
+          "profit_recycling",
+          "fast_rotation",
+          "conviction_holding"
+        ],
+        "archetype_confidence": 0.95,
+        "archetype_evidence_summary": [
+          "trades_per_day=27.00",
+          "avg_holding_seconds=15301",
+          "open_position_ratio=0.10",
+          "small_cap_trade_ratio=1.00",
+          "profit_add_ratio=0.27"
+        ],
+        "archetype_token_preference": [
+          "PP",
+          "10亿",
+          "Crypto Summer"
+        ],
+        "review_backend": "wallet-style-extractor-fallback",
+        "reflection_flow_id": "wallet_style_reflection_review",
+        "reflection_run_id": "run-e0fe9b20a6a2",
+        "reflection_session_id": "pi-session-eb9ef53b40",
+        "reflection_status": "failed",
+        "fallback_used": true,
+        "backtest": {
+          "total_signals": 6,
+          "executed_trades": 155,
+          "correct_signals": 2,
+          "signal_accuracy": 0.33333333,
+          "simulated_pnl_usd": -393.50776242,
+          "actual_pnl_usd": 25314.5173221,
+          "pnl_capture_ratio": -0.01554475,
+          "max_drawdown_pct": -27.05999857,
+          "data_quality_score": 0.95,
+          "strategy_fit_score": 0.48333333,
+          "backtest_score": 0.23,
+          "confidence_score": 0.594,
+          "confidence_label": "medium",
+          "metadata": {
+            "preferred_token_count": 1,
+            "factor_hint_count": 3,
+            "risk_filter_count": 9,
+            "market_context_count": 4,
+            "active_signal_count": 0,
+            "baseline_only": false,
+            "insufficient_reasons": [
+              "active_signals_missing"
+            ]
+          }
+        },
+        "strategy_quality": "medium"
+      }
+    },
+    "execution_intent": {
+      "adapter": "onchainos_cli",
+      "mode": "dry_run_ready",
+      "preferred_workflow": "swap_execute",
+      "preflight_checks": [
+        "security_token_scan"
+      ],
+      "route_preferences": [
+        "WBNB"
+      ],
+      "split_legs": true,
+      "leg_count": 4,
+      "max_position_pct": 12.0,
+      "requires_explicit_approval": true,
+      "metadata": {
+        "chain": "bsc",
+        "source": "fallback",
+        "default_source_token": "WBNB",
+        "default_source_token_address": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+        "default_source_unit_price_usd": 600.0,
+        "entry_factors": [
+          {
+            "factor_type": "volume_spike",
+            "description": "Entry when volume-to-liquidity ratio indicated strong participation.",
+            "frequency": 0.41975309,
+            "avg_pnl_when_present": 220.65591941,
+            "confidence": 0.49382716,
+            "metadata": {
+              "match_count": 34,
+              "profitable_trade_count": 81
+            }
+          },
+          {
+            "factor_type": "volatility_play",
+            "description": "Entry when volatility regime was elevated.",
+            "frequency": 0.41975309,
+            "avg_pnl_when_present": 220.65591941,
+            "confidence": 0.49382716,
+            "metadata": {
+              "match_count": 34,
+              "profitable_trade_count": 81
+            }
+          },
+          {
+            "factor_type": "dip_buy",
+            "description": "Entry when price retraced sharply over the last hour.",
+            "frequency": 0.02469136,
+            "avg_pnl_when_present": 41.06874275,
+            "confidence": 0.21728395,
+            "metadata": {
+              "match_count": 2,
+              "profitable_trade_count": 81
+            }
+          }
+        ],
+        "risk_filters": [
+          {
+            "filter_type": "holder_concentration",
+            "description": "PIZZA top holders control 95.47% of supply",
+            "threshold": 50,
+            "is_hard_block": false,
+            "source": "inspect_token.holder_snapshot",
+            "symbol": "PIZZA",
+            "metadata": {
+              "top_holder_share_pct": 95.46979761849074
+            }
+          },
+          {
+            "filter_type": "owner_transfer_control",
+            "description": "哔哔大队 has owner-controlled transfer rules",
+            "threshold": true,
+            "is_hard_block": false,
+            "source": "inspect_token.risk_snapshot.metadata.ai_report_summary",
+            "symbol": "哔哔大队",
+            "metadata": {
+              "risk_names": [
+                "incomplete_blacklist_mechanism",
+                "missing_max_transaction_amount_limit",
+                "transfer_mode_can_be_permanently_changed_to_normal",
+                "potential_precision_loss_in_fee_calculation"
+              ]
+            }
+          },
+          {
+            "filter_type": "holder_concentration",
+            "description": "哔哔大队 top holders control 93.23% of supply",
+            "threshold": 50,
+            "is_hard_block": false,
+            "source": "inspect_token.holder_snapshot",
+            "symbol": "哔哔大队",
+            "metadata": {
+              "top_holder_share_pct": 93.23144368320406
+            }
+          },
+          {
+            "filter_type": "transfer_restriction",
+            "description": "PP can restrict transfers or freeze holders",
+            "threshold": true,
+            "is_hard_block": true,
+            "source": "inspect_token.risk_snapshot.metadata.ai_report_summary",
+            "symbol": "PP",
+            "metadata": {
+              "risk_names": [
+                "special_fee_exemption_for_token_manager_2",
+                "reentrancy_in_reward_claim_via_external_blacklist_dependency",
+                "centralized_transfer_mode_freeze",
+                "slippage_and_external_dependency_risk_in_fee_swaps"
+              ]
+            }
+          },
+          {
+            "filter_type": "owner_transfer_control",
+            "description": "PP has owner-controlled transfer rules",
+            "threshold": true,
+            "is_hard_block": false,
+            "source": "inspect_token.risk_snapshot.metadata.ai_report_summary",
+            "symbol": "PP",
+            "metadata": {
+              "risk_names": [
+                "special_fee_exemption_for_token_manager_2",
+                "reentrancy_in_reward_claim_via_external_blacklist_dependency",
+                "centralized_transfer_mode_freeze",
+                "slippage_and_external_dependency_risk_in_fee_swaps"
+              ]
+            }
+          },
+          {
+            "filter_type": "transfer_restriction",
+            "description": "CX can restrict transfers or freeze holders",
+            "threshold": true,
+            "is_hard_block": true,
+            "source": "inspect_token.risk_snapshot.metadata.ai_report_summary",
+            "symbol": "CX",
+            "metadata": {
+              "risk_names": [
+                "transfer_restriction_mode",
+                "transfer_controlled_mode",
+                "owner-only_initialization_and_mode_setting"
+              ]
+            }
+          },
+          {
+            "filter_type": "owner_transfer_control",
+            "description": "CX has owner-controlled transfer rules",
+            "threshold": true,
+            "is_hard_block": false,
+            "source": "inspect_token.risk_snapshot.metadata.ai_report_summary",
+            "symbol": "CX",
+            "metadata": {
+              "risk_names": [
+                "transfer_restriction_mode",
+                "transfer_controlled_mode",
+                "owner-only_initialization_and_mode_setting"
+              ]
+            }
+          },
+          {
+            "filter_type": "mint_burn_risk",
+            "description": "CX has owner-controlled supply or burn risk",
+            "threshold": true,
+            "is_hard_block": false,
+            "source": "inspect_token.risk_snapshot.metadata.ai_report_summary",
+            "symbol": "CX",
+            "metadata": {
+              "risk_names": [
+                "transfer_restriction_mode",
+                "transfer_controlled_mode",
+                "owner-only_initialization_and_mode_setting"
+              ]
+            }
+          },
+          {
+            "filter_type": "holder_concentration",
+            "description": "CX top holders control 26.05% of supply",
+            "threshold": 20,
+            "is_hard_block": false,
+            "source": "inspect_token.holder_snapshot",
+            "symbol": "CX",
+            "metadata": {
+              "top_holder_share_pct": 26.051968327047963
+            }
+          }
+        ],
+        "market_context": {
+          "macro": {
+            "btc_24h_pct": null,
+            "eth_24h_pct": -3.10293036,
+            "regime": "neutral"
+          },
+          "focus_token_context": [
+            {
+              "symbol": "CX",
+              "price_change_1h_pct": null,
+              "price_change_24h_pct": null,
+              "momentum_label": null,
+              "volatility_regime": "extreme",
+              "volume_to_liquidity_ratio": null,
+              "liquidity_usd": null
+            }
+          ]
+        },
+        "primary_archetype": "meme_hunter",
+        "secondary_archetypes": [
+          "degen_sniper",
+          "scalper"
+        ],
+        "behavioral_patterns": [
+          "small_cap_bias",
+          "profit_recycling",
+          "fast_rotation",
+          "conviction_holding"
+        ],
+        "archetype_confidence": 0.95,
+        "archetype_evidence_summary": [
+          "trades_per_day=27.00",
+          "avg_holding_seconds=15301",
+          "open_position_ratio=0.10",
+          "small_cap_trade_ratio=1.00",
+          "profit_add_ratio=0.27"
+        ],
+        "archetype_token_preference": [
+          "PP",
+          "10亿",
+          "Crypto Summer"
+        ],
+        "review_backend": "wallet-style-extractor-fallback",
+        "reflection_flow_id": "wallet_style_reflection_review",
+        "reflection_run_id": "run-e0fe9b20a6a2",
+        "reflection_session_id": "pi-session-eb9ef53b40",
+        "reflection_status": "failed",
+        "fallback_used": true,
+        "context_sources": [
+          {
+            "kind": "job_request",
+            "identifier": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89:bsc",
+            "metadata": {
+              "wallet": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89",
+              "chain": "bsc",
+              "target_skill_name": "wallet-style-567a89"
+            }
+          },
+          {
+            "kind": "retry_reason"
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Treat injected context as background only."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Return strict JSON only."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Use wallet exactly 0xbac453b9b7f53b35ac906b641925b2f5f2567a89."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Use chain exactly bsc."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Produce only the minimal distill contract; Python will assemble the final profile, strategy, and execution intent."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Use derived_stats.primary_archetype, secondary_archetypes, behavioral_patterns, archetype_confidence, and archetype_evidence_summary as the primary taxonomy when present."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "Legal review_status values are generate, generate_with_low_confidence, insufficient_signal, no_pattern_detected, needs_manual_review, and runtime_failed."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "insufficient_signal, no_pattern_detected, and needs_manual_review are successful outcomes and should not fabricate a strong setup."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "If you are unsure, keep optional fields empty and still return valid wallet-specific JSON."
+          },
+          {
+            "kind": "hard_constraint",
+            "value": "The previous attempt failed. Keep the response shorter and preserve only wallet-specific evidence."
+          },
+          {
+            "kind": "stage_artifact",
+            "identifier": "style-job-06e02dce03:distill_features",
+            "path": "/redacted/.ot-workspace/style-distillations/style-job-06e02dce03/context/stage_distill_features.json"
+          },
+          {
+            "kind": "stage_artifact",
+            "identifier": "style-job-06e02dce03:reflection_report",
+            "path": "/redacted/.ot-workspace/style-distillations/style-job-06e02dce03/context/stage_reflection.json"
+          }
+        ],
+        "backtest_confidence_label": "medium",
+        "strategy_quality": "medium",
+        "live_cap_usd": 10.0
+      }
+    },
+    "trading_archetype": {
+      "primary_archetype": "meme_hunter",
+      "secondary_archetypes": [
+        "degen_sniper"
+      ],
+      "behavioral_patterns": [
+        "small_cap_bias (1.00): first_buy_avg_mcap_usd=752390.34; small_cap_trade_ratio=1.00"
+      ],
+      "behavioral_pattern_labels": [
+        "small_cap_bias (1.00): first_buy_avg_mcap_usd=752390.34; small_cap_trade_ratio=1.00"
+      ],
+      "archetype_confidence": 0.95,
+      "archetype_evidence_summary": "['trades_per_day=27.00']",
+      "archetype_token_preference": [
+        "PP"
+      ],
+      "summary": "meme hunter trader; secondary patterns: degen sniper; behavioral patterns: small cap bias (1.00): first buy avg mcap usd=752390.34; small cap trade ratio=1.00; token preference: PP; confidence 0.95; evidence: ['trades_per_day=27.00']"
+    },
+    "archetype_primary": "meme_hunter",
+    "archetype_summary": "meme hunter trader; secondary patterns: degen sniper; behavioral patterns: small cap bias (1.00): first buy avg mcap usd=752390.34; small cap trade ratio=1.00; token preference: PP; confidence 0.95; evidence: ['trades_per_day=27.00']"
+  },
+  "references": {
+    "style_profile": "references/style_profile.json",
+    "strategy_spec": "references/strategy_spec.json",
+    "execution_intent": "references/execution_intent.json",
+    "token_catalog": "references/token_catalog.json",
+    "archetype": "references/archetype.json"
+  },
+  "package_root": "/redacted/skills/wallet-style-567a89-f407883b"
+}

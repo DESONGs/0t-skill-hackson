@@ -1,0 +1,131 @@
+{
+  "wallet": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89",
+  "chain": "bsc",
+  "style_label": "meme_hunter",
+  "summary": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89 on bsc maps to meme_hunter, trades with high-frequency rotation, leans conservative, shows distributed basket, and most often acts through sell around PP.",
+  "confidence": 0.594,
+  "execution_tempo": "high-frequency rotation",
+  "risk_appetite": "conservative",
+  "conviction_profile": "distributed basket",
+  "stablecoin_bias": "fully deployed",
+  "dominant_actions": [
+    "sell"
+  ],
+  "preferred_tokens": [
+    "PP"
+  ],
+  "active_windows": [
+    "us-session"
+  ],
+  "sizing_note": "Typical recent ticket is about $739, against an observed balance near $45,075.",
+  "execution_rules": [
+    "Honor archetype signal: meme_hunter.",
+    "Secondary archetypes observed: degen_sniper.",
+    "Behavioral patterns observed: small_cap_bias (1.00): first_buy_avg_mcap_usd=752390.34; small_cap_trade_ratio=1.00.",
+    "Evidence signals: trades_per_day=27.00.",
+    "Bias decisions toward sell setups instead of all-market participation.",
+    "Keep focus on PP when selecting tokens to imitate this wallet.",
+    "Respect a fully deployed capital posture before increasing exposure.",
+    "Operate mainly during us-session windows unless stronger context overrides it.",
+    "Typical recent ticket is about $739, against an observed balance near $45,075."
+  ],
+  "anti_patterns": [
+    "WARN: PIZZA top holders control 95.47% of supply",
+    "WARN: 哔哔大队 has owner-controlled transfer rules",
+    "WARN: 哔哔大队 top holders control 93.23% of supply",
+    "BLOCK: PP can restrict transfers or freeze holders",
+    "WARN: PP has owner-controlled transfer rules",
+    "BLOCK: CX can restrict transfers or freeze holders",
+    "WARN: CX has owner-controlled transfer rules",
+    "WARN: CX has owner-controlled supply or burn risk",
+    "WARN: CX top holders control 26.05% of supply"
+  ],
+  "prompt_focus": [
+    "risk"
+  ],
+  "metadata": {
+    "source_activity_count": 20,
+    "top_holding_allocation_pct": 0.209,
+    "stablecoin_allocation_pct": 0.0,
+    "avg_activity_usd": 739.47,
+    "archetype": {
+      "primary_archetype": "meme_hunter",
+      "secondary_archetypes": [
+        "degen_sniper"
+      ],
+      "behavioral_patterns": [
+        "small_cap_bias (1.00): first_buy_avg_mcap_usd=752390.34; small_cap_trade_ratio=1.00"
+      ],
+      "archetype_confidence": 0.95,
+      "evidence": [
+        "trades_per_day=27.00"
+      ],
+      "token_preference": [
+        "PP"
+      ],
+      "archetype_evidence_summary": "['trades_per_day=27.00']",
+      "archetype_token_preference": [
+        "PP"
+      ]
+    },
+    "review_backend": "wallet-style-extractor-fallback",
+    "reflection_flow_id": "wallet_style_reflection_review",
+    "reflection_run_id": "run-e0fe9b20a6a2",
+    "reflection_session_id": "pi-session-eb9ef53b40",
+    "reflection_status": "failed",
+    "fallback_used": true,
+    "reflection_confidence": 0.95,
+    "backtest_confidence_label": "medium",
+    "strategy_quality": "medium",
+    "primary_archetype": "meme_hunter",
+    "secondary_archetypes": [
+      "degen_sniper",
+      "scalper"
+    ],
+    "behavioral_patterns": [
+      "small_cap_bias",
+      "profit_recycling",
+      "fast_rotation",
+      "conviction_holding"
+    ],
+    "archetype_confidence": 0.95,
+    "archetype_evidence_summary": [
+      "trades_per_day=27.00",
+      "avg_holding_seconds=15301",
+      "open_position_ratio=0.10",
+      "small_cap_trade_ratio=1.00",
+      "profit_add_ratio=0.27"
+    ],
+    "archetype_token_preference": [
+      "PP",
+      "10亿",
+      "Crypto Summer"
+    ]
+  },
+  "archetype": {
+    "primary_archetype": "meme_hunter",
+    "secondary_archetypes": [
+      "degen_sniper"
+    ],
+    "behavioral_patterns": [
+      "small_cap_bias (1.00): first_buy_avg_mcap_usd=752390.34; small_cap_trade_ratio=1.00"
+    ],
+    "archetype_confidence": 0.95,
+    "archetype_evidence_summary": "['trades_per_day=27.00']",
+    "archetype_token_preference": [
+      "PP"
+    ]
+  },
+  "primary_archetype": "meme_hunter",
+  "secondary_archetypes": [
+    "degen_sniper"
+  ],
+  "behavioral_patterns": [
+    "small_cap_bias (1.00): first_buy_avg_mcap_usd=752390.34; small_cap_trade_ratio=1.00"
+  ],
+  "archetype_confidence": 0.95,
+  "archetype_evidence_summary": "['trades_per_day=27.00']",
+  "archetype_token_preference": [
+    "PP"
+  ]
+}
