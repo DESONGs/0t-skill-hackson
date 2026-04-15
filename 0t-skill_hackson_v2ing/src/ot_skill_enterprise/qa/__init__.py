@@ -1,6 +1,6 @@
 """QA and evaluation layer."""
 
-from .evaluator import QAEvaluator, build_qa_evaluator
+from .evaluator import QAEvaluator, build_qa_evaluator, classify_review_status
 from .feedback import normalize_feedback_target
 from .models import (
     ContractEvaluationResult,
@@ -17,6 +17,7 @@ __all__ = [
     "QAEvaluator",
     "build_evaluation_store",
     "build_qa_evaluator",
+    "classify_review_status",
     "normalize_feedback_target",
     "RuntimeEvaluationResult",
     "TaskMatchEvaluationResult",

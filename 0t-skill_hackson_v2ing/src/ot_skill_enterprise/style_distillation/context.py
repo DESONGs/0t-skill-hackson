@@ -61,7 +61,22 @@ def _stage_status_template() -> dict[str, Any]:
         "input_artifact_ids": [],
         "output_artifact_ids": [],
         "retry_count": 0,
+        "review_status": None,
+        "memory_weight": None,
     }
+
+
+def _memory_weight_for_status(status: str | None) -> float:
+    normalized = str(status or "").strip().lower()
+    if normalized == "runtime_failed":
+        return 0.1
+    if normalized in {"insufficient_signal", "no_pattern_detected"}:
+        return 0.2
+    if normalized == "generate_with_low_confidence":
+        return 0.45
+    if normalized == "generate":
+        return 0.85
+    return 0.25
 
 
 @dataclass(slots=True)
@@ -657,6 +672,16 @@ class DerivedMemoryStore:
             "created_at": now.isoformat(),
             "expires_at": (now + timedelta(days=ttl_days)).isoformat(),
         }
+        review_status = str(
+            payload.get("review_status")
+            or payload.get("qa_status")
+            or payload.get("status")
+            or payload.get("semantic_review_status")
+            or ""
+        ).strip().lower()
+        if review_status:
+            entry["review_status"] = review_status
+            entry["memory_weight"] = round(_memory_weight_for_status(review_status), 4)
         items = [item for item in items if isinstance(item, dict)]
         items.append(entry)
         _write_json(path, items[-20:])

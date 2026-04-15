@@ -1,13 +1,14 @@
-# Example Skills
+# Skills
 
-这个目录只保留两个公开展示用 skill 包：
+这个目录保存 enterprise skill 包实现。
 
-- `wallet-style-test-bsc-9048f6-20260415-671d5c3d`
-- `wallet-style-test-bsc-bac453-20260415-845b5f24`
+公开仓当前保留的 skill：
 
-保留原则：
+- `ave-data-gateway/`
+- `wallet-style-v2-bsc-d5b63e-5cf11b2a/`
 
-- skill 包结构完整
-- 允许保留地址级示例
-- 本地路径、工作区路径和运行痕迹已脱敏
-- 目录仅用于展示 skill 产物结构，不代表公开副本自带完整执行依赖
+说明：
+
+- `ave-data-gateway/` 是运行时依赖的基础 gateway skill
+- `wallet-style-v2-bsc-d5b63e-5cf11b2a/` 是测试和上下文分层校验使用的最小 fixture
+- 其他本地生成 skill 默认忽略，不进入公开仓

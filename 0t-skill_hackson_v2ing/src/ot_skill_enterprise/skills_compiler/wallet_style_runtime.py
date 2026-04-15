@@ -8,6 +8,15 @@ from typing import Any
 from ot_skill_enterprise.chain_assets import chain_benchmark_defaults, chain_quote_symbols, chain_wrapped_native
 
 QUOTE_TOKENS = {"USDT", "USDC", "DAI", "FDUSD", "TUSD"} | chain_quote_symbols()
+NO_STABLE_ARCHETYPE = "no_stable_archetype"
+ARCHETYPE_FIELD_NAMES = (
+    "primary_archetype",
+    "secondary_archetypes",
+    "behavioral_patterns",
+    "archetype_confidence",
+    "archetype_evidence_summary",
+    "archetype_token_preference",
+)
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -34,6 +43,205 @@ def _is_evm_address(value: Any) -> bool:
 
 def _json_safe(value: Any) -> Any:
     return json.loads(json.dumps(value, ensure_ascii=False, default=str))
+
+
+def _compact_text(value: Any, *, max_chars: int) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= max_chars:
+        return text
+    trimmed = text[: max_chars - 3].rsplit(" ", 1)[0].strip()
+    if not trimmed:
+        trimmed = text[: max_chars - 3].strip()
+    return f"{trimmed}..."
+
+
+def _first_text(*values: Any) -> str:
+    for value in values:
+        text = _safe_text(value)
+        if text:
+            return text
+    return ""
+
+
+def _unique_texts(values: Any) -> list[str]:
+    items: list[str] = []
+    for value in values or []:
+        text = _safe_text(value)
+        if text and text not in items:
+            items.append(text)
+    return items
+
+
+def _humanize_label(value: str) -> str:
+    parts = []
+    for part in str(value or "").replace("-", " ").replace("_", " ").split():
+        parts.append("frequency" if part == "freq" else part)
+    return " ".join(parts).strip()
+
+
+def _pattern_labels(patterns: Any) -> list[str]:
+    labels: list[str] = []
+    for item in patterns or []:
+        if isinstance(item, dict):
+            label = _first_text(
+                item.get("pattern_label"),
+                item.get("label"),
+                item.get("name"),
+                item.get("pattern"),
+                item.get("pattern_type"),
+            )
+        else:
+            label = _safe_text(item)
+        if label and label not in labels:
+            labels.append(label)
+    return labels
+
+
+def _should_replace_archetype_field(field_name: str, current: Any, incoming: Any) -> bool:
+    if incoming is None:
+        return False
+    if current is None:
+        return True
+    if field_name == "primary_archetype":
+        current_text = _safe_text(current).lower()
+        incoming_text = _safe_text(incoming).lower()
+        if not current_text:
+            return bool(incoming_text)
+        if current_text == NO_STABLE_ARCHETYPE and incoming_text and incoming_text != NO_STABLE_ARCHETYPE:
+            return True
+        return False
+    if field_name in {"secondary_archetypes", "behavioral_patterns", "archetype_token_preference"}:
+        return not _unique_texts(current) and bool(_unique_texts(incoming))
+    if field_name == "archetype_confidence":
+        return _safe_float(current, 0.0) <= 0.0 and _safe_float(incoming, 0.0) > 0.0
+    if field_name == "archetype_evidence_summary":
+        return not _first_text(current) and bool(_first_text(incoming))
+    return False
+
+
+def _merge_archetype_source(target: dict[str, Any], payload: dict[str, Any]) -> None:
+    nested = payload.get("archetype")
+    if isinstance(nested, dict):
+        _merge_archetype_source(target, nested)
+
+    metadata = payload.get("metadata")
+    if isinstance(metadata, dict):
+        nested_metadata = metadata.get("archetype")
+        if isinstance(nested_metadata, dict):
+            _merge_archetype_source(target, nested_metadata)
+        for field_name in ARCHETYPE_FIELD_NAMES:
+            if field_name in metadata and _should_replace_archetype_field(field_name, target.get(field_name), metadata.get(field_name)):
+                target[field_name] = metadata.get(field_name)
+        for alias, target_name in (
+            ("primary_label", "primary_archetype"),
+            ("trading_archetype", "primary_archetype"),
+            ("trading_archetype_label", "primary_archetype"),
+            ("label", "primary_archetype"),
+            ("confidence", "archetype_confidence"),
+            ("evidence", "archetype_evidence_summary"),
+            ("token_preference", "archetype_token_preference"),
+            ("preferred_tokens", "archetype_token_preference"),
+        ):
+            if alias in metadata and _should_replace_archetype_field(target_name, target.get(target_name), metadata.get(alias)):
+                target[target_name] = metadata.get(alias)
+
+    for field_name in ARCHETYPE_FIELD_NAMES:
+        if field_name in payload and _should_replace_archetype_field(field_name, target.get(field_name), payload.get(field_name)):
+            target[field_name] = payload.get(field_name)
+    for alias, target_name in (
+        ("primary_label", "primary_archetype"),
+        ("trading_archetype", "primary_archetype"),
+        ("trading_archetype_label", "primary_archetype"),
+        ("label", "primary_archetype"),
+        ("confidence", "archetype_confidence"),
+        ("evidence", "archetype_evidence_summary"),
+        ("token_preference", "archetype_token_preference"),
+        ("preferred_tokens", "archetype_token_preference"),
+    ):
+        if alias in payload and _should_replace_archetype_field(target_name, target.get(target_name), payload.get(alias)):
+            target[target_name] = payload.get(alias)
+
+
+def _normalize_archetype_payload(
+    profile: dict[str, Any],
+    strategy: dict[str, Any],
+    context: dict[str, Any],
+    explicit: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    sources: list[dict[str, Any]] = []
+    for payload in (
+        explicit,
+        profile.get("archetype"),
+        (profile.get("metadata") or {}).get("archetype") if isinstance(profile.get("metadata"), dict) else None,
+        profile.get("metadata") if isinstance(profile.get("metadata"), dict) else None,
+        strategy.get("archetype"),
+        (strategy.get("metadata") or {}).get("archetype"),
+        strategy.get("metadata") if isinstance(strategy.get("metadata"), dict) else None,
+        context.get("archetype"),
+        profile,
+    ):
+        if isinstance(payload, dict):
+            sources.append(payload)
+
+    combined: dict[str, Any] = {}
+    for payload in sources:
+        _merge_archetype_source(combined, payload)
+
+    primary = _first_text(
+        combined.get("primary_archetype"),
+        combined.get("primary_label"),
+        combined.get("trading_archetype"),
+        combined.get("style_label"),
+    )
+    secondary = _unique_texts(combined.get("secondary_archetypes") or [])
+    raw_patterns = combined.get("behavioral_patterns") or []
+    pattern_labels = _pattern_labels(raw_patterns)
+    confidence = _safe_float(combined.get("archetype_confidence"), 0.0)
+    if not confidence:
+        confidence = _safe_float(combined.get("confidence"), 0.0)
+    evidence_summary = _first_text(
+        combined.get("archetype_evidence_summary"),
+        combined.get("evidence_summary"),
+        combined.get("evidence"),
+    )
+    token_preference = _unique_texts(
+        combined.get("archetype_token_preference")
+        or combined.get("token_preference")
+        or combined.get("preferred_tokens")
+        or []
+    )
+    if not primary and not secondary and not pattern_labels and not evidence_summary and not token_preference:
+        return None
+    if not primary:
+        primary = NO_STABLE_ARCHETYPE
+    if not evidence_summary and pattern_labels:
+        evidence_summary = ", ".join(pattern_labels)
+    summary_parts: list[str] = []
+    display_primary = _first_text(combined.get("style_label"), primary)
+    if primary == NO_STABLE_ARCHETYPE:
+        summary_parts.append("no stable archetype yet")
+    else:
+        summary_parts.append(f"{_humanize_label(display_primary)} trader")
+    if secondary:
+        summary_parts.append(f"secondary patterns: {', '.join(_humanize_label(item) for item in secondary[:3])}")
+    if pattern_labels:
+        summary_parts.append(f"behavioral patterns: {', '.join(_humanize_label(item) for item in pattern_labels[:3])}")
+    if token_preference:
+        summary_parts.append(f"token preference: {', '.join(_humanize_label(item) for item in token_preference[:3])}")
+    if confidence:
+        summary_parts.append(f"confidence {confidence:.2f}")
+    if evidence_summary:
+        summary_parts.append(f"evidence: {_compact_text(evidence_summary, max_chars=96)}")
+    return {
+        "primary_archetype": primary,
+        "secondary_archetypes": secondary,
+        "behavioral_patterns": _json_safe(raw_patterns),
+        "behavioral_pattern_labels": pattern_labels,
+        "archetype_confidence": round(confidence, 4) if confidence else 0.0,
+        "archetype_evidence_summary": evidence_summary,
+        "archetype_token_preference": token_preference,
+        "summary": "; ".join(summary_parts),
+    }
 
 
 def _non_quote_tokens(values: list[Any] | tuple[Any, ...] | None) -> list[str]:
@@ -350,10 +558,14 @@ def build_primary_payload(
     execution_intent: dict[str, Any],
     token_catalog: dict[str, Any],
     context: dict[str, Any],
+    archetype: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     market_context = _merged_market_context(context, strategy)
     signal_context = _merged_signal_context(context, strategy)
     trade_statistics = dict((strategy.get("metadata") or {}).get("trade_statistics") or {})
+    archetype_payload = _normalize_archetype_payload(profile, strategy, context, explicit=archetype)
+    archetype_label = _safe_text((archetype_payload or {}).get("primary_archetype"))
+    archetype_summary = _safe_text((archetype_payload or {}).get("summary"))
     focus_index = _focus_context_by_symbol(market_context)
     target_token, target_source = _pick_target_token(context, profile, strategy, market_context)
     target_context = _match_focus_context(target_token, market_context) or dict(focus_index.get(target_token.upper()) or {})
@@ -477,11 +689,13 @@ def build_primary_payload(
         "confidence": round(confidence, 4),
         "entry_score": round(entry_score, 4),
         "rationale": [
+            archetype_summary or (f"Archetype: {_humanize_label(archetype_label)}" if archetype_label else "Archetype unavailable"),
             profile.get("summary") or "wallet-style profile available",
             strategy.get("summary") or "strategy summary unavailable",
             *(profile.get("execution_rules") or []),
         ],
         "guardrails": profile.get("anti_patterns") or [],
+        "trader_archetype": archetype_label or None,
     }
     execution_payload = _json_safe(execution_intent)
     execution_metadata = dict(execution_payload.get("metadata") or {})
@@ -498,6 +712,7 @@ def build_primary_payload(
             "strategy_spec": {"kind": "static_payload"},
             "execution_intent": {"kind": "static_payload"},
             "token_catalog": {"kind": "static_payload"},
+            "archetype": {"kind": "static_payload"},
             "input_context": {"kind": "runtime_input"},
             "dynamic": list(context.get("context_sources") or [])
             + list((strategy.get("metadata") or {}).get("context_sources") or []),
@@ -507,6 +722,9 @@ def build_primary_payload(
         "mode": "style-simulated-trade",
         "chain": chain,
         "wallet_address": profile.get("wallet"),
+        "trader_archetype": archetype_label or None,
+        "trader_archetype_summary": archetype_summary or None,
+        "archetype": _json_safe(archetype_payload or {}),
         "entry_action": recommendation.get("action"),
         "target_token": target_token,
         "target_token_address": target_meta.get("token_address"),
@@ -535,11 +753,60 @@ def build_primary_payload(
         "execution_intent_mode": execution_intent.get("mode"),
         "entry_score": round(entry_score, 4),
     }
+    metadata = {
+        "skill_family": "wallet_style",
+        "trader_archetype": archetype_label or None,
+        "trader_archetype_summary": archetype_summary or None,
+        "primary_archetype": archetype_label or None,
+        "secondary_archetypes": list((archetype_payload or {}).get("secondary_archetypes") or []),
+        "behavioral_patterns": _json_safe((archetype_payload or {}).get("behavioral_patterns") or []),
+        "behavioral_pattern_labels": list((archetype_payload or {}).get("behavioral_pattern_labels") or []),
+        "archetype_confidence": (archetype_payload or {}).get("archetype_confidence"),
+        "archetype_evidence_summary": (archetype_payload or {}).get("archetype_evidence_summary"),
+        "archetype_token_preference": list((archetype_payload or {}).get("archetype_token_preference") or []),
+        "archetype": _json_safe(archetype_payload or {}),
+    }
+    style_profile_payload = dict(profile)
+    if archetype_payload:
+        existing_archetype = (
+            dict(style_profile_payload.get("archetype") or {})
+            if isinstance(style_profile_payload.get("archetype"), dict)
+            else {}
+        )
+        for field_name in ARCHETYPE_FIELD_NAMES:
+            value = archetype_payload.get(field_name)
+            if _should_replace_archetype_field(field_name, existing_archetype.get(field_name), value):
+                existing_archetype[field_name] = value
+        style_profile_payload["archetype"] = _json_safe(existing_archetype or archetype_payload)
+        for field_name in ARCHETYPE_FIELD_NAMES:
+            value = archetype_payload.get(field_name)
+            if _should_replace_archetype_field(field_name, style_profile_payload.get(field_name), value):
+                style_profile_payload[field_name] = value
+        profile_metadata = (
+            dict(style_profile_payload.get("metadata") or {})
+            if isinstance(style_profile_payload.get("metadata"), dict)
+            else {}
+        )
+        nested_metadata_archetype = (
+            dict(profile_metadata.get("archetype") or {})
+            if isinstance(profile_metadata.get("archetype"), dict)
+            else {}
+        )
+        for field_name in ARCHETYPE_FIELD_NAMES:
+            value = archetype_payload.get(field_name)
+            if _should_replace_archetype_field(field_name, profile_metadata.get(field_name), value):
+                profile_metadata[field_name] = value
+            if _should_replace_archetype_field(field_name, nested_metadata_archetype.get(field_name), value):
+                nested_metadata_archetype[field_name] = value
+        if nested_metadata_archetype:
+            profile_metadata["archetype"] = _json_safe(nested_metadata_archetype)
+        if profile_metadata:
+            style_profile_payload["metadata"] = profile_metadata
     return {
         "ok": True,
         "action": "primary",
         "summary": summary,
-        "style_profile": _json_safe(profile),
+        "style_profile": _json_safe(style_profile_payload),
         "strategy": _json_safe(strategy),
         "execution_intent": execution_payload,
         "input_context": _json_safe(context),
@@ -552,5 +819,5 @@ def build_primary_payload(
         "example_readiness": example_readiness,
         "context_sources": context_sources,
         "artifacts": [],
-        "metadata": {"skill_family": "wallet_style"},
+        "metadata": metadata,
     }

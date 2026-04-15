@@ -31,6 +31,15 @@ from skill_contract.validators.package_structure import validate_package_structu
 SUPPORTED_PACKAGE_KINDS = {"prompt", "script", "provider-adapter"}
 ADAPTER_TARGETS = ("generic",)
 _MODULE_SRC_ROOT = Path(__file__).resolve().parents[2]
+NO_STABLE_ARCHETYPE = "no_stable_archetype"
+ARCHETYPE_FIELD_NAMES = (
+    "primary_archetype",
+    "secondary_archetypes",
+    "behavioral_patterns",
+    "archetype_confidence",
+    "archetype_evidence_summary",
+    "archetype_token_preference",
+)
 
 
 def _json_safe(value: Any) -> Any:
@@ -146,6 +155,339 @@ def _compact_bullets(
     return lines
 
 
+def _natural_join(values: list[str], *, conjunction: str = "and") -> str:
+    items = [str(value).strip() for value in values if str(value or "").strip()]
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} {conjunction} {items[1]}"
+    return f"{', '.join(items[:-1])}, {conjunction} {items[-1]}"
+
+
+def _safe_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _first_text(*values: Any) -> str:
+    for value in values:
+        text = _safe_text(value)
+        if text:
+            return text
+    return ""
+
+
+def _unique_texts(values: Any) -> list[str]:
+    items: list[str] = []
+    for value in values or []:
+        text = _safe_text(value)
+        if text and text not in items:
+            items.append(text)
+    return items
+
+
+def _humanize_label(value: str) -> str:
+    parts = []
+    for part in str(value or "").replace("-", " ").replace("_", " ").split():
+        parts.append("frequency" if part == "freq" else part)
+    return " ".join(parts).strip()
+
+
+def _pattern_labels(patterns: Any) -> list[str]:
+    labels: list[str] = []
+    for item in patterns or []:
+        if isinstance(item, Mapping):
+            label = _first_text(
+                item.get("pattern_label"),
+                item.get("label"),
+                item.get("name"),
+                item.get("pattern"),
+                item.get("pattern_type"),
+            )
+        else:
+            label = _safe_text(item)
+        if label and label not in labels:
+            labels.append(label)
+    return labels
+
+
+def _pattern_bullets(patterns: Any, *, limit: int = 3) -> list[str]:
+    bullets: list[str] = []
+    for item in list(patterns or [])[:limit]:
+        if isinstance(item, Mapping):
+            label = _first_text(
+                item.get("pattern_label"),
+                item.get("label"),
+                item.get("name"),
+                item.get("pattern"),
+                item.get("pattern_type"),
+            )
+            strength = item.get("strength")
+            evidence = _unique_texts(item.get("evidence") or item.get("signals") or [])
+            pieces: list[str] = []
+            if label:
+                pieces.append(_humanize_label(label))
+            if strength is not None:
+                pieces.append(f"strength={_safe_float(strength):.2f}")
+            if evidence:
+                pieces.append(f"evidence: {', '.join(evidence[:2])}")
+            text = " | ".join(pieces)
+        else:
+            text = _safe_text(item)
+        if text:
+            bullets.append(f"- {text}")
+    return bullets
+
+
+def _human_summary_text(
+    *,
+    style_profile: Mapping[str, Any] | None,
+    archetype: Mapping[str, Any] | None,
+    fallback: str,
+) -> str:
+    profile = style_profile or {}
+    archetype_payload = archetype or {}
+    chain = _safe_text(profile.get("chain")).upper()
+    primary = _safe_text(archetype_payload.get("primary_archetype"))
+    secondary = [_humanize_label(item) for item in _unique_texts(archetype_payload.get("secondary_archetypes") or [])[:3]]
+    tempo = _humanize_label(_safe_text(profile.get("execution_tempo")))
+    risk = _humanize_label(_safe_text(profile.get("risk_appetite")))
+    conviction = _humanize_label(_safe_text(profile.get("conviction_profile")))
+    tokens = _unique_texts(
+        profile.get("preferred_tokens")
+        or archetype_payload.get("archetype_token_preference")
+        or []
+    )[:3]
+    windows = [_humanize_label(item) for item in _unique_texts(profile.get("active_windows") or [])[:2]]
+    confidence = _safe_float(archetype_payload.get("archetype_confidence"), 0.0)
+
+    sentences: list[str] = []
+    if primary and primary != NO_STABLE_ARCHETYPE:
+        first = f"This {chain or 'wallet'} wallet behaves like a {_humanize_label(primary)} trader"
+        if secondary:
+            first += f" with {_natural_join(secondary)} secondary traits"
+        sentences.append(first + ".")
+    elif _safe_text(profile.get("style_label")):
+        style_label = _humanize_label(_safe_text(profile.get("style_label")))
+        prefix = f"This {chain or 'wallet'} wallet"
+        sentences.append(f"{prefix} follows a {style_label} style.")
+
+    posture_bits = [bit for bit in (tempo, risk, conviction) if bit]
+    if tempo and risk and conviction:
+        sentences.append(
+            f"Its execution tempo is {tempo}, its risk posture is {risk}, "
+            f"and its conviction profile is {conviction}."
+        )
+    elif tempo and risk:
+        sentences.append(f"Its execution tempo is {tempo}, and its risk posture is {risk}.")
+    elif tempo and conviction:
+        sentences.append(f"Its execution tempo is {tempo}, and its conviction profile is {conviction}.")
+    elif risk and conviction:
+        sentences.append(f"Its risk posture is {risk}, and its conviction profile is {conviction}.")
+    elif posture_bits:
+        sentences.append(f"It is best described by a {posture_bits[0]} profile.")
+
+    activity_parts: list[str] = []
+    if tokens:
+        activity_parts.append(f"rotates most often through {_natural_join(tokens)}")
+    if windows:
+        activity_parts.append(f"is most active during {_natural_join(windows)}")
+    if activity_parts:
+        sentences.append(f"It {_natural_join(activity_parts)}.")
+
+    if confidence > 0:
+        sentences.append(f"The archetype signal is rated at {confidence:.2f} confidence.")
+
+    summary = " ".join(sentence.strip() for sentence in sentences if sentence.strip())
+    return summary or _compact_text(fallback, max_chars=220)
+
+
+def _is_placeholder_archetype(value: Any) -> bool:
+    return _safe_text(value).lower() == NO_STABLE_ARCHETYPE
+
+
+def _should_replace_archetype_field(field_name: str, current: Any, incoming: Any) -> bool:
+    if incoming is None:
+        return False
+    if current is None:
+        return True
+    if field_name == "primary_archetype":
+        current_text = _safe_text(current).lower()
+        incoming_text = _safe_text(incoming).lower()
+        if not current_text:
+            return bool(incoming_text)
+        if current_text == NO_STABLE_ARCHETYPE and incoming_text and incoming_text != NO_STABLE_ARCHETYPE:
+            return True
+        return False
+    if field_name in {"secondary_archetypes", "behavioral_patterns", "archetype_token_preference"}:
+        return not _unique_texts(current) and bool(_unique_texts(incoming))
+    if field_name == "archetype_confidence":
+        return _safe_float(current, 0.0) <= 0.0 and _safe_float(incoming, 0.0) > 0.0
+    if field_name == "archetype_evidence_summary":
+        return not _first_text(current) and bool(_first_text(incoming))
+    return False
+
+
+def _merge_archetype_source(target: dict[str, Any], payload: Mapping[str, Any]) -> None:
+    nested = payload.get("archetype")
+    if isinstance(nested, Mapping):
+        _merge_archetype_source(target, nested)
+
+    metadata = payload.get("metadata")
+    if isinstance(metadata, Mapping):
+        nested_metadata = metadata.get("archetype")
+        if isinstance(nested_metadata, Mapping):
+            _merge_archetype_source(target, nested_metadata)
+        for field_name in ARCHETYPE_FIELD_NAMES:
+            if field_name in metadata and _should_replace_archetype_field(field_name, target.get(field_name), metadata.get(field_name)):
+                target[field_name] = metadata.get(field_name)
+        for alias, target_name in (
+            ("primary_label", "primary_archetype"),
+            ("trading_archetype", "primary_archetype"),
+            ("trading_archetype_label", "primary_archetype"),
+            ("label", "primary_archetype"),
+            ("confidence", "archetype_confidence"),
+            ("evidence", "archetype_evidence_summary"),
+            ("token_preference", "archetype_token_preference"),
+            ("preferred_tokens", "archetype_token_preference"),
+        ):
+            if alias in metadata and _should_replace_archetype_field(target_name, target.get(target_name), metadata.get(alias)):
+                target[target_name] = metadata.get(alias)
+
+    for field_name in ARCHETYPE_FIELD_NAMES:
+        if field_name in payload and _should_replace_archetype_field(field_name, target.get(field_name), payload.get(field_name)):
+            target[field_name] = payload.get(field_name)
+
+    alias_pairs = (
+        ("primary_label", "primary_archetype"),
+        ("trading_archetype", "primary_archetype"),
+        ("trading_archetype_label", "primary_archetype"),
+        ("label", "primary_archetype"),
+        ("confidence", "archetype_confidence"),
+        ("evidence", "archetype_evidence_summary"),
+        ("token_preference", "archetype_token_preference"),
+        ("preferred_tokens", "archetype_token_preference"),
+    )
+    for alias, target_name in alias_pairs:
+        if alias in payload and _should_replace_archetype_field(target_name, target.get(target_name), payload.get(alias)):
+            target[target_name] = payload.get(alias)
+
+
+def _wallet_archetype(candidate: SkillCandidate) -> dict[str, Any] | None:
+    style_profile = _wallet_style_profile(candidate) or {}
+    sources: list[Mapping[str, Any]] = []
+    for payload in (
+        candidate.generation_spec.get("archetype"),
+        candidate.metadata.get("archetype"),
+        (style_profile.get("metadata") if isinstance(style_profile.get("metadata"), Mapping) else {}).get("archetype"),
+        style_profile.get("metadata") if isinstance(style_profile.get("metadata"), Mapping) else None,
+        style_profile.get("archetype"),
+        style_profile,
+    ):
+        if isinstance(payload, Mapping):
+            sources.append(payload)
+
+    combined: dict[str, Any] = {}
+    for payload in sources:
+        _merge_archetype_source(combined, payload)
+
+    primary = _first_text(
+        combined.get("primary_archetype"),
+        combined.get("primary_label"),
+        combined.get("trading_archetype"),
+        combined.get("style_label"),
+    )
+    secondary = _unique_texts(combined.get("secondary_archetypes") or [])
+    raw_patterns = combined.get("behavioral_patterns") or []
+    pattern_labels = _pattern_labels(raw_patterns)
+    confidence = _safe_float(combined.get("archetype_confidence"), 0.0)
+    if not confidence:
+        confidence = _safe_float(combined.get("confidence"), 0.0)
+    evidence_summary = _first_text(
+        combined.get("archetype_evidence_summary"),
+        combined.get("evidence_summary"),
+        combined.get("evidence"),
+    )
+    token_preference = _unique_texts(
+        combined.get("archetype_token_preference")
+        or combined.get("token_preference")
+        or combined.get("preferred_tokens")
+        or []
+    )
+    if not primary and not secondary and not pattern_labels and not evidence_summary and not token_preference:
+        return None
+    if not primary:
+        primary = NO_STABLE_ARCHETYPE
+    if not evidence_summary and pattern_labels:
+        evidence_summary = ", ".join(pattern_labels)
+    persona_parts: list[str] = []
+    display_primary = _first_text(combined.get("style_label"), primary)
+    if primary == NO_STABLE_ARCHETYPE:
+        persona_parts.append("no stable archetype yet")
+    else:
+        persona_parts.append(f"{_humanize_label(display_primary)} trader")
+    if secondary:
+        persona_parts.append(f"secondary patterns: {', '.join(_humanize_label(item) for item in secondary[:3])}")
+    if pattern_labels:
+        persona_parts.append(f"behavioral patterns: {', '.join(_humanize_label(item) for item in pattern_labels[:3])}")
+    if token_preference:
+        persona_parts.append(f"token preference: {', '.join(token_preference[:3])}")
+    if confidence:
+        persona_parts.append(f"confidence {confidence:.2f}")
+    if evidence_summary:
+        persona_parts.append(f"evidence: {_compact_text(evidence_summary, max_chars=96)}")
+    summary = "; ".join(persona_parts)
+    return {
+        "primary_archetype": primary,
+        "secondary_archetypes": secondary,
+        "behavioral_patterns": _json_safe(raw_patterns),
+        "behavioral_pattern_labels": pattern_labels,
+        "archetype_confidence": round(confidence, 4) if confidence else 0.0,
+        "archetype_evidence_summary": evidence_summary,
+        "archetype_token_preference": token_preference,
+        "summary": summary,
+    }
+
+
+def _augment_style_profile(style_profile: dict[str, Any] | None, archetype: dict[str, Any] | None) -> dict[str, Any] | None:
+    if style_profile is None:
+        return None
+    merged = dict(style_profile)
+    if archetype is not None:
+        existing_archetype = dict(merged.get("archetype") or {}) if isinstance(merged.get("archetype"), Mapping) else {}
+        for field_name in ARCHETYPE_FIELD_NAMES:
+            if _should_replace_archetype_field(field_name, existing_archetype.get(field_name), archetype.get(field_name)):
+                existing_archetype[field_name] = archetype.get(field_name)
+        if _should_replace_archetype_field("primary_archetype", existing_archetype.get("primary_archetype"), archetype.get("primary_archetype")):
+            existing_archetype["primary_archetype"] = archetype.get("primary_archetype")
+        merged["archetype"] = existing_archetype or archetype
+        for field_name in ARCHETYPE_FIELD_NAMES:
+            value = archetype.get(field_name)
+            if _should_replace_archetype_field(field_name, merged.get(field_name), value):
+                merged[field_name] = value
+        metadata = dict(merged.get("metadata") or {}) if isinstance(merged.get("metadata"), Mapping) else {}
+        nested_metadata_archetype = dict(metadata.get("archetype") or {}) if isinstance(metadata.get("archetype"), Mapping) else {}
+        for field_name in ARCHETYPE_FIELD_NAMES:
+            value = archetype.get(field_name)
+            if _should_replace_archetype_field(field_name, metadata.get(field_name), value):
+                metadata[field_name] = value
+            if _should_replace_archetype_field(field_name, nested_metadata_archetype.get(field_name), value):
+                nested_metadata_archetype[field_name] = value
+        if nested_metadata_archetype:
+            metadata["archetype"] = nested_metadata_archetype
+        if metadata:
+            merged["metadata"] = metadata
+    return merged
+
+
 def _wallet_style_profile(candidate: SkillCandidate) -> dict[str, Any] | None:
     payload = candidate.generation_spec.get("wallet_style_profile")
     if isinstance(payload, Mapping):
@@ -204,10 +546,16 @@ def _wallet_token_catalog(candidate: SkillCandidate) -> dict[str, dict[str, Any]
 def _render_skill_md(candidate: SkillCandidate, package_kind: str) -> str:
     package_name = candidate.candidate_slug
     style_profile = _wallet_style_profile(candidate)
-    short_summary = _compact_text(candidate.change_summary, max_chars=200)
+    archetype = _wallet_archetype(candidate)
+    augmented_style_profile = _augment_style_profile(style_profile, archetype)
+    description = _human_summary_text(
+        style_profile=augmented_style_profile,
+        archetype=archetype,
+        fallback=candidate.change_summary,
+    )
     frontmatter = {
         "name": package_name,
-        "description": short_summary,
+        "description": description,
         "version": "1.0.0",
         "owner": "mainagent",
         "status": "experimental",
@@ -216,6 +564,7 @@ def _render_skill_md(candidate: SkillCandidate, package_kind: str) -> str:
             "candidate",
             package_kind,
             candidate.target_skill_kind,
+            f"archetype:{(archetype or {}).get('primary_archetype') or 'unknown'}",
         ],
         "metadata": {
             "candidate_id": candidate.candidate_id,
@@ -225,34 +574,66 @@ def _render_skill_md(candidate: SkillCandidate, package_kind: str) -> str:
             "target_skill_name": candidate.target_skill_name,
             "target_skill_kind": candidate.target_skill_kind,
             "candidate_type": candidate.candidate_type,
+            "trading_archetype": archetype,
+            "archetype_primary": (archetype or {}).get("primary_archetype"),
+            "archetype_summary": (archetype or {}).get("summary"),
         },
     }
-    if style_profile is not None:
+    if augmented_style_profile is not None:
         execution_rule_lines = _compact_bullets(
-            style_profile.get("execution_rules") or [],
+            augmented_style_profile.get("execution_rules") or [],
             limit=5,
             max_chars=96,
         ) or ["- No execution rules captured"]
         anti_pattern_lines = _compact_bullets(
-            style_profile.get("anti_patterns") or [],
+            augmented_style_profile.get("anti_patterns") or [],
             limit=6,
             max_chars=96,
             overflow_note="Additional risk notes are preserved in references/style_profile.json.",
         ) or ["- No anti-patterns captured"]
+        archetype_lines = [
+            "- Trader class: no stable archetype yet; keep the package evidence-first and conservative."
+            if not archetype or (archetype.get("primary_archetype") == NO_STABLE_ARCHETYPE)
+            else f"- Trader class: {_humanize_label(str(archetype.get('primary_archetype') or 'unknown'))}."
+        ]
+        if archetype and archetype.get("summary"):
+            archetype_lines.append(f"- Persona: {archetype.get('summary')}")
+        if archetype and archetype.get("secondary_archetypes"):
+            archetype_lines.append(
+                f"- Secondary archetypes: {', '.join(_humanize_label(item) for item in archetype.get('secondary_archetypes')[:3])}"
+            )
+        if archetype and archetype.get("behavioral_pattern_labels"):
+            archetype_lines.append(
+                f"- Behavioral patterns: {', '.join(_humanize_label(item) for item in archetype.get('behavioral_pattern_labels')[:3])}"
+            )
+        if archetype and archetype.get("archetype_confidence"):
+            archetype_lines.append(f"- Archetype confidence: {float(archetype.get('archetype_confidence')):.2f}")
+        if archetype and archetype.get("archetype_evidence_summary"):
+            archetype_lines.append(
+                f"- Evidence summary: {_compact_text(archetype.get('archetype_evidence_summary'), max_chars=140)}"
+            )
+        if archetype and archetype.get("archetype_token_preference"):
+            archetype_lines.append(
+                f"- Token preference: {', '.join(_humanize_label(item) for item in archetype.get('archetype_token_preference')[:4])}"
+            )
         body_lines = [
             f"# {candidate.target_skill_name}",
             "",
-            short_summary,
+            description,
             "",
             "## Wallet Style Signature",
             "",
-            f"- Wallet: {style_profile.get('wallet') or candidate.metadata.get('wallet_address') or 'unknown'}",
-            f"- Chain: {style_profile.get('chain') or candidate.metadata.get('chain') or 'unknown'}",
-            f"- Style label: {style_profile.get('style_label') or 'wallet-style'}",
-            f"- Execution tempo: {style_profile.get('execution_tempo') or 'unknown'}",
-            f"- Risk appetite: {style_profile.get('risk_appetite') or 'unknown'}",
-            f"- Conviction profile: {style_profile.get('conviction_profile') or 'unknown'}",
-            f"- Stablecoin bias: {style_profile.get('stablecoin_bias') or 'unknown'}",
+            f"- Wallet: {augmented_style_profile.get('wallet') or candidate.metadata.get('wallet_address') or 'unknown'}",
+            f"- Chain: {augmented_style_profile.get('chain') or candidate.metadata.get('chain') or 'unknown'}",
+            f"- Style label: {augmented_style_profile.get('style_label') or 'wallet-style'}",
+            f"- Execution tempo: {augmented_style_profile.get('execution_tempo') or 'unknown'}",
+            f"- Risk appetite: {augmented_style_profile.get('risk_appetite') or 'unknown'}",
+            f"- Conviction profile: {augmented_style_profile.get('conviction_profile') or 'unknown'}",
+            f"- Stablecoin bias: {augmented_style_profile.get('stablecoin_bias') or 'unknown'}",
+            "",
+            "## Trading Archetype",
+            "",
+            *archetype_lines,
             "",
             "## Execution Rules",
             "",
@@ -289,18 +670,26 @@ def _render_skill_md(candidate: SkillCandidate, package_kind: str) -> str:
 
 def _build_manifest(candidate: SkillCandidate, package_kind: str, package_root: Path) -> dict[str, Any]:
     style_profile = _wallet_style_profile(candidate)
+    archetype = _wallet_archetype(candidate)
+    style_profile_payload = _augment_style_profile(style_profile, archetype)
     strategy_spec = _wallet_strategy_spec(candidate)
     execution_intent = _wallet_execution_intent(candidate)
+    description = _human_summary_text(
+        style_profile=style_profile_payload,
+        archetype=archetype,
+        fallback=candidate.change_summary,
+    )
     return {
         "schema_version": "v1",
         "name": package_root.name,
-        "description": candidate.change_summary,
+        "description": description,
         "version": "1.0.0",
         "owner": "mainagent",
         "kind": package_kind,
         "updated_at": date.today().isoformat(),
         "status": "experimental",
         "maturity_tier": "scaffold",
+        "context_budget_tier": "production",
         "review_cadence": "per-release",
         "target_platforms": list(ADAPTER_TARGETS),
         "factory_components": {
@@ -322,9 +711,19 @@ def _build_manifest(candidate: SkillCandidate, package_kind: str, package_root: 
         },
         "metadata": {
             "skill_family": candidate.metadata.get("skill_family"),
-            "wallet_style_profile": style_profile,
+            "wallet_style_profile": style_profile_payload,
             "strategy_spec": strategy_spec,
             "execution_intent": execution_intent,
+            "trading_archetype": archetype,
+            "archetype_primary": (archetype or {}).get("primary_archetype"),
+            "archetype_summary": (archetype or {}).get("summary"),
+        },
+        "references": {
+            "style_profile": "references/style_profile.json",
+            "strategy_spec": "references/strategy_spec.json",
+            "execution_intent": "references/execution_intent.json",
+            "token_catalog": "references/token_catalog.json",
+            "archetype": "references/archetype.json",
         },
         "package_root": str(package_root),
     }
@@ -455,6 +854,8 @@ def _write_type_specific_files(
 ) -> tuple[str, ...]:
     generated: list[str] = []
     style_profile = _wallet_style_profile(candidate)
+    archetype = _wallet_archetype(candidate)
+    style_profile_payload = _augment_style_profile(style_profile, archetype)
     strategy_spec = _wallet_strategy_spec(candidate)
     execution_intent = _wallet_execution_intent(candidate)
     token_catalog = _wallet_token_catalog(candidate)
@@ -481,17 +882,21 @@ def _write_type_specific_files(
 
     scripts_dir = package_root / "scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
-    if style_profile is not None:
+    if style_profile_payload is not None:
         references_dir = package_root / "references"
         references_dir.mkdir(parents=True, exist_ok=True)
-        _write_json(references_dir / "style_profile.json", style_profile)
+        _write_json(references_dir / "style_profile.json", style_profile_payload)
         _write_json(references_dir / "strategy_spec.json", strategy_spec or {})
         _write_json(references_dir / "execution_intent.json", execution_intent or {})
         _write_json(references_dir / "token_catalog.json", token_catalog)
+        if archetype is not None:
+            _write_json(references_dir / "archetype.json", archetype)
         generated.append("references/style_profile.json")
         generated.append("references/strategy_spec.json")
         generated.append("references/execution_intent.json")
         generated.append("references/token_catalog.json")
+        if archetype is not None:
+            generated.append("references/archetype.json")
         wrapper_body = [
             "from __future__ import annotations",
             "",
@@ -500,10 +905,11 @@ def _write_type_specific_files(
             "import sys",
             "",
             "",
-            f"PROFILE = json.loads({repr(json.dumps(_json_safe(style_profile), ensure_ascii=False))})",
+            f"PROFILE = json.loads({repr(json.dumps(_json_safe(style_profile_payload), ensure_ascii=False))})",
             f"STRATEGY = json.loads({repr(json.dumps(_json_safe(strategy_spec or {}), ensure_ascii=False))})",
             f"EXECUTION_INTENT = json.loads({repr(json.dumps(_json_safe(execution_intent or {}), ensure_ascii=False))})",
             f"TOKEN_CATALOG = json.loads({repr(json.dumps(_json_safe(token_catalog), ensure_ascii=False))})",
+            f"ARCHETYPE = json.loads({repr(json.dumps(_json_safe(archetype or {}), ensure_ascii=False))})",
             "",
             "",
             "def _load_context() -> dict:",
@@ -539,6 +945,7 @@ def _write_type_specific_files(
             "        execution_intent=EXECUTION_INTENT,",
             "        token_catalog=TOKEN_CATALOG,",
             "        context=context,",
+            "        archetype=ARCHETYPE,",
             "    )",
             "    print(json.dumps(payload, ensure_ascii=False, indent=2))",
             "    return 0",

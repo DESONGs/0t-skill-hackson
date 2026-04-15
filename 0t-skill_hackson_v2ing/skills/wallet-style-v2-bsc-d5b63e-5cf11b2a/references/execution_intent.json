@@ -1,0 +1,40 @@
+{
+  "adapter": "bsc-dex-router",
+  "mode": "burst-scalp",
+  "preferred_workflow": "WBNB -> microcap token -> WBNB rapid cycle with same-minute multi-leg entry",
+  "preflight_checks": [
+    "WBNB balance > $50",
+    "Slippage < 3% for target clip size",
+    "Gas estimate < 0.01 BNB",
+    "Same-minute burst throttle not exceeded"
+  ],
+  "route_preferences": [
+    "WBNB direct pairs",
+    "pancakeswap-v3",
+    "high-liquidity microcap pools"
+  ],
+  "split_legs": true,
+  "leg_count": 3,
+  "max_position_pct": 0.15,
+  "requires_explicit_approval": false,
+  "metadata": {
+    "chain": "bsc",
+    "entry_factors": [],
+    "risk_filters": [],
+    "market_context": {
+      "macro": {
+        "btc_24h_pct": null,
+        "eth_24h_pct": null,
+        "regime": "unknown"
+      },
+      "focus_token_context": []
+    },
+    "review_backend": "pi-reflection-agent:kimi-coding/kimi-k2-thinking",
+    "reflection_flow_id": "wallet_style_reflection_review",
+    "reflection_run_id": "run-cf907193ef55",
+    "reflection_session_id": "pi-session-f19485506a",
+    "reflection_status": "succeeded",
+    "fallback_used": false,
+    "backtest_confidence_label": "high"
+  }
+}

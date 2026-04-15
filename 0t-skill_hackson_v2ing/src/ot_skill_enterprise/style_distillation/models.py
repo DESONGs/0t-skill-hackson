@@ -52,6 +52,60 @@ class StrategySpec:
 
 
 @dataclass(slots=True)
+class BehavioralPattern:
+    pattern_label: str
+    strength: float
+    evidence: tuple[str, ...] = ()
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "pattern_label": self.pattern_label,
+            "strength": round(float(self.strength), 4),
+            "evidence": list(self.evidence),
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(slots=True)
+class TradingArchetype:
+    trading_archetype: str = ""
+    primary_label: str = ""
+    secondary_archetypes: tuple[str, ...] = ()
+    behavioral_patterns: tuple[BehavioralPattern, ...] = ()
+    confidence: float = 0.0
+    evidence: tuple[str, ...] = ()
+    token_preference: tuple[str, ...] = ()
+    trades_per_day: float = 0.0
+    open_position_ratio: float = 0.0
+    pnl_multiplier_max: float = 0.0
+    pnl_multiplier_median: float = 0.0
+    trade_statistics: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.trading_archetype:
+            self.trading_archetype = self.primary_label
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "trading_archetype": self.trading_archetype or self.primary_label,
+            "primary_label": self.primary_label,
+            "secondary_archetypes": list(self.secondary_archetypes),
+            "behavioral_patterns": [pattern.to_dict() for pattern in self.behavioral_patterns],
+            "confidence": round(float(self.confidence), 4),
+            "evidence": list(self.evidence),
+            "token_preference": list(self.token_preference),
+            "trades_per_day": round(float(self.trades_per_day), 8),
+            "open_position_ratio": round(float(self.open_position_ratio), 8),
+            "pnl_multiplier_max": round(float(self.pnl_multiplier_max), 8),
+            "pnl_multiplier_median": round(float(self.pnl_multiplier_median), 8),
+            "trade_statistics": dict(self.trade_statistics),
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(slots=True)
 class ExecutionIntent:
     adapter: str
     mode: str

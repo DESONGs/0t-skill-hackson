@@ -1,0 +1,24 @@
+interface:
+  display_name: wallet-style-v2-bsc-d5b63e
+  short_description: Ultra-active BSC scalper trading microcap tokens in sub-15-minute
+    bursts using WBNB. Deploys tiny clip sizes (~0.05% of NAV) across pyramid-style
+    entries, tolerates extreme drawdowns, and maintains zero stablecoin buffer.
+  default_prompt: Ultra-active BSC scalper trading microcap tokens in sub-15-minute
+    bursts using WBNB. Deploys tiny clip sizes (~0.05% of NAV) across pyramid-style
+    entries, tolerates extreme drawdowns, and maintains zero stablecoin buffer.
+compatibility:
+  canonical_format: agent-skills
+  adapter_targets:
+  - generic
+  activation:
+    mode: manual
+    paths: []
+  execution:
+    context: fork
+    shell: bash
+  trust:
+    source_tier: local
+    remote_inline_execution: forbid
+    remote_metadata_policy: explicit-providers-only
+  degradation:
+    generic: manual

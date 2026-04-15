@@ -47,6 +47,19 @@ def _grade_from_results(runtime_pass: bool, contract_pass: bool, task_match_scor
     return "fail"
 
 
+def _grade_from_review_status(review_status: str, base_grade: str) -> str:
+    normalized = review_status.strip().lower()
+    if normalized == "runtime_failed":
+        return "fail"
+    if normalized == "generate":
+        return "pass" if base_grade == "pass" else base_grade
+    if normalized in {"generate_with_low_confidence", "insufficient_signal", "no_pattern_detected"}:
+        if base_grade == "fail":
+            return "fail"
+        return "warn"
+    return base_grade
+
+
 class EvaluationRecord(ContractModel):
     evaluation_id: str = Field(min_length=1)
     run_id: str = Field(min_length=1)
@@ -60,6 +73,7 @@ class EvaluationRecord(ContractModel):
     contract_pass: bool = False
     task_match_score: float = 0.0
     overall_grade: str = Field(default="pending", min_length=1)
+    review_status: str = Field(default="pending", min_length=1)
     failure_reason: str | None = None
     suggested_action: str | None = None
     grade: str = Field(default="pending", min_length=1)
@@ -82,8 +96,13 @@ class EvaluationRecord(ContractModel):
         normalized_grade = self.overall_grade.strip().lower() if self.overall_grade else ""
         if normalized_grade in {"pending", ""}:
             normalized_grade = _grade_from_results(self.runtime_pass, self.contract_pass, self.task_match_score)
+        review_status = str(self.review_status or "").strip().lower()
+        if review_status and review_status != "pending":
+            normalized_grade = _grade_from_review_status(review_status, normalized_grade)
         self.overall_grade = normalized_grade
         self.grade = self.overall_grade
+        if not review_status or review_status == "pending":
+            self.review_status = "runtime_failed" if not self.runtime_pass else "generate"
         if self.failure_reason is None:
             if not self.runtime_pass and self.runtime_result.summary:
                 self.failure_reason = self.runtime_result.summary

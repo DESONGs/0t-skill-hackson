@@ -1,95 +1,62 @@
-# Public Copy Configuration Notes
+# Public Configuration Guide
 
-这份文档说明公开副本里哪些内容被保留，哪些内容被抽离，以及如果要恢复完整运行链路需要补什么。
+这份公开仓已经移除了真实密钥和本地运行产物。要恢复完整功能，只需要在本地安装依赖并填写你自己的 `.env`。
 
-## 公开副本保留内容
+## 已移除内容
 
-- 核心源码：
-  - `0t-skill_hackson_v2ing/src/ot_skill_enterprise/`
-- 前端静态资源：
-  - `0t-skill_hackson_v2ing/frontend/`
-- 两个 example skills：
-  - `0t-skill_hackson_v2ing/skills/wallet-style-test-bsc-9048f6-20260415-671d5c3d/`
-  - `0t-skill_hackson_v2ing/skills/wallet-style-test-bsc-bac453-20260415-845b5f24/`
-- 公开说明文档：
-  - 根级 `README.md`
-  - 根级 `CONFIGURATION.md`
-  - 根级 `agent.md`
-  - 内层 `README.md`
-  - 内层 `agent.md`
-
-## 已抽离内容
-
-### 本地与敏感数据
-
-- `.env`
-- `.env.local`
+- `.env` / `.env.local`
 - `.venv/`
-- `.ot-workspace/`
-- `.pytest_cache/`
-- `__pycache__/`
+- `.ot-workspace/` 与其他本地工作区快照
+- `vendor/pi_runtime/node_modules/`
+- `vendor/pi_runtime/dist/`
+- `vendor/onchainos_cli/upstream/cli/target/`
+- `__pycache__/`、`.pytest_cache/`、构建缓存
 
-### 私有或外置依赖
+## 最低前提
 
-- `vendor/`
-- `services/`
-- `scripts/`
-- `docker-compose.yml`
-- `pyproject.toml`
-- `bin/ot-enterprise`
+- Python `3.11+`
+- Node.js `20+`
+- `npm`
+- Rust / Cargo
+  - 需要执行 onchainos CLI 路径时必备
+- Docker / Docker Compose
+  - 只在你要拉起本地 Postgres / Redis / MinIO 时需要
 
-### 开发与修复材料
+## 推荐启动流程
 
-- `tests/`
-- `docs/`
-- `distill-modules/`
-- fix/debug/QA 类过程文档
+```bash
+cd 0t-skill_hackson_v2ing
+./scripts/bootstrap.sh
+cp .env.example .env
+```
 
-## 为什么要抽离
+然后按你的使用场景补配置：
 
-- 避免泄露本地绝对路径、账号配置和工作区结构
-- 避免公开 vendored 上游仓或私有运行时拼装细节
-- 让 GitHub 公开仓只表达“架构和核心代码”，不绑定本地执行环境
-- 避免把开发阶段文档、修复记录和一次性 QA 产物带进公开交付
+1. 只跑蒸馏与 reflection
+   - 至少填 `AVE_API_KEY`、`API_PLAN`、`KIMI_API_KEY`
+2. 需要 dry-run / live execution
+   - 额外填 `OKX_API_KEY`、`OKX_SECRET_KEY`、`OKX_PASSPHRASE`
+   - 确保本机能用 `cargo`
+3. 需要本地 infra
+   - 设置 `OT_START_LOCAL_STACK=1`
+   - 或自己提供 `OT_DB_DSN` / `OT_REDIS_URL` / `OT_BLOB_*`
 
-## 恢复完整运行链路时需要补回的能力
+## 核心环境变量
 
-### 数据平面
-
-- AVE 数据提供层
-- 钱包、市场、信号与代币信息查询能力
-- WSS 价格流能力
-
-### 反射平面
-
-- Pi / Kimi 或等价 reflection backend
-- 对应模型配置和鉴权
-
-### 执行平面
-
-- onchain 执行 CLI 或等价执行适配器
-- 钱包登录与安全扫描能力
-- dry-run / broadcast 能力
-
-### 安装与编排
-
-- Python 3.11 运行环境
-- 项目依赖安装清单
-- 本地服务启动脚本或容器编排
-
-## 环境变量清单
-
-公开副本没有附带 `.env.example`。如果你要恢复完整工程，至少需要准备以下变量：
-
-### 数据与反射
+### 必填
 
 - `AVE_API_KEY`
 - `API_PLAN`
-- `AVE_DATA_PROVIDER`
 - `KIMI_API_KEY`
-- `OT_PI_REFLECTION_MODEL`
-- `OT_PI_REFLECTION_REASONING`
-- `OT_PI_REFLECTION_MOCK`
+
+### 常用默认值
+
+- `AVE_DATA_PROVIDER=ave_rest`
+- `OT_RUNTIME_DEFAULT=pi`
+- `OT_PI_REFLECTION_MODEL=kimi-coding/kimi-k2-thinking`
+- `OT_PI_REFLECTION_REASONING=medium`
+- `OT_DEFAULT_WORKSPACE=.ot-workspace`
+- `OT_FRONTEND_PORT=8090`
 
 ### 执行层
 
@@ -100,35 +67,35 @@
 - `OT_ONCHAINOS_CLI_BIN`
 - `OT_ONCHAINOS_LIVE_CAP_USD`
 - `OT_ONCHAINOS_MIN_LEG_USD`
-- `OT_ONCHAINOS_APPROVAL_WAIT_RETRIES`
-- `OT_ONCHAINOS_APPROVAL_WAIT_SECONDS`
 
-### 前端与工作区
+### 本地服务与存储
 
-- `OT_DEFAULT_WORKSPACE`
-- `OT_FRONTEND_BIND_HOST`
-- `OT_FRONTEND_PORT`
-- `AVE_USE_DOCKER`
+- `OT_START_LOCAL_STACK`
+- `OT_DB_DSN`
+- `OT_REDIS_URL`
+- `OT_BLOB_BACKEND`
+- `OT_BLOB_ROOT`
+- `OT_BLOB_ENDPOINT`
+- `OT_BLOB_BUCKET`
+- `OT_BLOB_REGION`
 
-## Example skill 说明
+## 公开仓中的 vendored 依赖策略
 
-公开副本保留了两个地址蒸馏得到的 skill 包作为样例：
+- `vendor/pi_runtime`
+  - 保留源码和 `package-lock.json`
+  - `bootstrap.sh` 会在本地执行 `npm install` 与构建
+- `vendor/onchainos_cli`
+  - 保留 Rust 源码
+  - 执行链路会优先使用 `OT_ONCHAINOS_CLI_BIN`，否则回退到 `cargo run`
+- `vendor/ave_cloud_skill`
+  - 保留 AVE REST 脚本和 requirements
+  - `bootstrap.sh` 会把它的 Python 依赖安装进当前 `.venv`
 
-- `0x9048f6c683abb0eba156797fd699fe662b4dbfef`
-- `0xbac453b9b7f53b35ac906b641925b2f5f2567a89`
+## 验证
 
-处理规则：
+```bash
+cd 0t-skill_hackson_v2ing
+./scripts/verify.sh
+```
 
-- skill 包结构完整保留
-- 示例中的本地绝对路径和工作区路径已脱敏
-- 这些 example skills 用于展示输出形态，不代表公开副本已经具备完整执行依赖
-
-## 推荐上传口径
-
-- 把这个公开副本当作“脱敏源码快照”
-- 不承诺仓库开箱即跑
-- 重点展示：
-  - 蒸馏链路设计
-  - skill 编译产物结构
-  - 执行接口设计
-  - example skill 输出形态
+如果 `vendor/pi_runtime/node_modules` 还没装，脚本会跳过相关检查；先跑一次 `./scripts/bootstrap.sh` 即可。

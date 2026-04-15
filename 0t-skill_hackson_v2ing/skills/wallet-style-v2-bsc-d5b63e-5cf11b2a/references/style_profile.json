@@ -1,0 +1,55 @@
+{
+  "wallet": "0xd5b63edd7cdf4c23718cc8a6a83e312dc8ae3fe1",
+  "chain": "bsc",
+  "style_label": "Micro-Position Memecoin Scalper",
+  "summary": "Ultra-active BSC scalper trading microcap tokens in sub-15-minute bursts using WBNB. Deploys tiny clip sizes (~0.05% of NAV) across pyramid-style entries, tolerates extreme drawdowns, and maintains zero stablecoin buffer.",
+  "confidence": 0.78647059,
+  "execution_tempo": "Ultra-high (same-minute bursts, ~14 min average hold)",
+  "risk_appetite": "Aggressive micro-sizing with macro drawdown tolerance",
+  "conviction_profile": "Low per-trade conviction, high volume, pyramiding",
+  "stablecoin_bias": "None (0% stablecoin allocation, WBNB-native)",
+  "dominant_actions": [
+    "sell",
+    "buy"
+  ],
+  "preferred_tokens": [
+    "BNBELIEF",
+    "jelly",
+    "币安故事"
+  ],
+  "active_windows": [
+    "us-session"
+  ],
+  "sizing_note": "Micro clips averaging ~$233 (~0.05% of $513k balance) with ~3.2 splits per position",
+  "execution_rules": [
+    "Enter in same-minute bursts using WBNB quote",
+    "Pyramid into positions across 3+ clips",
+    "Hold time target under 15 minutes",
+    "Recycle all proceeds back into WBNB; no stablecoin parking",
+    "Accept drawdowns >80% before exit"
+  ],
+  "anti_patterns": [
+    "No stop losses (diamond-hands through -87% drawdowns)",
+    "Zero stablecoin risk buffer",
+    "Oversized trade frequency relative to position edge"
+  ],
+  "prompt_focus": [
+    "BNBELIEF scalp setups",
+    "jelly momentum continuation",
+    "microcap volume breakout alerts"
+  ],
+  "metadata": {
+    "avg_holding_seconds": 844,
+    "profit_factor": 1.16162628,
+    "win_rate": 0.56896552,
+    "max_drawdown_pct": -87.80225482,
+    "review_backend": "pi-reflection-agent:kimi-coding/kimi-k2-thinking",
+    "reflection_flow_id": "wallet_style_reflection_review",
+    "reflection_run_id": "run-cf907193ef55",
+    "reflection_session_id": "pi-session-f19485506a",
+    "reflection_status": "succeeded",
+    "fallback_used": false,
+    "reflection_confidence": 0.78,
+    "backtest_confidence_label": "high"
+  }
+}

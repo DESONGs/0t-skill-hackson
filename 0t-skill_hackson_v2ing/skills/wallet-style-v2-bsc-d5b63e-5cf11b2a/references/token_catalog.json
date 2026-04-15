@@ -1,0 +1,22 @@
+{
+  "jelly": {
+    "symbol": "jelly",
+    "token_address": "0xf581ee357f11d7478fafd183b4a41347c35a4444",
+    "chain": "bsc"
+  },
+  "BNBELIEF": {
+    "symbol": "BNBELIEF",
+    "token_address": "0xa4ca2cde650f452c6a0e2dbf75b013e3e3b77777",
+    "chain": "bsc"
+  },
+  "币安故事": {
+    "symbol": "币安故事",
+    "token_address": "0x2c598dffec4e4f4a6c65756b14a216fc61134444",
+    "chain": "bsc"
+  },
+  "Ghost": {
+    "symbol": "Ghost",
+    "token_address": "0x5f1f08f6cf3af3c9e7cbd1fd26d9b66f7f964444",
+    "chain": "bsc"
+  }
+}

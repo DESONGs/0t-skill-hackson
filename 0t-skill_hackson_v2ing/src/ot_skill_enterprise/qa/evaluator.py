@@ -16,6 +16,31 @@ from .models import (
 from .store import EvaluationStore, build_evaluation_store
 
 
+_SEMANTIC_REVIEW_STATUSES = {
+    "generate",
+    "generate_with_low_confidence",
+    "insufficient_signal",
+    "no_pattern_detected",
+    "runtime_failed",
+    "needs_manual_review",
+}
+
+_RUNTIME_STATUS_ALIASES = {
+    "pass": "succeeded",
+    "passed": "succeeded",
+    "success": "succeeded",
+    "succeeded": "succeeded",
+    "fail": "runtime_failed",
+    "failed": "runtime_failed",
+    "failure": "runtime_failed",
+    "error": "runtime_failed",
+    "errored": "runtime_failed",
+    "partial": "runtime_failed",
+    "run_failed": "runtime_failed",
+    "runtime_failed": "runtime_failed",
+}
+
+
 def _dump_model(value: Any) -> Any:
     dumper = getattr(value, "model_dump", None)
     if dumper is not None:
@@ -69,8 +94,16 @@ def _normalize_grade(status: str, ok: bool) -> str:
         return "pass"
     if normalized in {"failed", "failure", "errored", "error"}:
         return "fail"
+    if normalized == "runtime_failed":
+        return "fail"
     if normalized in {"warn", "warning"}:
         return "warn"
+    if normalized == "generate":
+        return "pass" if ok else "fail"
+    if normalized == "generate_with_low_confidence":
+        return "warn" if ok else "fail"
+    if normalized in {"insufficient_signal", "no_pattern_detected"}:
+        return "warn" if ok else "fail"
     if normalized in {"pending", "pass", "fail"}:
         return normalized
     return "pass" if ok else "fail"
@@ -84,8 +117,72 @@ def _string_list(value: Any) -> list[str]:
     return [str(value)]
 
 
+def _normalize_runtime_status(status: str, ok: bool) -> str:
+    normalized = str(status or "").strip().lower()
+    if normalized in _RUNTIME_STATUS_ALIASES:
+        return _RUNTIME_STATUS_ALIASES[normalized]
+    if normalized in _SEMANTIC_REVIEW_STATUSES:
+        return "succeeded" if ok else "runtime_failed"
+    return "succeeded" if ok else "runtime_failed"
+
+
+def _normalize_review_status(
+    *,
+    status: str,
+    runtime_status: str,
+    runtime_pass: bool,
+    contract_pass: bool,
+    task_match_score: float,
+    task_match_threshold: float,
+    has_task_match_score: bool,
+    metadata: Mapping[str, Any],
+) -> str:
+    explicit = str(
+        metadata.get("review_status")
+        or metadata.get("qa_review_status")
+        or metadata.get("semantic_review_status")
+        or status
+        or ""
+    ).strip().lower()
+    if explicit in _SEMANTIC_REVIEW_STATUSES:
+        return explicit
+    if runtime_status == "runtime_failed" or not runtime_pass or not contract_pass:
+        return "runtime_failed"
+    if explicit in {"generate", "generate_with_low_confidence", "insufficient_signal", "no_pattern_detected"}:
+        return explicit
+    if has_task_match_score and task_match_score < task_match_threshold * 0.5:
+        return "generate_with_low_confidence"
+    return "generate"
+
+
+def classify_review_status(
+    *,
+    status: str,
+    runtime_status: str,
+    runtime_pass: bool,
+    contract_pass: bool,
+    task_match_score: float,
+    task_match_threshold: float = 0.8,
+    has_task_match_score: bool = False,
+    metadata: Mapping[str, Any] | None = None,
+) -> str:
+    return _normalize_review_status(
+        status=status,
+        runtime_status=runtime_status,
+        runtime_pass=runtime_pass,
+        contract_pass=contract_pass,
+        task_match_score=task_match_score,
+        task_match_threshold=task_match_threshold,
+        has_task_match_score=has_task_match_score,
+        metadata=metadata or {},
+    )
+
+
 def _build_runtime_result(normalized: RunRecord, *, status: str, metadata: Mapping[str, Any]) -> RuntimeEvaluationResult:
-    runtime_status = str(metadata.get("runtime_status") or status or normalized.status or "pending").strip().lower()
+    runtime_status = _normalize_runtime_status(
+        str(metadata.get("runtime_status") or status or normalized.status or "pending"),
+        normalized.ok,
+    )
     runtime_summary = str(
         metadata.get("runtime_summary")
         or metadata.get("summary")
@@ -156,6 +253,7 @@ def _build_task_match_result(normalized: RunRecord, *, metadata: Mapping[str, An
         passed = score >= threshold
     task_summary = str(
         metadata.get("task_match_summary")
+        or metadata.get("review_summary")
         or ("task matched" if passed else "task mismatch")
     ).strip()
     evidence_refs = _string_list(metadata.get("task_match_evidence_refs"))
@@ -200,12 +298,30 @@ class QAEvaluator:
             **(normalized.metadata or {}),
             **(metadata or {}),
         }
+        initial_status = str(merged_metadata.get("review_status") or status or "").strip().lower()
+        runtime_status_hint = str(merged_metadata.get("runtime_status") or status or normalized.status or "pending").strip().lower()
+        runtime_status = _normalize_runtime_status(runtime_status_hint, normalized.ok)
+        semantic_review_status = _normalize_review_status(
+            status=initial_status,
+            runtime_status=runtime_status,
+            runtime_pass=bool(normalized.ok),
+            contract_pass=bool(merged_metadata.get("contract_pass", True)),
+            task_match_score=float(merged_metadata.get("task_match_score") or 0.0),
+            task_match_threshold=float(merged_metadata.get("task_match_threshold") or 0.8),
+            has_task_match_score="task_match_score" in merged_metadata,
+            metadata=merged_metadata,
+        )
+        merged_metadata = {
+            **merged_metadata,
+            "review_status": semantic_review_status,
+            "semantic_review_status": semantic_review_status,
+        }
         runtime_result_obj = (
             runtime_result
             if isinstance(runtime_result, RuntimeEvaluationResult)
             else RuntimeEvaluationResult.model_validate(dict(runtime_result))
             if runtime_result is not None
-            else _build_runtime_result(normalized, status=status, metadata=merged_metadata)
+            else _build_runtime_result(normalized, status=runtime_status, metadata=merged_metadata)
         )
         contract_result_obj = (
             contract_result
@@ -214,6 +330,11 @@ class QAEvaluator:
             if contract_result is not None
             else _build_contract_result(normalized, subject_kind=subject_kind, subject_id=subject_id, metadata=merged_metadata)
         )
+        if semantic_review_status in _SEMANTIC_REVIEW_STATUSES:
+            merged_metadata = {
+                **merged_metadata,
+                "task_match_status": semantic_review_status,
+            }
         task_match_result_obj = (
             task_match_result
             if isinstance(task_match_result, TaskMatchEvaluationResult)
@@ -237,6 +358,12 @@ class QAEvaluator:
         elif task_match_score >= task_match_result_obj.threshold:
             overall_grade = "pass"
         elif task_match_score >= task_match_result_obj.threshold * 0.5:
+            overall_grade = "warn"
+        if semantic_review_status == "runtime_failed":
+            overall_grade = "fail"
+        elif semantic_review_status == "generate_with_low_confidence" and overall_grade == "pass":
+            overall_grade = "warn"
+        elif semantic_review_status in {"insufficient_signal", "no_pattern_detected"} and overall_grade == "pass":
             overall_grade = "warn"
         failure_reason = str(
             merged_metadata.get("failure_reason")
@@ -313,6 +440,7 @@ class QAEvaluator:
                 "runtime_result": runtime_result_obj.model_dump(mode="json"),
                 "contract_result": contract_result_obj.model_dump(mode="json"),
                 "task_match_result": task_match_result_obj.model_dump(mode="json"),
+                "review_status": semantic_review_status,
                 "runtime_pass": runtime_pass,
                 "contract_pass": contract_pass,
                 "task_match_score": task_match_score,

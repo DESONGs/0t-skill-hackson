@@ -1,0 +1,249 @@
+{
+  "schema_version": "v1",
+  "name": "wallet-style-v2-bsc-d5b63e-5cf11b2a",
+  "description": "Ultra-active BSC scalper trading microcap tokens in sub-15-minute bursts using WBNB. Deploys tiny clip sizes (~0.05% of NAV) across pyramid-style entries, tolerates extreme drawdowns, and maintains zero stablecoin buffer.",
+  "version": "1.0.0",
+  "owner": "mainagent",
+  "kind": "script",
+  "updated_at": "2026-04-14",
+  "status": "experimental",
+  "maturity_tier": "scaffold",
+  "review_cadence": "per-release",
+  "target_platforms": [
+    "generic"
+  ],
+  "factory_components": [
+    "scripts"
+  ],
+  "risk_level": "low",
+  "default_runtime_profile": "script",
+  "generated_from": {
+    "candidate_id": "candidate-aed7431af7d6",
+    "candidate_slug": "wallet-style-v2-bsc-d5b63e-5cf11b2a",
+    "runtime_session_id": "style-session-style-job-5c83be0b24",
+    "source_run_id": "style-distill-run-style-job-5c83be0b24",
+    "source_evaluation_id": "eval-066c1ffc27f1",
+    "target_skill_name": "wallet-style-v2-bsc-d5b63e",
+    "target_skill_kind": "wallet_style",
+    "candidate_type": "script"
+  },
+  "metadata": {
+    "skill_family": "wallet_style",
+    "wallet_style_profile": {
+      "wallet": "0xd5b63edd7cdf4c23718cc8a6a83e312dc8ae3fe1",
+      "chain": "bsc",
+      "style_label": "Micro-Position Memecoin Scalper",
+      "summary": "Ultra-active BSC scalper trading microcap tokens in sub-15-minute bursts using WBNB. Deploys tiny clip sizes (~0.05% of NAV) across pyramid-style entries, tolerates extreme drawdowns, and maintains zero stablecoin buffer.",
+      "confidence": 0.78647059,
+      "execution_tempo": "Ultra-high (same-minute bursts, ~14 min average hold)",
+      "risk_appetite": "Aggressive micro-sizing with macro drawdown tolerance",
+      "conviction_profile": "Low per-trade conviction, high volume, pyramiding",
+      "stablecoin_bias": "None (0% stablecoin allocation, WBNB-native)",
+      "dominant_actions": [
+        "sell",
+        "buy"
+      ],
+      "preferred_tokens": [
+        "BNBELIEF",
+        "jelly",
+        "币安故事"
+      ],
+      "active_windows": [
+        "us-session"
+      ],
+      "sizing_note": "Micro clips averaging ~$233 (~0.05% of $513k balance) with ~3.2 splits per position",
+      "execution_rules": [
+        "Enter in same-minute bursts using WBNB quote",
+        "Pyramid into positions across 3+ clips",
+        "Hold time target under 15 minutes",
+        "Recycle all proceeds back into WBNB; no stablecoin parking",
+        "Accept drawdowns >80% before exit"
+      ],
+      "anti_patterns": [
+        "No stop losses (diamond-hands through -87% drawdowns)",
+        "Zero stablecoin risk buffer",
+        "Oversized trade frequency relative to position edge"
+      ],
+      "prompt_focus": [
+        "BNBELIEF scalp setups",
+        "jelly momentum continuation",
+        "microcap volume breakout alerts"
+      ],
+      "metadata": {
+        "avg_holding_seconds": 844,
+        "profit_factor": 1.16162628,
+        "win_rate": 0.56896552,
+        "max_drawdown_pct": -87.80225482,
+        "review_backend": "pi-reflection-agent:kimi-coding/kimi-k2-thinking",
+        "reflection_flow_id": "wallet_style_reflection_review",
+        "reflection_run_id": "run-cf907193ef55",
+        "reflection_session_id": "pi-session-f19485506a",
+        "reflection_status": "succeeded",
+        "fallback_used": false,
+        "reflection_confidence": 0.78,
+        "backtest_confidence_label": "high"
+      }
+    },
+    "strategy_spec": {
+      "setup_label": "WBNB Microcap Momentum Scalping",
+      "summary": "Exploit short-term volatility in BSC memecoins via rapid in-and-out trades using WBNB. Positions are built in 3+ clips and exited within minutes to capture micro-moves.",
+      "entry_conditions": [
+        {
+          "condition": "Token shows burst in same-minute buy interest or volume spike",
+          "data_source": "on-chain activity + DEX flow",
+          "weight": 0.4,
+          "rationale": "Wallet enters in rapid bursts coinciding with momentum",
+          "metadata": {}
+        },
+        {
+          "condition": "Price action aligns with 14-min-or-less scalp window",
+          "data_source": "derived holding time statistics",
+          "weight": 0.3,
+          "rationale": "Average hold is 844 seconds; entries are timed for immediate liquidity",
+          "metadata": {}
+        },
+        {
+          "condition": "WBNB available as quote token",
+          "data_source": "wallet holdings and recent activity",
+          "weight": 0.3,
+          "rationale": "100% of recent activity routes through WBNB",
+          "metadata": {}
+        }
+      ],
+      "exit_conditions": {
+        "take_profit": "No fixed target; exit when micro-momentum exhausts (usually within 1-15 minutes)",
+        "stop_loss": "None operational; wallet holds through -87% drawdowns",
+        "time_stop": "Automatic exit if position held >15 minutes (statistical average)",
+        "rationale": "Ultra-short hold times suggest time-based exits and momentum exhaustion rather than fixed price targets"
+      },
+      "position_sizing": {
+        "clip_size_usd": 233,
+        "clip_size_pct": 0.045,
+        "build_splits": 3.24,
+        "max_position_pct": 0.15,
+        "pattern": "pyramid",
+        "rationale": "Positions are built from tiny clips to avoid slippage and manage microcap risk"
+      },
+      "risk_controls": [
+        "Position fragmentation across 3+ clips",
+        "Tiny per-trade exposure (<0.1% NAV)",
+        "No overnight/stablecoin parking"
+      ],
+      "preferred_setups": [
+        "Same-minute volume bursts",
+        "Microcap WBNB pair scalps",
+        "Pyramid accumulation into momentum"
+      ],
+      "invalidation_rules": [
+        "Momentum dies before 15-minute window",
+        "WBNB pair liquidity dries up",
+        "Unable to split entry into 3+ clips without slippage"
+      ],
+      "metadata": {
+        "entry_factors": [],
+        "risk_filters": [],
+        "preferred_tokens": [
+          "BNBELIEF",
+          "jelly",
+          "币安故事"
+        ],
+        "market_context": {
+          "macro": {
+            "btc_24h_pct": null,
+            "eth_24h_pct": null,
+            "regime": "unknown"
+          },
+          "focus_token_context": []
+        },
+        "signal_context": {
+          "top_entry_factors": [],
+          "hard_blocks": [],
+          "warnings": [],
+          "active_signals": 0,
+          "high_severity_count": 0
+        },
+        "trade_statistics": {
+          "total_trades": 177,
+          "completed_trade_count": 58,
+          "open_position_count": 36,
+          "win_rate": 0.56896552,
+          "avg_pnl_pct": 2024.47429894,
+          "profit_factor": 1.16162628,
+          "expectancy_usd": 11.84536037,
+          "avg_holding_seconds": 844,
+          "median_holding_seconds": 130,
+          "holding_classification": "scalping",
+          "max_drawdown_pct": -87.80225482,
+          "avg_loss_pct": -42.67974728,
+          "loss_tolerance_label": "diamond_hands",
+          "averaging_pattern": "pyramid",
+          "avg_position_splits": 3.24137931
+        },
+        "review_backend": "pi-reflection-agent:kimi-coding/kimi-k2-thinking",
+        "reflection_flow_id": "wallet_style_reflection_review",
+        "reflection_run_id": "run-cf907193ef55",
+        "reflection_session_id": "pi-session-f19485506a",
+        "reflection_status": "succeeded",
+        "fallback_used": false,
+        "backtest": {
+          "total_signals": 17,
+          "executed_trades": 58,
+          "correct_signals": 11,
+          "signal_accuracy": 0.64705882,
+          "simulated_pnl_usd": 893.53081962,
+          "actual_pnl_usd": 687.03090167,
+          "pnl_capture_ratio": 1.3005686,
+          "max_drawdown_pct": -76.81924076,
+          "confidence_score": 0.78647059,
+          "confidence_label": "high",
+          "metadata": {
+            "preferred_token_count": 6,
+            "factor_hint_count": 0,
+            "active_signal_count": 0
+          }
+        }
+      }
+    },
+    "execution_intent": {
+      "adapter": "bsc-dex-router",
+      "mode": "burst-scalp",
+      "preferred_workflow": "WBNB -> microcap token -> WBNB rapid cycle with same-minute multi-leg entry",
+      "preflight_checks": [
+        "WBNB balance > $50",
+        "Slippage < 3% for target clip size",
+        "Gas estimate < 0.01 BNB",
+        "Same-minute burst throttle not exceeded"
+      ],
+      "route_preferences": [
+        "WBNB direct pairs",
+        "pancakeswap-v3",
+        "high-liquidity microcap pools"
+      ],
+      "split_legs": true,
+      "leg_count": 3,
+      "max_position_pct": 0.15,
+      "requires_explicit_approval": false,
+      "metadata": {
+        "chain": "bsc",
+        "entry_factors": [],
+        "risk_filters": [],
+        "market_context": {
+          "macro": {
+            "btc_24h_pct": null,
+            "eth_24h_pct": null,
+            "regime": "unknown"
+          },
+          "focus_token_context": []
+        },
+        "review_backend": "pi-reflection-agent:kimi-coding/kimi-k2-thinking",
+        "reflection_flow_id": "wallet_style_reflection_review",
+        "reflection_run_id": "run-cf907193ef55",
+        "reflection_session_id": "pi-session-f19485506a",
+        "reflection_status": "succeeded",
+        "fallback_used": false,
+        "backtest_confidence_label": "high"
+      }
+    }
+  },
+  "package_root": "/private/tmp/otv2-style-EkurKx/candidate-packages/wallet-style-v2-bsc-d5b63e-5cf11b2a"
+}

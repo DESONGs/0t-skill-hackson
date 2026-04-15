@@ -1,0 +1,24 @@
+{
+  "schema_version": "v1",
+  "name": "ave-data-gateway",
+  "version": "1.0.0",
+  "description": "Compat AVE data gateway skill for the provider adapter layer.",
+  "kind": "skill",
+  "owner": "subagent-3",
+  "entrypoints": {
+    "skill": "SKILL.md",
+    "actions": "actions.yaml",
+    "agents": "agents/interface.yaml"
+  },
+  "runtime": {
+    "language": "python",
+    "stdout_format": "json",
+    "artifact_dir_env": "WORKSPACE_DIR"
+  },
+  "requires": {
+    "env": [
+      "AVE_DATA_SERVICE_URL",
+      "WORKSPACE_DIR"
+    ]
+  }
+}

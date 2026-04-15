@@ -16,6 +16,19 @@ from .transcript import RuntimeTranscript
 _DEFAULT_RUNTIME_TIMEOUT_SECONDS = 300.0
 
 
+def _failure_type_for_runtime_error(message: str, *, returncode: int | None = None, timed_out: bool = False) -> str:
+    lowered = message.lower()
+    if timed_out or "timed out" in lowered or "timeout" in lowered:
+        return "runtime_timeout"
+    if any(marker in lowered for marker in ("api key", "unauthorized", "forbidden", "provider unavailable", "provider auth", "auth")):
+        return "provider_unavailable"
+    if any(marker in lowered for marker in ("json", "parse", "not valid json", "stdout is not valid json")):
+        return "json_parse_failed"
+    if returncode is not None and returncode < 0:
+        return "runtime_abort"
+    return "runtime_abort"
+
+
 def _optional_timeout_seconds(request: RuntimeExecutionRequest) -> float:
     raw = (
         request.metadata.get("runtime_timeout_seconds")
@@ -69,6 +82,7 @@ class SubprocessRuntimeExecutor:
         except subprocess.TimeoutExpired as exc:
             payload_file.unlink(missing_ok=True)
             finished_at = utc_now()
+            failure_type = _failure_type_for_runtime_error(str(exc), timed_out=True)
             transcript = RuntimeTranscript(
                 runtime_id=request.runtime_id,
                 session_id=request.session_id,
@@ -80,16 +94,17 @@ class SubprocessRuntimeExecutor:
                     "stderr": str(exc),
                     "returncode": None,
                     "timeout_seconds": timeout_seconds,
+                    "failure_type": failure_type,
                 },
                 events=[
                     {
                         "type": "error",
                         "message": f"runtime process timed out after {timeout_seconds:.0f}s",
                         "status": "failed",
-                        "metadata": {"timeout_seconds": timeout_seconds},
+                        "metadata": {"timeout_seconds": timeout_seconds, "failure_type": failure_type},
                     }
                 ],
-                metadata={"timeout_seconds": timeout_seconds},
+                metadata={"timeout_seconds": timeout_seconds, "failure_type": failure_type},
                 stdout=str(exc.stdout or ""),
                 stderr=str(exc.stderr or ""),
             )
@@ -106,7 +121,7 @@ class SubprocessRuntimeExecutor:
                 error=ServiceError(
                     code="runtime_process_timeout",
                     message=transcript.summary,
-                    details={"timeout_seconds": timeout_seconds},
+                    details={"timeout_seconds": timeout_seconds, "failure_type": failure_type},
                 ),
             )
         finally:
@@ -114,6 +129,10 @@ class SubprocessRuntimeExecutor:
         finished_at = utc_now()
 
         if completed.returncode != 0:
+            failure_type = _failure_type_for_runtime_error(
+                completed.stderr.strip() or completed.stdout.strip() or "runtime process failed",
+                returncode=completed.returncode,
+            )
             transcript = RuntimeTranscript(
                 runtime_id=request.runtime_id,
                 session_id=request.session_id,
@@ -121,16 +140,20 @@ class SubprocessRuntimeExecutor:
                 ok=False,
                 status="failed",
                 summary=completed.stderr.strip() or "runtime process failed",
-                output_payload={"stderr": completed.stderr.strip(), "returncode": completed.returncode},
+                output_payload={
+                    "stderr": completed.stderr.strip(),
+                    "returncode": completed.returncode,
+                    "failure_type": failure_type,
+                },
                 events=[
                     {
                         "type": "error",
                         "message": completed.stderr.strip() or "runtime process failed",
                         "status": "failed",
-                        "metadata": {"returncode": completed.returncode},
+                        "metadata": {"returncode": completed.returncode, "failure_type": failure_type},
                     }
                 ],
-                metadata={"returncode": completed.returncode},
+                metadata={"returncode": completed.returncode, "failure_type": failure_type},
                 stdout=completed.stdout,
                 stderr=completed.stderr,
             )
@@ -144,12 +167,17 @@ class SubprocessRuntimeExecutor:
                 transcript=transcript,
                 started_at=started_at,
                 finished_at=finished_at,
-                error=ServiceError(code="runtime_process_failed", message=transcript.summary, details={"returncode": completed.returncode}),
+                error=ServiceError(
+                    code="runtime_process_failed",
+                    message=transcript.summary,
+                    details={"returncode": completed.returncode, "failure_type": failure_type},
+                ),
             )
 
         try:
             payload = json.loads(completed.stdout)
         except (json.JSONDecodeError, ValueError) as exc:
+            failure_type = "json_parse_failed"
             transcript = RuntimeTranscript(
                 runtime_id=request.runtime_id,
                 session_id=request.session_id,
@@ -157,9 +185,13 @@ class SubprocessRuntimeExecutor:
                 ok=False,
                 status="failed",
                 summary=f"runtime process returned exit 0 but stdout is not valid JSON: {exc}",
-                output_payload={"stdout": completed.stdout[:2000], "stderr": completed.stderr.strip()},
+                output_payload={
+                    "stdout": completed.stdout[:2000],
+                    "stderr": completed.stderr.strip(),
+                    "failure_type": failure_type,
+                },
                 events=[],
-                metadata={"returncode": 0},
+                metadata={"returncode": 0, "failure_type": failure_type},
                 stdout=completed.stdout,
                 stderr=completed.stderr,
             )
@@ -176,7 +208,7 @@ class SubprocessRuntimeExecutor:
                 error=ServiceError(
                     code="runtime_stdout_parse_failed",
                     message=transcript.summary,
-                    details={"returncode": 0},
+                    details={"returncode": 0, "failure_type": failure_type},
                 ),
             )
         transcript = RuntimeTranscript.from_payload(

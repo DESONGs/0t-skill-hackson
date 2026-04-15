@@ -5,6 +5,7 @@ from datetime import datetime
 import hashlib
 from typing import Any, Iterable
 
+from .archetype import NO_STABLE_ARCHETYPE
 from .models import StyleReviewDecision, WalletStyleProfile
 
 
@@ -99,6 +100,82 @@ def _hour_from_timestamp(value: Any) -> int | None:
     return parsed.hour
 
 
+def _extract_archetype_payload(preprocessed: dict[str, Any]) -> dict[str, Any]:
+    combined: dict[str, Any] = {}
+    derived_stats = dict(preprocessed.get("derived_stats") or {})
+    signal_context = dict(preprocessed.get("signal_context") or {})
+
+    for source in (
+        derived_stats.get("archetype"),
+        signal_context.get("archetype"),
+        preprocessed.get("archetype"),
+    ):
+        if isinstance(source, dict):
+            combined.update(source)
+
+    for key in (
+        "primary_archetype",
+        "secondary_archetypes",
+        "behavioral_patterns",
+        "archetype_confidence",
+        "evidence",
+        "token_preference",
+    ):
+        if key in derived_stats and key not in combined:
+            combined[key] = derived_stats.get(key)
+
+    if "confidence" in derived_stats and "archetype_confidence" not in combined:
+        combined["archetype_confidence"] = derived_stats.get("confidence")
+    if "archetype_evidence_summary" in derived_stats and "evidence" not in combined:
+        combined["evidence"] = derived_stats.get("archetype_evidence_summary")
+    if "archetype_token_preference" in derived_stats and "token_preference" not in combined:
+        combined["token_preference"] = derived_stats.get("archetype_token_preference")
+
+    return combined
+
+
+def _pattern_summaries(patterns: Any) -> tuple[str, ...]:
+    summaries: list[str] = []
+    for pattern in patterns or ():
+        if isinstance(pattern, dict):
+            label = str(pattern.get("pattern_label") or pattern.get("label") or pattern.get("name") or "").strip()
+            if not label:
+                continue
+            strength = _safe_float(pattern.get("strength"))
+            evidence = _unique_strings(pattern.get("evidence") or ())
+            summary = label
+            if strength is not None:
+                summary = f"{summary} ({strength:.2f})"
+            if evidence:
+                summary = f"{summary}: {'; '.join(evidence[:2])}"
+            summaries.append(summary)
+        else:
+            text = str(pattern or "").strip()
+            if text:
+                summaries.append(text)
+    return _unique_strings(summaries)
+
+
+def _archetype_metadata(archetype_payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "primary_archetype": str(
+            archetype_payload.get("primary_archetype")
+            or archetype_payload.get("primary_label")
+            or archetype_payload.get("trading_archetype")
+            or ""
+        ).strip(),
+        "secondary_archetypes": list(_unique_strings(archetype_payload.get("secondary_archetypes") or ())),
+        "behavioral_patterns": list(_pattern_summaries(archetype_payload.get("behavioral_patterns") or ())),
+        "archetype_confidence": _safe_float(
+            archetype_payload.get("archetype_confidence")
+            if archetype_payload.get("archetype_confidence") is not None
+            else archetype_payload.get("confidence")
+        ),
+        "evidence": list(_unique_strings(archetype_payload.get("evidence") or ())),
+        "token_preference": list(_unique_strings(archetype_payload.get("token_preference") or ())),
+    }
+
+
 class WalletStyleExtractor:
     def __init__(self, system_prompt: str = DEFAULT_EXTRACTION_PROMPT) -> None:
         self.system_prompt = system_prompt
@@ -120,12 +197,22 @@ class WalletStyleExtractor:
         stablecoin_allocation = _safe_float(stats.get("stablecoin_allocation_pct")) or 0.0
         risky_token_count = int(stats.get("risky_token_count") or 0)
         prompt_focus = _prompt_focus(prompt)
+        archetype_payload = _extract_archetype_payload(preprocessed)
+        archetype_metadata = _archetype_metadata(archetype_payload) if archetype_payload else {}
+        primary_archetype = str(archetype_metadata.get("primary_archetype") or "").strip()
+        secondary_archetypes = tuple(str(item) for item in archetype_metadata.get("secondary_archetypes") or () if str(item).strip())
+        behavioral_patterns = tuple(str(item) for item in archetype_metadata.get("behavioral_patterns") or () if str(item).strip())
+        archetype_evidence = tuple(str(item) for item in archetype_metadata.get("evidence") or () if str(item).strip())
+        archetype_token_preference = tuple(str(item) for item in archetype_metadata.get("token_preference") or () if str(item).strip())
+        archetype_confidence = archetype_metadata.get("archetype_confidence")
 
         dominant_actions = _unique_strings(stats.get("dominant_actions") or ())
         if not dominant_actions:
             dominant_actions = ("watch",)
         preferred_tokens = _unique_strings(stats.get("preferred_tokens") or ())
-        if not preferred_tokens:
+        if archetype_token_preference:
+            preferred_tokens = archetype_token_preference
+        elif not preferred_tokens:
             preferred_tokens = (_fallback_bucket(wallet, ("ALPHA", "BETA", "USDT")),)
 
         hours = [
@@ -178,10 +265,17 @@ class WalletStyleExtractor:
 
         action_headline = " / ".join(dominant_actions[:2])
         token_headline = ", ".join(preferred_tokens[:3])
+        archetype_headline = primary_archetype or f"{risk_appetite}-{execution_tempo.replace(' ', '-')}"
         summary = (
-            f"{wallet} on {chain} trades with {execution_tempo}, leans {risk_appetite}, "
-            f"shows {conviction_profile}, and most often acts through {action_headline} around {token_headline}."
+            f"{wallet} on {chain} maps to {archetype_headline}, trades with {execution_tempo}, "
+            f"leans {risk_appetite}, shows {conviction_profile}, and most often acts through {action_headline} "
+            f"around {token_headline}."
         )
+        if primary_archetype == NO_STABLE_ARCHETYPE:
+            summary = (
+                f"{wallet} on {chain} currently shows no stable archetype, with insufficient pattern stability "
+                f"to project a reusable wallet skill yet."
+            )
 
         sizing_note = (
             f"Typical recent ticket is about ${avg_ticket:,.0f}, against an observed balance near ${balance_usd:,.0f}."
@@ -189,8 +283,19 @@ class WalletStyleExtractor:
             else "Observed activity is sparse, so sizing should stay conservative until more trades are seen."
         )
 
+        archetype_rules: list[str] = []
+        if primary_archetype:
+            archetype_rules.append(f"Honor archetype signal: {primary_archetype}.")
+        if secondary_archetypes:
+            archetype_rules.append(f"Secondary archetypes observed: {', '.join(secondary_archetypes[:3])}.")
+        if behavioral_patterns:
+            archetype_rules.append(f"Behavioral patterns observed: {', '.join(behavioral_patterns[:3])}.")
+        if archetype_evidence:
+            archetype_rules.append(f"Evidence signals: {', '.join(archetype_evidence[:3])}.")
+
         execution_rules = _unique_strings(
             (
+                *archetype_rules,
                 f"Bias decisions toward {action_headline} setups instead of all-market participation.",
                 f"Keep focus on {token_headline} when selecting tokens to imitate this wallet.",
                 f"Respect a {stablecoin_bias} capital posture before increasing exposure.",
@@ -207,25 +312,42 @@ class WalletStyleExtractor:
             )
         )
 
-        confidence = 0.32
-        confidence += min(activity_count, 6) * 0.07
-        confidence += min(len(preferred_tokens), 3) * 0.05
-        confidence += 0.08 if top_allocation > 0 else 0.0
-        confidence += 0.08 if avg_ticket > 0 else 0.0
-        confidence = max(0.25, min(confidence, 0.94))
+        heuristic_confidence = 0.32
+        heuristic_confidence += min(activity_count, 6) * 0.07
+        heuristic_confidence += min(len(preferred_tokens), 3) * 0.05
+        heuristic_confidence += 0.08 if top_allocation > 0 else 0.0
+        heuristic_confidence += 0.08 if avg_ticket > 0 else 0.0
+        heuristic_confidence = max(0.25, min(heuristic_confidence, 0.94))
 
+        confidence = archetype_confidence if archetype_confidence is not None else heuristic_confidence
         review_status = "generate"
-        if confidence < 0.55:
+        should_generate_candidate = True
+        if primary_archetype == NO_STABLE_ARCHETYPE:
+            should_generate_candidate = False
+            if activity_count <= 1:
+                review_status = "insufficient_signal"
+            else:
+                review_status = "no_pattern_detected"
+        elif confidence < 0.55:
             review_status = "generate_with_low_confidence"
-        if activity_count == 0 and top_allocation == 0:
+        elif activity_count == 0 and top_allocation == 0:
             review_status = "needs_manual_review"
 
         review = StyleReviewDecision(
             status=review_status,
-            should_generate_candidate=True,
+            should_generate_candidate=should_generate_candidate,
             reasoning=(
                 f"Detected {activity_count} recent actions, {len(preferred_tokens)} focus tokens, "
-                f"and confidence {confidence:.2f}; enough for MVP skill generation."
+                f"and confidence {confidence:.2f}; "
+                + (
+                    "no stable archetype was detected, so the wallet needs more signal before generating a candidate."
+                    if primary_archetype == NO_STABLE_ARCHETYPE and activity_count <= 1
+                    else "no stable archetype was detected, but the observed behavior still lacks a reusable pattern."
+                    if primary_archetype == NO_STABLE_ARCHETYPE
+                    else "enough for MVP skill generation."
+                    if should_generate_candidate
+                    else "insufficient evidence to generate a reusable candidate."
+                )
             ),
             nudge_prompt=(
                 "Review whether this wallet-style profile should become a reusable skill. "
@@ -236,12 +358,13 @@ class WalletStyleExtractor:
                 "activity_count": activity_count,
                 "top_holding_allocation_pct": top_allocation,
                 "stablecoin_allocation_pct": stablecoin_allocation,
+                "archetype": archetype_metadata,
             },
         )
         profile = WalletStyleProfile(
             wallet=wallet,
             chain=chain,
-            style_label=f"{risk_appetite}-{execution_tempo.replace(' ', '-')}",
+            style_label=primary_archetype or f"{risk_appetite}-{execution_tempo.replace(' ', '-')}",
             summary=summary,
             confidence=confidence,
             execution_tempo=execution_tempo,
@@ -260,6 +383,7 @@ class WalletStyleExtractor:
                 "top_holding_allocation_pct": top_allocation,
                 "stablecoin_allocation_pct": stablecoin_allocation,
                 "avg_activity_usd": avg_ticket,
+                "archetype": archetype_metadata,
             },
         )
         return profile, review

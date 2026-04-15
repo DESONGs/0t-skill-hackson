@@ -38,8 +38,13 @@ from .context import (
     StageArtifactStore,
     hash_payload,
 )
+from .archetype import classify_archetype
 from .extractors import DEFAULT_EXTRACTION_PROMPT, WalletStyleExtractor
 from .models import ExecutionIntent, StrategyCondition, StrategySpec, StyleDistillationSummary
+from .reflection_builders import (
+    build_fallback_execution_intent as _build_fallback_execution_intent,
+    build_fallback_strategy_spec as _build_fallback_strategy_spec,
+)
 from .backtesting import run_backtest
 from .market_context import (
     MacroContext,
@@ -481,6 +486,20 @@ _STAGE_ORDER = (
     "skill_build",
     "execution_outcome",
 )
+_REVIEW_STATUS_ALIASES = {
+    "low_confidence": "generate_with_low_confidence",
+    "manual-review": "needs_manual_review",
+    "manual_review": "needs_manual_review",
+    "no_pattern": "no_pattern_detected",
+    "runtime_error": "runtime_failed",
+}
+_GENERATING_REVIEW_STATUSES = {"generate", "generate_with_low_confidence"}
+_NON_GENERATING_REVIEW_STATUSES = {
+    "insufficient_signal",
+    "needs_manual_review",
+    "no_pattern_detected",
+    "runtime_failed",
+}
 
 
 def _unique_context_sources(*groups: list[dict[str, Any]] | tuple[dict[str, Any], ...]) -> list[dict[str, Any]]:
@@ -510,6 +529,73 @@ def _truncate_text(value: Any, *, max_chars: int) -> Any:
 def _is_generic_memory_summary(value: Any) -> bool:
     lowered = str(value or "").strip().lower()
     return any(marker in lowered for marker in _GENERIC_MEMORY_MARKERS)
+
+
+def _normalize_review_status_value(status: Any, *, should_generate_candidate: Any = None) -> str:
+    normalized = str(status or "").strip().lower()
+    normalized = _REVIEW_STATUS_ALIASES.get(normalized, normalized)
+    if normalized in _GENERATING_REVIEW_STATUSES | _NON_GENERATING_REVIEW_STATUSES:
+        return normalized
+    return "generate" if bool(should_generate_candidate) else "needs_manual_review"
+
+
+def _review_generation_decision(review_payload: Mapping[str, Any]) -> dict[str, Any]:
+    status = _normalize_review_status_value(
+        review_payload.get("status"),
+        should_generate_candidate=review_payload.get("should_generate_candidate"),
+    )
+    should_generate_candidate = status in _GENERATING_REVIEW_STATUSES
+    return {
+        "status": status,
+        "should_generate_candidate": should_generate_candidate,
+        "skip_generation": not should_generate_candidate,
+    }
+
+
+def _skipped_candidate_artifacts(*, target_skill_name: str, review_status: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, str]]:
+    summary = f"Candidate generation skipped because review.status={review_status}."
+    candidate = {
+        "candidate_id": None,
+        "candidate_type": "script",
+        "target_skill_name": target_skill_name,
+        "target_skill_kind": "wallet_style",
+        "status": "skipped",
+        "summary": summary,
+    }
+    package = {
+        "status": "skipped",
+        "summary": summary,
+    }
+    validation = {
+        "status": "skipped",
+        "summary": summary,
+        "checks": [],
+        "issues": [],
+    }
+    promotion = {
+        "promotion_id": None,
+        "package_root": None,
+        "status": "skipped",
+        "summary": summary,
+    }
+    smoke = {
+        "ok": False,
+        "skipped": True,
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "parsed_output": {
+            "summary": summary,
+            "execution_readiness": "blocked_by_review_status",
+            "metadata": {
+                "review_status": review_status,
+                "skip_reason": "candidate_generation_disabled",
+            },
+        },
+        "summary": summary,
+        "execution_readiness": "blocked_by_review_status",
+    }
+    return candidate, package, validation, promotion, smoke, {}
 
 
 def _trim_focus_market_context(items: list[Any], *, limit: int, minimal: bool = False) -> list[dict[str, Any]]:
@@ -567,6 +653,10 @@ def _trim_compact_payload(payload: dict[str, Any], *, list_limit: int, minimal_m
         "dominant_actions",
         "preferred_tokens",
         "top_quote_tokens",
+        "secondary_archetypes",
+        "behavioral_patterns",
+        "archetype_token_preference",
+        "archetype_evidence_summary",
         "derived_memory_preferred_tokens",
         "derived_memory_active_windows",
         "derived_memory_summary",
@@ -578,6 +668,35 @@ def _trim_compact_payload(payload: dict[str, Any], *, list_limit: int, minimal_m
     if isinstance(derived_stats.get("burst_profile"), str):
         derived_stats["burst_profile"] = _truncate_text(derived_stats.get("burst_profile"), max_chars=80)
     compact["derived_stats"] = derived_stats
+    if isinstance(compact.get("behavioral_patterns"), list):
+        compact["behavioral_patterns"] = [
+            {
+                "pattern_label": item.get("pattern_label"),
+                "strength": item.get("strength"),
+                "evidence": list(item.get("evidence") or [])[:2],
+            }
+            for item in compact.get("behavioral_patterns", [])[: max(1, min(list_limit, 3))]
+            if isinstance(item, dict)
+        ]
+    archetype = dict(compact.get("archetype") or {})
+    if archetype:
+        if isinstance(archetype.get("secondary_archetypes"), list):
+            archetype["secondary_archetypes"] = archetype["secondary_archetypes"][: max(1, min(list_limit, 3))]
+        if isinstance(archetype.get("evidence"), list):
+            archetype["evidence"] = [_truncate_text(item, max_chars=80) for item in archetype["evidence"][: max(1, min(list_limit, 3))]]
+        if isinstance(archetype.get("token_preference"), list):
+            archetype["token_preference"] = archetype["token_preference"][: max(1, min(list_limit, 3))]
+        if isinstance(archetype.get("behavioral_patterns"), list):
+            archetype["behavioral_patterns"] = [
+                {
+                    "pattern_label": item.get("pattern_label"),
+                    "strength": item.get("strength"),
+                    "evidence": list(item.get("evidence") or [])[:2],
+                }
+                for item in archetype.get("behavioral_patterns", [])[: max(1, min(list_limit, 3))]
+                if isinstance(item, dict)
+            ]
+        compact["archetype"] = archetype
     wallet_summary = dict(compact.get("wallet_summary") or {})
     for key, value in list(wallet_summary.items()):
         wallet_summary[key] = _truncate_text(value, max_chars=80)
@@ -594,6 +713,7 @@ def _minimal_compact_payload(payload: dict[str, Any]) -> dict[str, Any]:
     market_context = dict(compact.get("market_context") or {})
     signal_context = dict(compact.get("signal_context") or {})
     derived_stats = dict(compact.get("derived_stats") or {})
+    archetype = dict(compact.get("archetype") or {})
     return {
         "wallet": compact.get("wallet"),
         "chain": compact.get("chain"),
@@ -624,12 +744,41 @@ def _minimal_compact_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "active_signals": signal_context.get("active_signals"),
             "high_severity_count": signal_context.get("high_severity_count"),
         },
+        "behavioral_patterns": [
+            {
+                "pattern_label": item.get("pattern_label"),
+                "strength": item.get("strength"),
+                "evidence": list(item.get("evidence") or [])[:2],
+            }
+            for item in list(compact.get("behavioral_patterns") or [])[:3]
+            if isinstance(item, dict)
+        ],
+        "archetype": {
+            "primary_label": archetype.get("primary_label"),
+            "secondary_archetypes": list(archetype.get("secondary_archetypes") or [])[:3],
+            "confidence": archetype.get("confidence"),
+            "evidence": list(archetype.get("evidence") or [])[:3],
+            "token_preference": list(archetype.get("token_preference") or [])[:3],
+            "behavioral_patterns": [
+                {
+                    "pattern_label": item.get("pattern_label"),
+                    "strength": item.get("strength"),
+                }
+                for item in list(archetype.get("behavioral_patterns") or [])[:3]
+                if isinstance(item, dict)
+            ],
+        },
         "derived_stats": {
             "activity_count": derived_stats.get("activity_count"),
             "buy_count": derived_stats.get("buy_count"),
             "sell_count": derived_stats.get("sell_count"),
             "preferred_tokens": list(derived_stats.get("preferred_tokens") or [])[:3],
             "top_quote_tokens": list(derived_stats.get("top_quote_tokens") or [])[:3],
+            "primary_archetype": derived_stats.get("primary_archetype"),
+            "secondary_archetypes": list(derived_stats.get("secondary_archetypes") or [])[:3],
+            "behavioral_patterns": list(derived_stats.get("behavioral_patterns") or [])[:3],
+            "archetype_confidence": derived_stats.get("archetype_confidence"),
+            "archetype_evidence_summary": list(derived_stats.get("archetype_evidence_summary") or [])[:3],
             "avg_activity_usd": derived_stats.get("avg_activity_usd"),
             "largest_activity_usd": derived_stats.get("largest_activity_usd"),
             "top_holding_symbol": derived_stats.get("top_holding_symbol"),
@@ -644,6 +793,12 @@ def _minimal_compact_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "loss_tolerance_label": derived_stats.get("loss_tolerance_label"),
             "averaging_pattern": derived_stats.get("averaging_pattern"),
             "avg_position_splits": derived_stats.get("avg_position_splits"),
+            "trades_per_day": derived_stats.get("trades_per_day"),
+            "open_position_ratio": derived_stats.get("open_position_ratio"),
+            "pnl_multiplier_max": derived_stats.get("pnl_multiplier_max"),
+            "pnl_multiplier_median": derived_stats.get("pnl_multiplier_median"),
+            "small_cap_trade_ratio": derived_stats.get("small_cap_trade_ratio"),
+            "profit_add_ratio": derived_stats.get("profit_add_ratio"),
             "burst_profile": derived_stats.get("burst_profile"),
             "active_windows": list(derived_stats.get("active_windows") or [])[:3],
         },
@@ -781,11 +936,53 @@ def _try_salvage_from_raw_text(raw_output: Mapping[str, Any]) -> dict[str, Any] 
     return None
 
 
-def _serialize_trade_pairing(completed_trades: list[Any], open_positions: list[Any], statistics: Any) -> dict[str, Any]:
-    return {
+def _serialize_trade_pairing(
+    completed_trades: list[Any],
+    open_positions: list[Any],
+    statistics: Any,
+    *,
+    archetype: Any | None = None,
+) -> dict[str, Any]:
+    payload = {
         "completed_trades": [item.to_dict() for item in completed_trades],
         "open_positions": [item.to_dict() for item in open_positions],
         "statistics": statistics.to_dict(),
+    }
+    if archetype is not None:
+        payload["archetype"] = archetype.to_dict() if hasattr(archetype, "to_dict") else _json_safe(archetype)
+    return payload
+
+
+def _archetype_metadata_fields(payload: dict[str, Any] | None) -> dict[str, Any]:
+    archetype = dict(payload or {})
+    primary_archetype = str(archetype.get("primary_label") or archetype.get("trading_archetype") or "").strip()
+    secondary_archetypes = [
+        str(item).strip()
+        for item in list(archetype.get("secondary_archetypes") or [])
+        if str(item).strip()
+    ][:3]
+    behavioral_patterns: list[str] = []
+    for item in list(archetype.get("behavioral_patterns") or [])[:4]:
+        label = str(item.get("pattern_label") or "").strip() if isinstance(item, dict) else str(item or "").strip()
+        if label:
+            behavioral_patterns.append(label)
+    evidence = [
+        str(item).strip()
+        for item in list(archetype.get("evidence") or [])
+        if str(item).strip()
+    ][:5]
+    token_preference = [
+        str(item).strip()
+        for item in list(archetype.get("token_preference") or [])
+        if str(item).strip()
+    ][:4]
+    return {
+        "primary_archetype": primary_archetype,
+        "secondary_archetypes": secondary_archetypes,
+        "behavioral_patterns": behavioral_patterns,
+        "archetype_confidence": archetype.get("confidence", 0.0),
+        "archetype_evidence_summary": evidence,
+        "archetype_token_preference": token_preference,
     }
 
 
@@ -1002,6 +1199,7 @@ def _preprocess_wallet_data(
     enrich_warnings: list[dict[str, Any]] | None = None,
     derived_memory: list[dict[str, Any]] | None = None,
     trade_statistics: dict[str, Any] | None = None,
+    archetype: dict[str, Any] | None = None,
     market_contexts: list[dict[str, Any]] | None = None,
     macro_context: dict[str, Any] | None = None,
     entry_factors: list[dict[str, Any]] | None = None,
@@ -1081,6 +1279,29 @@ def _preprocess_wallet_data(
     }
     filtered_signals = _filter_signals(signals, focus_tokens=focus_token_payload, preferred_symbols=preferred_symbols)
     trade_stats = dict(trade_statistics or {})
+    archetype_payload = dict(archetype or {})
+    raw_behavioral_patterns = [dict(item) for item in list(archetype_payload.get("behavioral_patterns") or []) if isinstance(item, dict)]
+    behavioral_pattern_labels = [
+        str(item.get("pattern_label") or "").strip()
+        for item in raw_behavioral_patterns
+        if str(item.get("pattern_label") or "").strip()
+    ]
+    primary_archetype = str(archetype_payload.get("primary_label") or archetype_payload.get("trading_archetype") or "").strip()
+    secondary_archetypes = [
+        str(item).strip()
+        for item in list(archetype_payload.get("secondary_archetypes") or [])
+        if str(item).strip()
+    ]
+    archetype_evidence = [
+        str(item).strip()
+        for item in list(archetype_payload.get("evidence") or [])
+        if str(item).strip()
+    ]
+    archetype_token_preference = [
+        str(item).strip()
+        for item in list(archetype_payload.get("token_preference") or [])
+        if str(item).strip()
+    ]
     signal_context = {
         "top_entry_factors": [],
         "hard_blocks": [],
@@ -1133,6 +1354,20 @@ def _preprocess_wallet_data(
         "recent_activity": recent_activity[:8],
         "recent_trade_samples": recent_activity[:8],
         "focus_tokens": focus_token_payload,
+        "behavioral_patterns": raw_behavioral_patterns[:4],
+        "archetype": {
+            "trading_archetype": archetype_payload.get("trading_archetype") or primary_archetype,
+            "primary_label": primary_archetype,
+            "secondary_archetypes": secondary_archetypes[:3],
+            "behavioral_patterns": raw_behavioral_patterns[:4],
+            "confidence": archetype_payload.get("confidence", 0.0),
+            "evidence": archetype_evidence[:5],
+            "token_preference": archetype_token_preference[:4],
+            "trades_per_day": archetype_payload.get("trades_per_day", trade_stats.get("trades_per_day", 0.0)),
+            "open_position_ratio": archetype_payload.get("open_position_ratio", trade_stats.get("open_position_ratio", 0.0)),
+            "pnl_multiplier_max": archetype_payload.get("pnl_multiplier_max", trade_stats.get("pnl_multiplier_max", 0.0)),
+            "pnl_multiplier_median": archetype_payload.get("pnl_multiplier_median", trade_stats.get("pnl_multiplier_median", 0.0)),
+        },
         "token_snapshots": compact_tokens[:4],
         "signals": filtered_signals[:5],
         "market_context": {
@@ -1174,6 +1409,22 @@ def _preprocess_wallet_data(
             "loss_tolerance_label": trade_stats.get("loss_tolerance_label", "unknown"),
             "averaging_pattern": trade_stats.get("averaging_pattern", "none"),
             "avg_position_splits": trade_stats.get("avg_position_splits", 0.0),
+            "trades_per_day": trade_stats.get("trades_per_day", 0.0),
+            "open_position_ratio": trade_stats.get("open_position_ratio", 0.0),
+            "pnl_multiplier_max": trade_stats.get("pnl_multiplier_max", 0.0),
+            "pnl_multiplier_median": trade_stats.get("pnl_multiplier_median", 0.0),
+            "profitable_avg_holding_seconds": trade_stats.get("profitable_avg_holding_seconds", 0.0),
+            "losing_avg_holding_seconds": trade_stats.get("losing_avg_holding_seconds", 0.0),
+            "profit_reinvestment_rate": trade_stats.get("profit_reinvestment_rate", 0.0),
+            "first_buy_avg_mcap_usd": trade_stats.get("first_buy_avg_mcap_usd", 0.0),
+            "small_cap_trade_ratio": trade_stats.get("small_cap_trade_ratio", 0.0),
+            "profit_add_ratio": trade_stats.get("profit_add_ratio", 0.0),
+            "primary_archetype": primary_archetype,
+            "secondary_archetypes": secondary_archetypes[:3],
+            "behavioral_patterns": behavioral_pattern_labels[:4],
+            "archetype_confidence": archetype_payload.get("confidence", 0.0),
+            "archetype_evidence_summary": archetype_evidence[:5],
+            "archetype_token_preference": archetype_token_preference[:4],
         },
         "enrichment": {
             "token_profile_count": len(token_profiles),
@@ -1188,113 +1439,78 @@ def _reflection_mock_enabled() -> bool:
     return str(os.getenv("OT_PI_REFLECTION_MOCK") or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _mock_behavioral_pattern_labels(preprocessed: Mapping[str, Any]) -> list[str]:
+    labels: list[str] = []
+    for item in list(preprocessed.get("behavioral_patterns") or []):
+        if isinstance(item, dict):
+            label = str(item.get("pattern_label") or "").strip()
+        else:
+            label = str(item or "").strip()
+        if label:
+            labels.append(label)
+    if labels:
+        return labels
+    archetype_payload = dict(preprocessed.get("archetype") or {})
+    for item in list(archetype_payload.get("behavioral_patterns") or []):
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("pattern_label") or "").strip()
+        if label:
+            labels.append(label)
+    return labels
+
+
+def _build_mock_minimal_reflection_response(
+    *,
+    wallet: str,
+    chain: str,
+    preprocessed: Mapping[str, Any],
+    prompt: str,
+) -> dict[str, Any]:
+    extractor = WalletStyleExtractor()
+    mock_profile, mock_review = extractor.extract(dict(preprocessed), system_prompt=prompt)
+    mock_strategy = _fallback_strategy_spec(dict(preprocessed), mock_profile.to_dict())
+    archetype_payload = dict(preprocessed.get("archetype") or {})
+    profile_archetype = dict(mock_profile.metadata.get("archetype") or {})
+    primary_archetype = (
+        str(archetype_payload.get("primary_label") or "").strip()
+        or str(profile_archetype.get("primary_archetype") or "").strip()
+        or str(mock_profile.style_label)
+    )
+    secondary_archetypes = list(archetype_payload.get("secondary_archetypes") or profile_archetype.get("secondary_archetypes") or [])
+    behavioral_patterns = _mock_behavioral_pattern_labels(preprocessed)
+    return {
+        "wallet": wallet,
+        "chain": chain,
+        "style_label": str(mock_profile.style_label),
+        "summary": str(mock_profile.summary),
+        "primary_archetype": primary_archetype,
+        "secondary_archetypes": secondary_archetypes,
+        "behavioral_patterns": behavioral_patterns,
+        "archetype_confidence": archetype_payload.get("confidence") or profile_archetype.get("archetype_confidence"),
+        "archetype_evidence_summary": list(archetype_payload.get("evidence") or profile_archetype.get("archetype_evidence_summary") or []),
+        "dominant_actions": list(mock_profile.dominant_actions),
+        "preferred_tokens": list(mock_profile.preferred_tokens),
+        "active_windows": list(mock_profile.active_windows),
+        "risk_flags": list(mock_strategy.risk_controls),
+        "setup_label": str(mock_strategy.setup_label),
+        "setup_summary": str(mock_strategy.summary),
+        "entry_signals": [str(item.condition) for item in tuple(mock_strategy.entry_conditions)[:2]],
+        "prompt_focus": list(mock_profile.prompt_focus),
+        "review_status": str(mock_review.status),
+        "should_generate_candidate": bool(mock_review.should_generate_candidate),
+        "reasoning": str(mock_review.reasoning),
+        "nudge_prompt": str(mock_review.nudge_prompt),
+        "metadata": {"source_contract": "minimal_mock"},
+    }
+
+
 def _fallback_strategy_spec(preprocessed: dict[str, Any], profile_payload: dict[str, Any]) -> StrategySpec:
-    derived = dict(preprocessed.get("derived_stats") or {})
-    signal_context = dict(preprocessed.get("signal_context") or {})
-    market_context = dict(preprocessed.get("market_context") or {})
-    buy_tokens = list(derived.get("preferred_tokens") or [])
-    factor_hints = [item for item in signal_context.get("top_entry_factors") or [] if isinstance(item, dict)]
-    entry_conditions = (
-        StrategyCondition(
-            condition=f"market_bias in ['bullish','range'] and candidate_token in {buy_tokens or ['watchlist']}",
-            data_source="ave.compact_input.derived_stats",
-            weight=0.82,
-            rationale="Prefer the same rotated token set and market regime seen in AVE trade samples.",
-            metadata={"preferred_tokens": buy_tokens, "market_context": market_context.get("macro")},
-        ),
-        StrategyCondition(
-            condition=f"burst_profile == '{derived.get('burst_profile') or 'staggered'}'",
-            data_source="ave.compact_input.derived_stats",
-            weight=0.68,
-            rationale="Keep execution cadence aligned with observed wallet burst profile.",
-            metadata={"burst_profile": derived.get("burst_profile")},
-        ),
-        *(
-            StrategyCondition(
-                condition=f"entry_factor == '{item.get('factor_type')}'",
-                data_source="ave.signal_context.top_entry_factors",
-                weight=float(item.get("confidence") or 0.5),
-                rationale=str(item.get("description") or "Observed profitable entry pattern."),
-                metadata=dict(item),
-            )
-            for item in factor_hints[:2]
-        ),
-    )
-    return StrategySpec(
-        setup_label=str(profile_payload.get("style_label") or "wallet-style-setup"),
-        summary=str(profile_payload.get("summary") or "Derived AVE wallet-style strategy."),
-        entry_conditions=entry_conditions,
-        exit_conditions={
-            "stop_loss_model": "soft-percent",
-            "stop_loss_pct": 12,
-            "take_profit_model": "ladder",
-            "take_profit_targets": [
-                {"pct_gain": 18, "size_pct": 0.5},
-                {"pct_gain": 35, "size_pct": 0.5},
-            ],
-        },
-        position_sizing={
-            "model": "split_by_observed_leg_size",
-            "max_position_pct": 12,
-            "split_legs": True,
-            "leg_count": max(1, int(derived.get("focus_token_count") or 1)),
-        },
-        risk_controls=tuple(profile_payload.get("anti_patterns") or ()),
-        preferred_setups=tuple(buy_tokens),
-        invalidation_rules=("block_if_security_scan_fails",),
-        metadata={"source": "fallback", "entry_factors": factor_hints, "market_context": market_context},
-    )
+    return _build_fallback_strategy_spec(preprocessed, profile_payload)
 
 
 def _fallback_execution_intent(preprocessed: dict[str, Any], strategy: StrategySpec) -> ExecutionIntent:
-    derived = dict(preprocessed.get("derived_stats") or {})
-    route_preferences = tuple(derived.get("top_quote_tokens") or ("USDC", "USDT"))
-    position_sizing = dict(strategy.position_sizing or {})
-    metadata = {
-        "chain": preprocessed.get("chain"),
-        "source": "fallback",
-    }
-    token_catalog: dict[str, dict[str, Any]] = {}
-    for collection_name in ("focus_tokens", "holdings", "recent_activity"):
-        for item in list(preprocessed.get(collection_name) or []):
-            if not isinstance(item, dict):
-                continue
-            symbol = str(item.get("symbol") or "").strip().upper()
-            token_address = _safe_text(item.get("token_address"))
-            if not symbol or symbol in token_catalog:
-                continue
-            token_catalog[symbol] = {
-                "symbol": symbol,
-                "token_address": token_address.lower() if _is_evm_address(token_address) else token_address,
-            }
-    source_defaults = _execution_chain_defaults(preprocessed.get("chain"))
-    if not source_defaults:
-        for candidate in derived.get("top_quote_tokens") or []:
-            symbol = str(candidate or "").strip().upper()
-            token_address = _safe_text(dict(token_catalog.get(symbol) or {}).get("token_address"))
-            if symbol and token_address:
-                source_defaults = {
-                    "default_source_token": symbol,
-                    "default_source_token_address": token_address,
-                }
-                break
-    metadata.update({key: value for key, value in source_defaults.items() if value})
-    chain_defaults = _execution_chain_defaults(preprocessed.get("chain"))
-    metadata.setdefault("default_source_token", chain_defaults.get("default_source_token"))
-    metadata.setdefault("default_source_token_address", chain_defaults.get("default_source_token_address"))
-    metadata.setdefault("default_source_unit_price_usd", chain_defaults.get("default_source_unit_price_usd"))
-    return ExecutionIntent(
-        adapter="onchainos_cli",
-        mode="dry_run_ready",
-        preferred_workflow="swap_execute",
-        preflight_checks=("security_token_scan",),
-        route_preferences=route_preferences,
-        split_legs=bool(position_sizing.get("split_legs")),
-        leg_count=max(1, int(position_sizing.get("leg_count") or 1)),
-        max_position_pct=_safe_float(position_sizing.get("max_position_pct")),
-        requires_explicit_approval=True,
-        metadata=metadata,
-    )
+    return _build_fallback_execution_intent(preprocessed, strategy)
 
 
 class WalletStyleDistillationService:
@@ -1660,11 +1876,14 @@ class WalletStyleDistillationService:
             "Return strict JSON only.",
             f"Use wallet exactly {wallet}.",
             f"Use chain exactly {chain}.",
-            "Do not emit generic placeholders such as balanced/default/generic/neutral.",
-            "profile must include concrete dominant_actions, preferred_tokens, and execution_rules.",
+            "Produce only the minimal distill contract; Python will assemble the final profile, strategy, and execution intent.",
+            "Use derived_stats.primary_archetype, secondary_archetypes, behavioral_patterns, archetype_confidence, and archetype_evidence_summary as the primary taxonomy when present.",
+            "Legal review_status values are generate, generate_with_low_confidence, insufficient_signal, no_pattern_detected, needs_manual_review, and runtime_failed.",
+            "insufficient_signal, no_pattern_detected, and needs_manual_review are successful outcomes and should not fabricate a strong setup.",
+            "If you are unsure, keep optional fields empty and still return valid wallet-specific JSON.",
         ]
         if retry:
-            constraints.append("The previous reflection output was rejected for being too generic or inconsistent. Correct the listed issues directly.")
+            constraints.append("The previous attempt failed. Keep the response shorter and preserve only wallet-specific evidence.")
         return tuple(constraints)
 
     def _reflection_retry_hint_payload(self, *, error: Exception, attempt: int) -> dict[str, Any]:
@@ -1697,17 +1916,12 @@ class WalletStyleDistillationService:
         last_result: ReflectionJobResult | None = None
         last_spec = None
         last_envelope = None
-        deterministic_execution_intent = _fallback_execution_intent(
-            preprocessed,
-            _fallback_strategy_spec(preprocessed, {}),
-        )
-        for attempt in range(2):
+        for attempt in range(3):
             attempt_review_hints = list(base_review_hints)
             retry_reason = None
             if attempt > 0 and last_error is not None:
-                attempt_review_hints.append(self._reflection_retry_hint_payload(error=last_error, attempt=attempt))
+                attempt_review_hints.append(self._reflection_retry_hint_payload(error=last_error, attempt=attempt + 1))
                 retry_reason = str(last_error)
-            reflection_payload = preprocessed if attempt == 0 else _minimal_compact_payload(preprocessed)
             envelope = self.context_assembler.build_reflection_envelope(
                 wallet=wallet,
                 chain=chain,
@@ -1720,7 +1934,7 @@ class WalletStyleDistillationService:
                 wallet=wallet,
                 chain=chain,
                 prompt=prompt,
-                preprocessed=reflection_payload,
+                preprocessed=preprocessed,
                 artifacts_dir=artifacts_dir,
             )
             reflection_spec.injected_context = envelope.to_dict()
@@ -1728,61 +1942,44 @@ class WalletStyleDistillationService:
             last_result = reflection_result
             last_spec = reflection_spec
             last_envelope = envelope
-            try:
-                reflection_report = parse_wallet_style_review_report(
-                    reflection_result.normalized_output,
-                    wallet=wallet,
-                    chain=chain,
-                    execution_intent=deterministic_execution_intent,
-                )
-                return (
-                    reflection_report.profile,
-                    reflection_report.strategy,
-                    reflection_report.execution_intent,
-                    reflection_report.review,
-                    reflection_result,
-                    reflection_spec,
-                    envelope,
-                    False,
-                    reflection_result.review_backend,
-                )
-            except (ReflectionQualityError, ValueError) as exc:
-                last_error = exc
-                if attempt == 0:
-                    continue
-                break
-            except Exception as exc:  # noqa: BLE001
-                last_error = exc
-                break
-
-        if last_result is not None and last_spec is not None and last_envelope is not None:
-            salvaged_output = _try_salvage_from_raw_text(last_result.raw_output)
-            if salvaged_output is not None:
+            candidate_outputs: list[tuple[dict[str, Any], bool]] = []
+            if isinstance(reflection_result.normalized_output, dict):
+                candidate_outputs.append((dict(reflection_result.normalized_output), False))
+            salvaged_output = _try_salvage_from_raw_text(reflection_result.raw_output)
+            if salvaged_output is not None and salvaged_output != reflection_result.normalized_output:
+                candidate_outputs.append((salvaged_output, True))
+            for candidate_output, salvaged in candidate_outputs:
                 try:
                     reflection_report = parse_wallet_style_review_report(
-                        salvaged_output,
+                        candidate_output,
                         wallet=wallet,
                         chain=chain,
-                        execution_intent=deterministic_execution_intent,
+                        preprocessed=preprocessed,
+                        prompt=prompt,
                     )
-                    last_result.normalized_output = salvaged_output
-                    last_result.metadata = {
-                        **dict(last_result.metadata or {}),
-                        "raw_text_salvaged": True,
-                    }
+                    reflection_result.normalized_output = reflection_report.normalized_output
+                    if salvaged:
+                        reflection_result.metadata = {
+                            **dict(reflection_result.metadata or {}),
+                            "raw_text_salvaged": True,
+                        }
                     return (
                         reflection_report.profile,
                         reflection_report.strategy,
                         reflection_report.execution_intent,
                         reflection_report.review,
-                        last_result,
-                        last_spec,
-                        last_envelope,
+                        reflection_result,
+                        reflection_spec,
+                        envelope,
                         False,
-                        last_result.review_backend,
+                        reflection_result.review_backend,
                     )
-                except (ReflectionQualityError, ValueError):
-                    pass
+                except (ReflectionQualityError, ValueError) as exc:
+                    last_error = exc
+                    continue
+                except Exception as exc:  # noqa: BLE001
+                    last_error = exc
+                    break
 
         profile, review = extractor.extract(preprocessed, system_prompt=prompt)
         strategy = _fallback_strategy_spec(preprocessed, profile.to_dict())
@@ -1852,6 +2049,13 @@ class WalletStyleDistillationService:
 
     def _select_derived_memories(self, wallet: str, chain: str, *, limit: int = 1) -> list[dict[str, Any]]:
         recalled = self.derived_memory_store.recall(wallet, chain, limit=10)
+        recalled.sort(
+            key=lambda item: (
+                float(item.get("memory_weight") or 0.0),
+                str(item.get("created_at") or ""),
+            ),
+            reverse=True,
+        )
         selected: list[dict[str, Any]] = []
         seen_summaries: set[str] = set()
         for item in recalled:
@@ -1862,11 +2066,21 @@ class WalletStyleDistillationService:
                 continue
             payload = dict(item.get("payload") or {})
             style_label = str(payload.get("style_label") or "").strip().lower()
-            if style_label in {"balanced", "default", "generic", "neutral"}:
+            primary_archetype = str(payload.get("primary_archetype") or "").strip().lower()
+            review_status = _normalize_review_status_value(
+                item.get("review_status") or payload.get("review_status") or payload.get("status")
+            )
+            label_marker = primary_archetype or style_label
+            if label_marker in {"balanced", "default", "generic", "neutral"}:
                 continue
             if bool(payload.get("fallback_used")):
                 continue
-            if str(payload.get("strategy_quality") or "").strip().lower() in {"", "low", "insufficient_data"}:
+            if review_status == "runtime_failed":
+                continue
+            if (
+                str(payload.get("strategy_quality") or "").strip().lower() in {"", "low", "insufficient_data"}
+                and review_status not in _NON_GENERATING_REVIEW_STATUSES
+            ):
                 continue
             marker = summary.lower()
             if marker in seen_summaries:
@@ -1890,11 +2104,16 @@ class WalletStyleDistillationService:
         strategy = dict(reflection_payload.get("strategy") or {})
         trade_statistics = dict(distill_payload.get("trade_statistics") or {})
         summary = str(profile.get("summary") or build_payload.get("summary") or "").strip()
+        review_status = _normalize_review_status_value(dict(reflection_payload.get("review") or {}).get("status"))
+        low_signal_memory = review_status in _NON_GENERATING_REVIEW_STATUSES - {"runtime_failed"}
         if (
             not summary
             or _is_generic_memory_summary(summary)
             or bool(reflection_payload.get("fallback_used"))
-            or str(build_payload.get("strategy_quality") or "").strip().lower() in {"", "low", "insufficient_data"}
+            or (
+                str(build_payload.get("strategy_quality") or "").strip().lower() in {"", "low", "insufficient_data"}
+                and not low_signal_memory
+            )
         ):
             return
         self.derived_memory_store.remember(
@@ -1905,9 +2124,12 @@ class WalletStyleDistillationService:
             payload={
                 "style_label": profile.get("style_label"),
                 "strategy_setup_label": strategy.get("setup_label"),
+                "primary_archetype": profile.get("metadata", {}).get("primary_archetype"),
+                "secondary_archetypes": list(profile.get("metadata", {}).get("secondary_archetypes") or []),
                 "fallback_used": bool(reflection_payload.get("fallback_used")),
                 "strategy_quality": build_payload.get("strategy_quality"),
                 "example_readiness": build_payload.get("example_readiness"),
+                "review_status": review_status,
                 "preferred_tokens": list((strategy.get("metadata") or {}).get("preferred_tokens") or profile.get("preferred_tokens") or []),
                 "trade_statistics": {
                     "completed_trade_count": trade_statistics.get("completed_trade_count"),
@@ -1922,33 +2144,44 @@ class WalletStyleDistillationService:
         *,
         wallet: str,
         chain: str,
-        prompt: str,
-        preprocessed: dict[str, Any],
-        artifacts_dir: Path,
+            prompt: str,
+            preprocessed: dict[str, Any],
+            artifacts_dir: Path,
     ) -> ReflectionJobSpec:
         mock_response: dict[str, Any] | None = None
         if _reflection_mock_enabled():
-            extractor = WalletStyleExtractor()
-            mock_profile, mock_review = extractor.extract(preprocessed, system_prompt=prompt)
-            mock_strategy = _fallback_strategy_spec(preprocessed, mock_profile.to_dict())
-            mock_response = {
-                "profile": mock_profile.to_dict(),
-                "strategy": mock_strategy.to_dict(),
-                "review": mock_review.to_dict(),
-            }
+            mock_response = _build_mock_minimal_reflection_response(
+                wallet=wallet,
+                chain=chain,
+                preprocessed=preprocessed,
+                prompt=prompt,
+            )
         return ReflectionJobSpec(
             subject_kind="wallet_style_reflection",
             subject_id=wallet,
             flow_id="wallet_style_reflection_review",
             system_prompt=prompt,
-            compact_input=preprocessed,
+            compact_input=_minimal_compact_payload(preprocessed),
             expected_output_schema=build_wallet_style_output_schema(),
             artifact_root=artifacts_dir,
-            prompt=f"Review wallet style for {wallet} on {chain} and return strict JSON only.",
+            prompt=(
+                f"Produce a minimal wallet-style distill for {wallet} on {chain}. "
+                "Return wallet, chain, summary, review_status, reasoning, and wallet-specific archetype or behavior evidence when present. "
+                "Optional fields such as dominant_actions, preferred_tokens, setup_label, setup_summary, active_windows, prompt_focus, and risk_flags are helpful but not required. "
+                "Do not generate the final profile or execution intent; Python will assemble them."
+            ),
             metadata={
-                "schema_mode": "wallet_style_review",
+                "schema_mode": "wallet_style_minimal_distill",
                 "chain": chain,
                 "wallet": wallet,
+                "review_status_contract": [
+                    "generate",
+                    "generate_with_low_confidence",
+                    "insufficient_signal",
+                    "no_pattern_detected",
+                    "needs_manual_review",
+                    "runtime_failed",
+                ],
                 "mock_response": mock_response,
             },
         )
@@ -2048,6 +2281,9 @@ class WalletStyleDistillationService:
         macro_context = summarize_macro_context(resolved_chain, macro_payloads)
         risk_filters = build_risk_filters(token_profiles)
         entry_factors = distill_entry_factors(completed_trades, focus_market_contexts)
+        archetype = classify_archetype(trade_statistics, completed_trades, open_positions)
+        archetype_payload = archetype.to_dict()
+        archetype_metadata = _archetype_metadata_fields(archetype_payload)
         signal_context = build_signal_context(entry_factors, risk_filters, _filter_signals(signals, focus_tokens=focus_tokens, preferred_symbols=set()))
         fetch_metadata.update(
             {
@@ -2066,6 +2302,7 @@ class WalletStyleDistillationService:
             focus_tokens=focus_tokens,
             enrich_warnings=enrich_warnings,
             trade_statistics=trade_statistics.to_dict(),
+            archetype=archetype_payload,
             market_contexts=[item.to_compact() for item in focus_market_contexts],
             macro_context=macro_context.to_compact(),
             entry_factors=[item.to_dict() for item in entry_factors],
@@ -2108,6 +2345,7 @@ class WalletStyleDistillationService:
             "market_context": preprocessed.get("market_context"),
             "signal_context": preprocessed.get("signal_context"),
             "trade_statistics": trade_statistics.to_dict(),
+            **archetype_metadata,
         }
         strategy.metadata = strategy_metadata
 
@@ -2132,6 +2370,7 @@ class WalletStyleDistillationService:
             "entry_factors": [item.to_dict() for item in entry_factors],
             "risk_filters": [item.to_dict() for item in risk_filters],
             "market_context": preprocessed.get("market_context"),
+            **archetype_metadata,
             **_execution_chain_defaults(resolved_chain),
         }
         execution_intent.metadata = execution_metadata
@@ -2156,6 +2395,7 @@ class WalletStyleDistillationService:
             "reflection_confidence": profile_payload.get("confidence"),
             "backtest_confidence_label": backtest_result.confidence_label,
             "strategy_quality": strategy_quality,
+            **archetype_metadata,
         }
         profile_payload["confidence"] = backtest_result.confidence_score
         strategy_payload = strategy.to_dict()
@@ -2169,6 +2409,7 @@ class WalletStyleDistillationService:
             "fallback_used": fallback_used,
             "backtest": backtest_result.to_dict(),
             "strategy_quality": strategy_quality,
+            **archetype_metadata,
         }
         execution_intent_payload = execution_intent.to_dict()
         execution_intent_payload["metadata"] = {
@@ -2183,6 +2424,7 @@ class WalletStyleDistillationService:
             "backtest_confidence_label": backtest_result.confidence_label,
             "strategy_quality": strategy_quality,
             "live_cap_usd": 10.0,
+            **archetype_metadata,
         }
         review_payload = review.to_dict()
         review_payload["metadata"] = {
@@ -2194,6 +2436,16 @@ class WalletStyleDistillationService:
             "reflection_status": reflection_status,
             "fallback_used": fallback_used,
             "backtest": backtest_result.to_dict(),
+            "review_status": review_payload.get("status"),
+            **archetype_metadata,
+        }
+        review_generation = _review_generation_decision(review_payload)
+        review_payload["status"] = review_generation["status"]
+        review_payload["should_generate_candidate"] = review_generation["should_generate_candidate"]
+        review_payload["metadata"] = {
+            **dict(review_payload.get("metadata") or {}),
+            "review_status": review_generation["status"],
+            "candidate_generation_skipped": review_generation["skip_generation"],
         }
 
         target_skill_name = str(skill_name or f"wallet-style-{resolved_wallet[-6:]}").strip()
@@ -2223,7 +2475,8 @@ class WalletStyleDistillationService:
         _write_json(artifacts_dir / "token_enrichment_warnings.json", enrich_warnings)
         _write_json(artifacts_dir / "signals.raw.json", signals)
         _write_json(artifacts_dir / "wallet_profile.preprocessed.json", preprocessed)
-        _write_json(artifacts_dir / "trade_pairing.json", _serialize_trade_pairing(completed_trades, open_positions, trade_statistics))
+        _write_json(artifacts_dir / "trade_pairing.json", _serialize_trade_pairing(completed_trades, open_positions, trade_statistics, archetype=archetype))
+        _write_json(artifacts_dir / "archetype.json", archetype_payload)
         _write_json(
             artifacts_dir / "market_context.json",
             {
@@ -2312,6 +2565,12 @@ class WalletStyleDistillationService:
                     "uri": str((artifacts_dir / "style_profile.json").resolve()),
                     "label": "Extracted wallet style profile",
                 },
+                {
+                    "artifact_id": f"{job_id}-archetype",
+                    "kind": "wallet.archetype.json",
+                    "uri": str((artifacts_dir / "archetype.json").resolve()),
+                    "label": "Derived wallet trading archetype",
+                },
             ],
             "metadata": {
                 "source": "style-distillation",
@@ -2321,7 +2580,12 @@ class WalletStyleDistillationService:
                 "task_match_score": round(backtest_result.confidence_score, 4),
                 "task_match_threshold": 0.55,
                 "task_match_summary": review.reasoning,
-                "suggested_action": "generate wallet style skill package",
+                "suggested_action": (
+                    "generate wallet style skill package"
+                    if not review_generation["skip_generation"]
+                    else None
+                ),
+                "disable_candidate_generation": review_generation["skip_generation"],
                 "llm_review_hook": review_payload,
                 "candidate_generation_spec": style_generation_spec,
                 "candidate_metadata": {
@@ -2343,6 +2607,7 @@ class WalletStyleDistillationService:
                     "reflection_session_id": reflection_result.reflection_session_id,
                     "reflection_status": reflection_status,
                     "fallback_used": fallback_used,
+                    **archetype_metadata,
                 },
                 "change_summary": profile.summary,
                 "review_backend": review_backend,
@@ -2351,124 +2616,178 @@ class WalletStyleDistillationService:
                 "reflection_session_id": reflection_result.reflection_session_id,
                 "reflection_status": reflection_status,
                 "fallback_used": fallback_used,
+                **archetype_metadata,
             },
         }
 
         pipeline_result = RunIngestionPipeline(self.registry_root).record(run_payload)
         lifecycle = dict(pipeline_result.lifecycle or {})
         candidate_payload = dict(lifecycle.get("candidate") or {})
-        if not candidate_payload:
-            raise RuntimeError("style distillation did not produce a candidate")
-
-        candidate_payload.update(
-            {
-                "candidate_type": "script",
-                "target_skill_name": target_skill_name,
-                "target_skill_kind": "wallet_style",
-                "change_summary": profile.summary,
-                "generation_spec": {
-                    **dict(candidate_payload.get("generation_spec") or {}),
-                    **style_generation_spec,
+        if review_generation["skip_generation"]:
+            candidate_stub, package_stub, validation_stub, promotion_stub, smoke_result, example_artifacts = _skipped_candidate_artifacts(
+                target_skill_name=target_skill_name,
+                review_status=review_generation["status"],
+            )
+            compile_result = {"candidate": candidate_stub, "package": package_stub}
+            validate_result = {"status": "skipped", "validation_report": validation_stub}
+            promote_result = {"promotion": promotion_stub}
+            adoption_ok = False
+            execution_smoke = dict(smoke_result)
+            data_completeness = _compute_data_completeness(
+                focus_market_contexts=focus_market_contexts,
+                entry_factors=entry_factors,
+                risk_filters=risk_filters,
+                backtest_result=backtest_result.to_dict(),
+                execution_smoke=execution_smoke,
+            )
+            _write_json(artifacts_dir / "skill_smoke_output.json", smoke_result)
+            _write_json(artifacts_dir / "execution_smoke_output.json", execution_smoke)
+            strategy_qa_checks = [
+                {
+                    "check": "candidate_generation_policy",
+                    "passed": True,
+                    "detail": f"skipped:{review_generation['status']}",
                 },
-                "metadata": {
-                    **dict(candidate_payload.get("metadata") or {}),
-                    "skill_family": "wallet_style",
-                    "wallet_address": resolved_wallet,
-                    "chain": resolved_chain,
-                    "style_summary": profile.summary,
-                    "style_confidence": backtest_result.confidence_score,
-                    "extractor_prompt": prompt,
-                    "job_id": job_id,
-                    "focus_token_count": len(focus_tokens),
-                    "token_profile_count": len(token_profiles),
-                    "enrich_warning_count": len(enrich_warnings),
-                    "fetch_metadata": fetch_metadata,
-                    "backtest": backtest_result.to_dict(),
-                    "review_backend": review_backend,
-                    "reflection_flow_id": reflection_flow_id,
-                    "reflection_run_id": reflection_result.reflection_run_id,
-                    "reflection_session_id": reflection_result.reflection_session_id,
-                    "reflection_status": reflection_status,
-                    "fallback_used": fallback_used,
-                    "strategy_spec": strategy_payload,
-                    "execution_intent": execution_intent_payload,
+                {
+                    "check": "strategy_spec_generated",
+                    "passed": bool(strategy_payload.get("entry_conditions")),
+                    "detail": strategy_payload.get("summary"),
                 },
-            }
-        )
+                {
+                    "check": "backtest_scored",
+                    "passed": backtest_result.confidence_score >= 0.05,
+                    "detail": backtest_result.to_dict(),
+                },
+            ]
+            execution_qa_checks = [
+                {
+                    "check": "execute_action_generated",
+                    "passed": True,
+                    "detail": "skipped_by_review_status",
+                },
+                {
+                    "check": "execution_contract_prepared",
+                    "passed": True,
+                    "detail": "skipped_by_review_status",
+                },
+            ]
+            execution_readiness = str(execution_smoke.get("execution_readiness") or "blocked_by_review_status")
+            example_readiness = review_generation["status"]
+            qa_status = "warn"
+        else:
+            if not candidate_payload:
+                raise RuntimeError("style distillation did not produce a candidate")
 
-        compile_result = self.candidate_service.compile_candidate(candidate_payload, package_kind="script")
-        validate_result = self.candidate_service.validate_candidate(candidate_payload["candidate_id"])
-        promote_result = self.candidate_service.promote_candidate(candidate_payload["candidate_id"], package_kind="script")
-        promoted_root = Path(promote_result["promotion"]["package_root"]).expanduser().resolve()
+            candidate_payload.update(
+                {
+                    "candidate_type": "script",
+                    "target_skill_name": target_skill_name,
+                    "target_skill_kind": "wallet_style",
+                    "change_summary": profile.summary,
+                    "generation_spec": {
+                        **dict(candidate_payload.get("generation_spec") or {}),
+                        **style_generation_spec,
+                    },
+                    "metadata": {
+                        **dict(candidate_payload.get("metadata") or {}),
+                        "skill_family": "wallet_style",
+                        "wallet_address": resolved_wallet,
+                        "chain": resolved_chain,
+                        "style_summary": profile.summary,
+                        "style_confidence": backtest_result.confidence_score,
+                        "extractor_prompt": prompt,
+                        "job_id": job_id,
+                        "focus_token_count": len(focus_tokens),
+                        "token_profile_count": len(token_profiles),
+                        "enrich_warning_count": len(enrich_warnings),
+                        "fetch_metadata": fetch_metadata,
+                        "backtest": backtest_result.to_dict(),
+                        "review_backend": review_backend,
+                        "reflection_flow_id": reflection_flow_id,
+                        "reflection_run_id": reflection_result.reflection_run_id,
+                        "reflection_session_id": reflection_result.reflection_session_id,
+                        "reflection_status": reflection_status,
+                        "fallback_used": fallback_used,
+                        "strategy_spec": strategy_payload,
+                        "execution_intent": execution_intent_payload,
+                        **archetype_metadata,
+                    },
+                }
+            )
 
-        adoption_ok = any(
-            summary.skill_name == promoted_root.name
-            for summary in self.bridge.discover_local_skill_packages()
-        )
-        smoke_result = self._smoke_test_skill(promoted_root, preprocessed)
-        execution_smoke = self._execution_smoke_test(promoted_root, smoke_result, execution_intent_payload)
-        data_completeness = _compute_data_completeness(
-            focus_market_contexts=focus_market_contexts,
-            entry_factors=entry_factors,
-            risk_filters=risk_filters,
-            backtest_result=backtest_result.to_dict(),
-            execution_smoke=execution_smoke,
-        )
-        _write_json(artifacts_dir / "skill_smoke_output.json", smoke_result)
-        _write_json(artifacts_dir / "execution_smoke_output.json", execution_smoke)
-        example_artifacts = self._generate_example_artifacts(
-            promoted_root,
-            preprocessed,
-            execution_intent_payload,
-            artifacts_dir=artifacts_dir,
-        )
+            compile_result = self.candidate_service.compile_candidate(candidate_payload, package_kind="script")
+            validate_result = self.candidate_service.validate_candidate(candidate_payload["candidate_id"])
+            promote_result = self.candidate_service.promote_candidate(candidate_payload["candidate_id"], package_kind="script")
+            promoted_root = Path(promote_result["promotion"]["package_root"]).expanduser().resolve()
 
-        strategy_qa_checks = [
-            {
-                "check": "candidate_generated",
-                "passed": bool(candidate_payload.get("candidate_id")),
-                "detail": candidate_payload.get("candidate_id"),
-            },
-            {
-                "check": "skill_auto_adopted",
-                "passed": adoption_ok,
-                "detail": promoted_root.name,
-            },
-            {
-                "check": "skill_runnable",
-                "passed": bool(smoke_result.get("ok")),
-                "detail": smoke_result.get("summary") or smoke_result.get("stderr"),
-            },
-            {
-                "check": "strategy_spec_generated",
-                "passed": bool(strategy_payload.get("entry_conditions")),
-                "detail": strategy_payload.get("summary"),
-            },
-            {
-                "check": "backtest_scored",
-                "passed": backtest_result.confidence_score >= 0.1,
-                "detail": backtest_result.to_dict(),
-            },
-        ]
-        execution_qa_checks = [
-            {
-                "check": "execute_action_generated",
-                "passed": (promoted_root / "scripts" / "execute.py").is_file(),
-                "detail": str((promoted_root / "scripts" / "execute.py").resolve()),
-            },
-            {
-                "check": "execution_contract_prepared",
-                "passed": bool(execution_smoke.get("ok")),
-                "detail": execution_smoke.get("summary") or execution_smoke.get("stderr"),
-            },
-        ]
-        execution_readiness = str(execution_smoke.get("execution_readiness") or "blocked_by_risk")
-        example_readiness = _example_readiness(
-            data_completeness=data_completeness,
-            execution_readiness=execution_readiness,
-            strategy_quality=strategy_quality,
-        )
-        qa_status = "passed" if all(item["passed"] for item in strategy_qa_checks + execution_qa_checks) else "failed"
+            adoption_ok = any(
+                summary.skill_name == promoted_root.name
+                for summary in self.bridge.discover_local_skill_packages()
+            )
+            smoke_result = self._smoke_test_skill(promoted_root, preprocessed)
+            execution_smoke = self._execution_smoke_test(promoted_root, smoke_result, execution_intent_payload)
+            data_completeness = _compute_data_completeness(
+                focus_market_contexts=focus_market_contexts,
+                entry_factors=entry_factors,
+                risk_filters=risk_filters,
+                backtest_result=backtest_result.to_dict(),
+                execution_smoke=execution_smoke,
+            )
+            _write_json(artifacts_dir / "skill_smoke_output.json", smoke_result)
+            _write_json(artifacts_dir / "execution_smoke_output.json", execution_smoke)
+            example_artifacts = self._generate_example_artifacts(
+                promoted_root,
+                preprocessed,
+                execution_intent_payload,
+                artifacts_dir=artifacts_dir,
+            )
+
+            strategy_qa_checks = [
+                {
+                    "check": "candidate_generated",
+                    "passed": bool(candidate_payload.get("candidate_id")),
+                    "detail": candidate_payload.get("candidate_id"),
+                },
+                {
+                    "check": "skill_auto_adopted",
+                    "passed": adoption_ok,
+                    "detail": promoted_root.name,
+                },
+                {
+                    "check": "skill_runnable",
+                    "passed": bool(smoke_result.get("ok")),
+                    "detail": smoke_result.get("summary") or smoke_result.get("stderr"),
+                },
+                {
+                    "check": "strategy_spec_generated",
+                    "passed": bool(strategy_payload.get("entry_conditions")),
+                    "detail": strategy_payload.get("summary"),
+                },
+                {
+                    "check": "backtest_scored",
+                    "passed": backtest_result.confidence_score >= 0.1,
+                    "detail": backtest_result.to_dict(),
+                },
+            ]
+            execution_qa_checks = [
+                {
+                    "check": "execute_action_generated",
+                    "passed": (promoted_root / "scripts" / "execute.py").is_file(),
+                    "detail": str((promoted_root / "scripts" / "execute.py").resolve()),
+                },
+                {
+                    "check": "execution_contract_prepared",
+                    "passed": bool(execution_smoke.get("ok")),
+                    "detail": execution_smoke.get("summary") or execution_smoke.get("stderr"),
+                },
+            ]
+            execution_readiness = str(execution_smoke.get("execution_readiness") or "blocked_by_risk")
+            example_readiness = _example_readiness(
+                data_completeness=data_completeness,
+                execution_readiness=execution_readiness,
+                strategy_quality=strategy_quality,
+            )
+            qa_status = "passed" if all(item["passed"] for item in strategy_qa_checks + execution_qa_checks) else "failed"
 
         summary_record = StyleDistillationSummary(
             job_id=job_id,
@@ -2543,6 +2862,7 @@ class WalletStyleDistillationService:
                 "execution_intent": str((artifacts_dir / "execution_intent.json").resolve()),
                 "style_review": str((artifacts_dir / "style_review.json").resolve()),
                 "trade_pairing": str((artifacts_dir / "trade_pairing.json").resolve()),
+                "archetype": str((artifacts_dir / "archetype.json").resolve()),
                 "market_context": str((artifacts_dir / "market_context.json").resolve()),
                 "signal_filters": str((artifacts_dir / "signal_filters.json").resolve()),
                 "backtest_result": str((artifacts_dir / "backtest_result.json").resolve()),
@@ -2697,6 +3017,8 @@ class WalletStyleDistillationService:
             macro_context = summarize_macro_context(resolved_chain, macro_payloads)
             risk_filters = build_risk_filters(token_profiles)
             entry_factors = distill_entry_factors(completed_trades, focus_market_contexts)
+            archetype = classify_archetype(trade_statistics, completed_trades, open_positions)
+            archetype_payload = archetype.to_dict()
             preprocessed = _preprocess_wallet_data(
                 wallet,
                 resolved_chain,
@@ -2707,6 +3029,7 @@ class WalletStyleDistillationService:
                 enrich_warnings=enrich_warnings,
                 derived_memory=recalled_memory,
                 trade_statistics=trade_statistics.to_dict(),
+                archetype=archetype_payload,
                 market_contexts=[item.to_compact() for item in focus_market_contexts],
                 macro_context=macro_context.to_compact(),
                 entry_factors=[item.to_dict() for item in entry_factors],
@@ -2765,8 +3088,9 @@ class WalletStyleDistillationService:
                 "enrich_warnings": enrich_warnings,
                 "signals": signals,
                 "full_activity_history": full_activity_history,
-                "trade_pairing": _serialize_trade_pairing(completed_trades, open_positions, trade_statistics),
+                "trade_pairing": _serialize_trade_pairing(completed_trades, open_positions, trade_statistics, archetype=archetype),
                 "trade_statistics": trade_statistics.to_dict(),
+                "archetype": archetype_payload,
                 "market_context": {
                     "focus_token_context": [item.to_dict() for item in focus_market_contexts],
                     "macro": macro_context.to_dict(),
@@ -2785,6 +3109,7 @@ class WalletStyleDistillationService:
             _write_json(artifacts_dir / "signals.raw.json", signals)
             _write_json(artifacts_dir / "wallet_profile.preprocessed.json", preprocessed)
             _write_json(artifacts_dir / "trade_pairing.json", stage_payload["trade_pairing"])
+            _write_json(artifacts_dir / "archetype.json", archetype_payload)
             _write_json(artifacts_dir / "market_context.json", stage_payload["market_context"])
             _write_json(
                 artifacts_dir / "signal_filters.json",
@@ -3036,6 +3361,8 @@ class WalletStyleDistillationService:
             ]
             risk_filters = [item for item in distill_payload.get("risk_filters") or [] if isinstance(item, dict)]
             entry_factors = [item for item in distill_payload.get("entry_factors") or [] if isinstance(item, dict)]
+            archetype_payload = dict(distill_payload.get("archetype") or preprocessed.get("archetype") or {})
+            archetype_metadata = _archetype_metadata_fields(archetype_payload)
             build_context_sources = _unique_context_sources(
                 distill_payload.get("context_sources") or [],
                 reflection_payload.get("context_sources") or [],
@@ -3062,6 +3389,7 @@ class WalletStyleDistillationService:
                 "signal_context": preprocessed.get("signal_context"),
                 "trade_statistics": trade_statistics.to_dict(),
                 "context_sources": build_context_sources,
+                **archetype_metadata,
             }
             strategy_payload["metadata"] = strategy_metadata
             execution_intent_payload["metadata"] = {
@@ -3070,6 +3398,7 @@ class WalletStyleDistillationService:
                 "entry_factors": entry_factors,
                 "risk_filters": risk_filters,
                 "market_context": preprocessed.get("market_context"),
+                **archetype_metadata,
                 **_execution_chain_defaults(chain),
             }
             execution_intent_payload["requires_explicit_approval"] = True
@@ -3092,6 +3421,7 @@ class WalletStyleDistillationService:
                 "reflection_confidence": profile_payload.get("confidence"),
                 "backtest_confidence_label": backtest_result.confidence_label,
                 "strategy_quality": strategy_quality,
+                **archetype_metadata,
             }
             profile_payload["confidence"] = backtest_result.confidence_score
             strategy_payload["metadata"] = {
@@ -3104,6 +3434,7 @@ class WalletStyleDistillationService:
                 "fallback_used": fallback_used,
                 "backtest": backtest_result.to_dict(),
                 "strategy_quality": strategy_quality,
+                **archetype_metadata,
             }
             execution_intent_payload["metadata"] = {
                 **dict(execution_intent_payload.get("metadata") or {}),
@@ -3118,6 +3449,7 @@ class WalletStyleDistillationService:
                 "backtest_confidence_label": backtest_result.confidence_label,
                 "strategy_quality": strategy_quality,
                 "live_cap_usd": 10.0,
+                **archetype_metadata,
             }
             review_payload["metadata"] = {
                 **dict(review_payload.get("metadata") or {}),
@@ -3128,6 +3460,16 @@ class WalletStyleDistillationService:
                 "reflection_status": reflection_status,
                 "fallback_used": fallback_used,
                 "backtest": backtest_result.to_dict(),
+                "review_status": review_payload.get("status"),
+                **archetype_metadata,
+            }
+            review_generation = _review_generation_decision(review_payload)
+            review_payload["status"] = review_generation["status"]
+            review_payload["should_generate_candidate"] = review_generation["should_generate_candidate"]
+            review_payload["metadata"] = {
+                **dict(review_payload.get("metadata") or {}),
+                "review_status": review_generation["status"],
+                "candidate_generation_skipped": review_generation["skip_generation"],
             }
             target_skill_name = str(distill_payload.get("target_skill_name") or f"wallet-style-{wallet[-6:]}").strip()
             style_generation_spec = {
@@ -3201,6 +3543,12 @@ class WalletStyleDistillationService:
                         "uri": str((artifacts_dir / "style_profile.json").resolve()),
                         "label": "Extracted wallet style profile",
                     },
+                    {
+                        "artifact_id": f"{job_id}-archetype",
+                        "kind": "wallet.archetype.json",
+                        "uri": str((artifacts_dir / "archetype.json").resolve()),
+                        "label": "Derived wallet trading archetype",
+                    },
                 ],
                 "metadata": {
                     "source": "style-distillation",
@@ -3210,7 +3558,12 @@ class WalletStyleDistillationService:
                     "task_match_score": round(backtest_result.confidence_score, 4),
                     "task_match_threshold": 0.55,
                     "task_match_summary": review_payload.get("reasoning"),
-                    "suggested_action": "generate wallet style skill package",
+                    "suggested_action": (
+                        "generate wallet style skill package"
+                        if not review_generation["skip_generation"]
+                        else None
+                    ),
+                    "disable_candidate_generation": review_generation["skip_generation"],
                     "llm_review_hook": review_payload,
                     "candidate_generation_spec": style_generation_spec,
                     "candidate_metadata": {
@@ -3232,6 +3585,7 @@ class WalletStyleDistillationService:
                         "reflection_session_id": reflection_session_id,
                         "reflection_status": reflection_status,
                         "fallback_used": fallback_used,
+                        **archetype_metadata,
                     },
                     "change_summary": profile_payload.get("summary"),
                     "review_backend": review_backend,
@@ -3240,98 +3594,137 @@ class WalletStyleDistillationService:
                     "reflection_session_id": reflection_session_id,
                     "reflection_status": reflection_status,
                     "fallback_used": fallback_used,
+                    **archetype_metadata,
                 },
             }
             pipeline_result = RunIngestionPipeline(self.registry_root).record(run_payload)
             lifecycle = dict(pipeline_result.lifecycle or {})
             candidate_payload = dict(lifecycle.get("candidate") or {})
-            if not candidate_payload:
-                raise RuntimeError("style distillation did not produce a candidate")
-            candidate_payload.update(
-                {
-                    "candidate_type": "script",
-                    "target_skill_name": target_skill_name,
-                    "target_skill_kind": "wallet_style",
-                    "change_summary": profile_payload.get("summary"),
-                    "generation_spec": {**dict(candidate_payload.get("generation_spec") or {}), **style_generation_spec},
-                    "metadata": {
-                        **dict(candidate_payload.get("metadata") or {}),
-                        "skill_family": "wallet_style",
-                        "wallet_address": wallet,
-                        "chain": chain,
-                        "style_summary": profile_payload.get("summary"),
-                        "style_confidence": backtest_result.confidence_score,
-                        "extractor_prompt": prompt,
-                        "job_id": job_id,
-                        "focus_token_count": len(distill_payload.get("focus_tokens") or []),
-                        "token_profile_count": len(distill_payload.get("token_profiles") or []),
-                        "enrich_warning_count": len(distill_payload.get("enrich_warnings") or []),
-                        "fetch_metadata": distill_payload.get("fetch_metadata") or {},
-                        "backtest": backtest_result.to_dict(),
-                        "review_backend": review_backend,
-                        "reflection_flow_id": reflection_flow_id,
-                        "reflection_run_id": reflection_run_id,
-                        "reflection_session_id": reflection_session_id,
-                        "reflection_status": reflection_status,
-                        "fallback_used": fallback_used,
-                        "strategy_spec": strategy_payload,
-                        "execution_intent": execution_intent_payload,
-                    },
-                }
-            )
-            compile_result = self.candidate_service.compile_candidate(candidate_payload, package_kind="script")
-            validate_result = self.candidate_service.validate_candidate(candidate_payload["candidate_id"])
-            validate_status = str(validate_result.get("status") or "")
-            if validate_status not in {"validated", "passed"}:
-                report = dict(validate_result.get("validation_report") or {})
-                issues = [item for item in list(report.get("issues") or []) if isinstance(item, dict)]
-                issue_summary = "; ".join(
-                    f"{item.get('code')}: {item.get('message')}" for item in issues[:3]
-                ) or "candidate validation failed"
-                raise RuntimeError(issue_summary)
-            promote_result = self.candidate_service.promote_candidate(candidate_payload["candidate_id"], package_kind="script")
-            promoted_root = Path(promote_result["promotion"]["package_root"]).expanduser().resolve()
-            adoption_ok = any(summary.skill_name == promoted_root.name for summary in self.bridge.discover_local_skill_packages())
-            smoke_result = self._smoke_test_skill(promoted_root, preprocessed)
-            execution_smoke = self._execution_smoke_test(promoted_root, smoke_result, execution_intent_payload)
-            data_completeness = _compute_data_completeness(
-                focus_market_contexts=focus_market_contexts,
-                entry_factors=entry_factors,
-                risk_filters=risk_filters,
-                backtest_result=backtest_result.to_dict(),
-                execution_smoke=execution_smoke,
-            )
-            _write_json(artifacts_dir / "style_profile.json", profile_payload)
-            _write_json(artifacts_dir / "strategy_spec.json", strategy_payload)
-            _write_json(artifacts_dir / "execution_intent.json", execution_intent_payload)
-            _write_json(artifacts_dir / "style_review.json", review_payload)
-            _write_json(artifacts_dir / "backtest_result.json", backtest_result.to_dict())
-            _write_json(artifacts_dir / "skill_smoke_output.json", smoke_result)
-            _write_json(artifacts_dir / "execution_smoke_output.json", execution_smoke)
-            example_artifacts = self._generate_example_artifacts(
-                promoted_root,
-                preprocessed,
-                execution_intent_payload,
-                artifacts_dir=artifacts_dir,
-            )
-            strategy_qa_checks = [
-                {"check": "candidate_generated", "passed": bool(candidate_payload.get("candidate_id")), "detail": candidate_payload.get("candidate_id")},
-                {"check": "skill_auto_adopted", "passed": adoption_ok, "detail": promoted_root.name},
-                {"check": "skill_runnable", "passed": bool(smoke_result.get("ok")), "detail": smoke_result.get("summary") or smoke_result.get("stderr")},
-                {"check": "strategy_spec_generated", "passed": bool(strategy_payload.get("entry_conditions")), "detail": strategy_payload.get("summary")},
-                {"check": "backtest_scored", "passed": backtest_result.confidence_score >= 0.1, "detail": backtest_result.to_dict()},
-            ]
-            execution_qa_checks = [
-                {"check": "execute_action_generated", "passed": (promoted_root / "scripts" / "execute.py").is_file(), "detail": str((promoted_root / "scripts" / "execute.py").resolve())},
-                {"check": "execution_contract_prepared", "passed": bool(execution_smoke.get("ok")), "detail": execution_smoke.get("summary") or execution_smoke.get("stderr")},
-            ]
-            execution_readiness = str(execution_smoke.get("execution_readiness") or "blocked_by_risk")
-            example_readiness = _example_readiness(
-                data_completeness=data_completeness,
-                execution_readiness=execution_readiness,
-                strategy_quality=strategy_quality,
-            )
-            qa_status = "passed" if all(item["passed"] for item in strategy_qa_checks + execution_qa_checks) else "failed"
+            if review_generation["skip_generation"]:
+                candidate_stub, package_stub, validation_stub, promotion_stub, smoke_result, example_artifacts = _skipped_candidate_artifacts(
+                    target_skill_name=target_skill_name,
+                    review_status=review_generation["status"],
+                )
+                compile_result = {"candidate": candidate_stub, "package": package_stub}
+                validate_result = {"status": "skipped", "validation_report": validation_stub}
+                promote_result = {"promotion": promotion_stub}
+                adoption_ok = False
+                execution_smoke = dict(smoke_result)
+                data_completeness = _compute_data_completeness(
+                    focus_market_contexts=focus_market_contexts,
+                    entry_factors=entry_factors,
+                    risk_filters=risk_filters,
+                    backtest_result=backtest_result.to_dict(),
+                    execution_smoke=execution_smoke,
+                )
+                _write_json(artifacts_dir / "style_profile.json", profile_payload)
+                _write_json(artifacts_dir / "strategy_spec.json", strategy_payload)
+                _write_json(artifacts_dir / "execution_intent.json", execution_intent_payload)
+                _write_json(artifacts_dir / "style_review.json", review_payload)
+                _write_json(artifacts_dir / "backtest_result.json", backtest_result.to_dict())
+                _write_json(artifacts_dir / "skill_smoke_output.json", smoke_result)
+                _write_json(artifacts_dir / "execution_smoke_output.json", execution_smoke)
+                strategy_qa_checks = [
+                    {"check": "candidate_generation_policy", "passed": True, "detail": f"skipped:{review_generation['status']}"},
+                    {"check": "strategy_spec_generated", "passed": bool(strategy_payload.get("entry_conditions")), "detail": strategy_payload.get("summary")},
+                    {"check": "backtest_scored", "passed": backtest_result.confidence_score >= 0.05, "detail": backtest_result.to_dict()},
+                ]
+                execution_qa_checks = [
+                    {"check": "execute_action_generated", "passed": True, "detail": "skipped_by_review_status"},
+                    {"check": "execution_contract_prepared", "passed": True, "detail": "skipped_by_review_status"},
+                ]
+                execution_readiness = str(execution_smoke.get("execution_readiness") or "blocked_by_review_status")
+                example_readiness = review_generation["status"]
+                qa_status = "warn"
+            else:
+                if not candidate_payload:
+                    raise RuntimeError("style distillation did not produce a candidate")
+                candidate_payload.update(
+                    {
+                        "candidate_type": "script",
+                        "target_skill_name": target_skill_name,
+                        "target_skill_kind": "wallet_style",
+                        "change_summary": profile_payload.get("summary"),
+                        "generation_spec": {**dict(candidate_payload.get("generation_spec") or {}), **style_generation_spec},
+                        "metadata": {
+                            **dict(candidate_payload.get("metadata") or {}),
+                            "skill_family": "wallet_style",
+                            "wallet_address": wallet,
+                            "chain": chain,
+                            "style_summary": profile_payload.get("summary"),
+                            "style_confidence": backtest_result.confidence_score,
+                            "extractor_prompt": prompt,
+                            "job_id": job_id,
+                            "focus_token_count": len(distill_payload.get("focus_tokens") or []),
+                            "token_profile_count": len(distill_payload.get("token_profiles") or []),
+                            "enrich_warning_count": len(distill_payload.get("enrich_warnings") or []),
+                            "fetch_metadata": distill_payload.get("fetch_metadata") or {},
+                            "backtest": backtest_result.to_dict(),
+                            "review_backend": review_backend,
+                            "reflection_flow_id": reflection_flow_id,
+                            "reflection_run_id": reflection_run_id,
+                            "reflection_session_id": reflection_session_id,
+                            "reflection_status": reflection_status,
+                            "fallback_used": fallback_used,
+                            "strategy_spec": strategy_payload,
+                            "execution_intent": execution_intent_payload,
+                            **archetype_metadata,
+                        },
+                    }
+                )
+                compile_result = self.candidate_service.compile_candidate(candidate_payload, package_kind="script")
+                validate_result = self.candidate_service.validate_candidate(candidate_payload["candidate_id"])
+                validate_status = str(validate_result.get("status") or "")
+                if validate_status not in {"validated", "passed"}:
+                    report = dict(validate_result.get("validation_report") or {})
+                    issues = [item for item in list(report.get("issues") or []) if isinstance(item, dict)]
+                    issue_summary = "; ".join(
+                        f"{item.get('code')}: {item.get('message')}" for item in issues[:3]
+                    ) or "candidate validation failed"
+                    raise RuntimeError(issue_summary)
+                promote_result = self.candidate_service.promote_candidate(candidate_payload["candidate_id"], package_kind="script")
+                promoted_root = Path(promote_result["promotion"]["package_root"]).expanduser().resolve()
+                adoption_ok = any(summary.skill_name == promoted_root.name for summary in self.bridge.discover_local_skill_packages())
+                smoke_result = self._smoke_test_skill(promoted_root, preprocessed)
+                execution_smoke = self._execution_smoke_test(promoted_root, smoke_result, execution_intent_payload)
+                data_completeness = _compute_data_completeness(
+                    focus_market_contexts=focus_market_contexts,
+                    entry_factors=entry_factors,
+                    risk_filters=risk_filters,
+                    backtest_result=backtest_result.to_dict(),
+                    execution_smoke=execution_smoke,
+                )
+                _write_json(artifacts_dir / "style_profile.json", profile_payload)
+                _write_json(artifacts_dir / "strategy_spec.json", strategy_payload)
+                _write_json(artifacts_dir / "execution_intent.json", execution_intent_payload)
+                _write_json(artifacts_dir / "style_review.json", review_payload)
+                _write_json(artifacts_dir / "backtest_result.json", backtest_result.to_dict())
+                _write_json(artifacts_dir / "skill_smoke_output.json", smoke_result)
+                _write_json(artifacts_dir / "execution_smoke_output.json", execution_smoke)
+                example_artifacts = self._generate_example_artifacts(
+                    promoted_root,
+                    preprocessed,
+                    execution_intent_payload,
+                    artifacts_dir=artifacts_dir,
+                )
+                strategy_qa_checks = [
+                    {"check": "candidate_generated", "passed": bool(candidate_payload.get("candidate_id")), "detail": candidate_payload.get("candidate_id")},
+                    {"check": "skill_auto_adopted", "passed": adoption_ok, "detail": promoted_root.name},
+                    {"check": "skill_runnable", "passed": bool(smoke_result.get("ok")), "detail": smoke_result.get("summary") or smoke_result.get("stderr")},
+                    {"check": "strategy_spec_generated", "passed": bool(strategy_payload.get("entry_conditions")), "detail": strategy_payload.get("summary")},
+                    {"check": "backtest_scored", "passed": backtest_result.confidence_score >= 0.1, "detail": backtest_result.to_dict()},
+                ]
+                execution_qa_checks = [
+                    {"check": "execute_action_generated", "passed": (promoted_root / "scripts" / "execute.py").is_file(), "detail": str((promoted_root / "scripts" / "execute.py").resolve())},
+                    {"check": "execution_contract_prepared", "passed": bool(execution_smoke.get("ok")), "detail": execution_smoke.get("summary") or execution_smoke.get("stderr")},
+                ]
+                execution_readiness = str(execution_smoke.get("execution_readiness") or "blocked_by_risk")
+                example_readiness = _example_readiness(
+                    data_completeness=data_completeness,
+                    execution_readiness=execution_readiness,
+                    strategy_quality=strategy_quality,
+                )
+                qa_status = "passed" if all(item["passed"] for item in strategy_qa_checks + execution_qa_checks) else "failed"
             context_sources = build_context_sources
             stage_payload = {
                 "job_id": job_id,
@@ -3379,6 +3772,7 @@ class WalletStyleDistillationService:
                     "execution_intent": str((artifacts_dir / "execution_intent.json").resolve()),
                     "style_review": str((artifacts_dir / "style_review.json").resolve()),
                     "trade_pairing": str((artifacts_dir / "trade_pairing.json").resolve()),
+                    "archetype": str((artifacts_dir / "archetype.json").resolve()),
                     "market_context": str((artifacts_dir / "market_context.json").resolve()),
                     "signal_filters": str((artifacts_dir / "signal_filters.json").resolve()),
                     "backtest_result": str((artifacts_dir / "backtest_result.json").resolve()),
@@ -3436,9 +3830,11 @@ class WalletStyleDistillationService:
             return existing
         artifacts_dir = job_dir / "artifacts"
         artifacts_dir.mkdir(parents=True, exist_ok=True)
-        promoted_root = Path(build_payload.get("promotion", {}).get("package_root") or "").expanduser().resolve()
+        promotion_root = str(build_payload.get("promotion", {}).get("package_root") or "").strip()
+        promoted_root = Path(promotion_root).expanduser().resolve() if promotion_root else None
         primary_result = dict(build_payload.get("qa", {}).get("strategy_qa", {}).get("smoke_test") or {})
         execution_intent = dict(build_payload.get("execution_intent") or {})
+        review_status = _normalize_review_status_value(dict(build_payload.get("review") or {}).get("status"))
         if not existing:
             self.ledger_store.on_stage_start(
                 job_dir,
@@ -3449,9 +3845,24 @@ class WalletStyleDistillationService:
         try:
             dry_run_result = dict(build_payload.get("qa", {}).get("execution_qa", {}).get("smoke_test") or {})
             live_result: dict[str, Any] | None = None
-            if live_execute and approval_granted:
+            if live_execute and approval_granted and promoted_root is not None:
                 live_result = self._execution_live_test(promoted_root, primary_result, execution_intent)
                 _write_json(artifacts_dir / "example_execute_live.json", live_result)
+            elif promoted_root is None and not dry_run_result:
+                dry_run_result = {
+                    "ok": False,
+                    "skipped": True,
+                    "summary": f"Execution skipped because review.status={review_status}.",
+                    "execution_readiness": "blocked_by_review_status",
+                    "parsed_output": {
+                        "summary": f"Execution skipped because review.status={review_status}.",
+                        "execution_readiness": "blocked_by_review_status",
+                        "metadata": {
+                            "review_status": review_status,
+                            "skip_reason": "candidate_generation_disabled",
+                        },
+                    },
+                }
             execution_readiness = str((live_result or {}).get("execution_readiness") or dry_run_result.get("execution_readiness") or build_payload.get("execution_readiness") or "blocked_by_risk")
             example_readiness = (
                 "live_executed"

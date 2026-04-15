@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from ot_skill_enterprise.style_distillation.models import (
     ExecutionIntent,
@@ -10,6 +10,16 @@ from ot_skill_enterprise.style_distillation.models import (
     StyleReviewDecision,
     WalletStyleProfile,
 )
+
+ReflectionFailureType = Literal[
+    "runtime_abort",
+    "runtime_timeout",
+    "provider_unavailable",
+    "empty_output",
+    "json_parse_failed",
+    "schema_rejected",
+    "generic_rejected",
+]
 
 
 def _json_safe(value: Any) -> Any:
@@ -202,8 +212,25 @@ class ReflectionJobResult:
     fallback_used: bool
     artifacts: dict[str, str] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+    failure_type: ReflectionFailureType | None = None
+    provider: str | None = None
+    model_id: str | None = None
+    model: str | None = None
+    raw_text: str | None = None
+    raw_text_salvaged: bool = False
+    runtime_fallback_used: bool = False
+    attempts: tuple[dict[str, Any], ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
+        selected_model = self.model or (self.provider and self.model_id and f"{self.provider}/{self.model_id}")
+        raw_text = self.raw_text
+        if raw_text is None:
+            candidate = self.raw_output.get("raw_text") if isinstance(self.raw_output, dict) else None
+            if candidate is None and isinstance(self.raw_output, dict):
+                candidate = self.raw_output.get("text")
+            raw_text = str(candidate).strip() if candidate is not None else None
+            if raw_text == "":
+                raw_text = None
         return {
             "review_backend": self.review_backend,
             "reflection_run_id": self.reflection_run_id,
@@ -214,6 +241,14 @@ class ReflectionJobResult:
             "fallback_used": self.fallback_used,
             "artifacts": dict(self.artifacts),
             "metadata": _json_safe(self.metadata),
+            "failure_type": self.failure_type,
+            "provider": self.provider,
+            "model_id": self.model_id,
+            "model": selected_model,
+            "raw_text": raw_text,
+            "raw_text_salvaged": bool(self.raw_text_salvaged or raw_text),
+            "attempts": [_json_safe(item) for item in self.attempts],
+            "runtime_fallback_used": bool(self.runtime_fallback_used or len(self.attempts) > 1),
         }
 
 
