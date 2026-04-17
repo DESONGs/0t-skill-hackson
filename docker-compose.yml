@@ -1,0 +1,121 @@
+x-app-common: &app-common
+  profiles: ["app"]
+  image: ot-skill-app:local
+  working_dir: /app
+  env_file:
+    - .env
+  environment:
+    OT_IN_DOCKER_COMPOSE: "1"
+    OT_DEFAULT_WORKSPACE: /app/.ot-workspace
+    OT_FRONTEND_WORKSPACE: /app/.ot-workspace
+    AVE_USE_DOCKER: "false"
+    AVE_DATA_SERVICE_URL: http://ave-data-service:8080
+    AVE_DATA_SERVICE_BIND_HOST: 0.0.0.0
+    OT_FRONTEND_BIND_HOST: 0.0.0.0
+  volumes:
+    - ./skills:/app/skills
+    - ./.ot-workspace:/app/.ot-workspace
+    - ./.env:/app/.env:ro
+
+services:
+  postgres:
+    profiles: ["infra"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ot_skill_enterprise
+      POSTGRES_USER: ot
+      POSTGRES_PASSWORD: ot_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ot -d ot_skill_enterprise"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    profiles: ["infra"]
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  blob:
+    profiles: ["infra"]
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ot
+      MINIO_ROOT_PASSWORD: ot_dev_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - blob_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:9000/minio/health/live >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ave-data-service:
+    <<: *app-common
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+      target: runtime
+    command: ["uv", "run", "--no-sync", "ot-serve-ave-data"]
+    ports:
+      - "8080:8080"
+
+  frontend:
+    <<: *app-common
+    depends_on:
+      - ave-data-service
+    command: ["uv", "run", "--no-sync", "ot-frontend"]
+    ports:
+      - "8090:8090"
+
+  cli:
+    <<: *app-common
+    depends_on:
+      - ave-data-service
+    entrypoint: ["uv", "run", "--no-sync", "ot-enterprise"]
+
+  qa:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+      target: verify
+    image: ot-skill-verify:local
+    working_dir: /app
+    env_file:
+      - .env
+    environment:
+      OT_IN_DOCKER_COMPOSE: "1"
+      OT_DEFAULT_WORKSPACE: /app/.ot-workspace
+      OT_FRONTEND_WORKSPACE: /app/.ot-workspace
+      AVE_USE_DOCKER: "false"
+      AVE_DATA_SERVICE_URL: http://ave-data-service:8080
+      AVE_DATA_SERVICE_BIND_HOST: 0.0.0.0
+      OT_FRONTEND_BIND_HOST: 0.0.0.0
+    volumes:
+      - ./skills:/app/skills
+      - ./.ot-workspace:/app/.ot-workspace
+      - ./.env:/app/.env:ro
+    command: ["./scripts/verify.sh"]
+
+volumes:
+  postgres_data:
+  redis_data:
+  blob_data:

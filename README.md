@@ -1,225 +1,116 @@
-# 0T-Skill — On-chain Wallet Style Distillation & Autonomous Execution
+# 0T-Skill
 
-> **Input any wallet address → Distill trading style via AVE → Compile into executable Skill → Execute trades through OKX OnchainOS**
+0T-Skill distills an on-chain wallet's trading behavior into a runnable skill package. The repository root is the only supported entrypoint.
 
-## What is 0T-Skill?
+If you want the shortest human path, start with [START_HERE.md](./START_HERE.md).  
+If you want Codex or Claude Code to take over immediately, use [AGENT_QUICKSTART.md](./AGENT_QUICKSTART.md).
 
-0T-Skill is an end-to-end on-chain trading strategy distillation system. It transforms any wallet's historical trading behavior into a structured, executable **Skill** — powered by **AVE** for data intelligence and **OKX OnchainOS** for on-chain execution.
+## Official Startup Paths
 
-```mermaid
-flowchart LR
-    W["🏦 Wallet Address"] --> AVE["📊 AVE Data Intelligence"]
-    AVE --> D["🧪 Style Distillation Engine"]
-    D --> R["🧠 LLM Reflection (Pi/Kimi)"]
-    R --> S["📦 Skill Package"]
-    S --> OKX["⚡ OKX OnchainOS Execution"]
-    
-    style AVE fill:#4ECDC4,color:#000
-    style OKX fill:#FF6B6B,color:#000
-    style S fill:#FFE66D,color:#000
-```
+### 1. Host `uv` path
 
-## Core Architecture
-
-```mermaid
-graph TB
-    subgraph CP["Control Plane"]
-        CLI["CLI: ot-enterprise"]
-        API["HTTP API"]
-        FE["Frontend Dashboard"]
-    end
-
-    subgraph DP["Data Plane — AVE"]
-        IW["inspect_wallet"]
-        IT["inspect_token"]
-        IM["inspect_market"]
-        RS["review_signals"]
-        DT["discover_tokens"]
-    end
-
-    subgraph EP["Distillation Engine — Skill-OS"]
-        M1["M1: Data Collection"]
-        M2["M2: Trade Pairing"]
-        M3["M3: Market Context"]
-        M4["M4: Signal & Risk"]
-        M5["M5: LLM Distillation"]
-        M6["M6: Backtest & Confidence"]
-        M7["M7: Archetype Classification"]
-    end
-
-    subgraph RP["Reflection Plane"]
-        PI["Pi Runtime + Kimi K2"]
-    end
-
-    subgraph XP["Execution Plane — OKX OnchainOS"]
-        SEC["Security Scan"]
-        QUO["Quote & Route"]
-        SIM["Simulate (dry-run)"]
-        BRO["Broadcast (live)"]
-    end
-
-    subgraph OUT["Output"]
-        SK["📦 Skill Package"]
-    end
-
-    CP --> M1
-    DP --> M1
-    M1 --> M2 & M3 & M4
-    M2 & M3 & M4 --> M7
-    M7 --> M5
-    M5 --> PI
-    PI --> M6
-    M6 --> SK
-    SK --> XP
-
-    style DP fill:#4ECDC4,color:#000
-    style XP fill:#FF6B6B,color:#000
-    style EP fill:#45B7D1,color:#000
-    style RP fill:#96CEB4,color:#000
-```
-
-## How AVE Powers 0T-Skill
-
-**AVE is the exclusive data source** for the entire distillation pipeline. Every piece of on-chain intelligence flows through AVE's skill endpoints:
-
-```mermaid
-flowchart TB
-    subgraph AVE["AVE Data Intelligence Layer"]
-        direction TB
-        IW["inspect_wallet<br/>Holdings · Balance · History"]
-        IT["inspect_token<br/>Token Detail · Holders · Risk"]
-        IM["inspect_market<br/>OHLCV · Liquidity · Volume"]
-        RS["review_signals<br/>Whale Moves · Anomalies"]
-        DT["discover_tokens<br/>Token Search · Discovery"]
-    end
-
-    subgraph USE["How 0T-Skill Consumes AVE Data"]
-        direction TB
-        U1["M1: Parallel data collection<br/>(wallet + tokens + market + signals)"]
-        U2["M2: FIFO trade pairing<br/>from transaction history"]
-        U3["M3: Momentum & volatility<br/>from market candles"]
-        U4["M4: Risk filters<br/>from token security scans"]
-        U5["M5: compact_input assembly<br/>≤6KB for LLM reflection"]
-        U6["M6: Backtest validation<br/>against historical trades"]
-    end
-
-    IW --> U1
-    IT --> U1 & U4
-    IM --> U1 & U3
-    RS --> U1 & U4
-    DT --> U1
-
-    U1 --> U2 & U3 & U4
-    U2 & U3 & U4 --> U5
-    U5 --> U6
-
-    style AVE fill:#4ECDC4,color:#000
-```
-
-**AVE Skills used in this project:**
-
-| AVE Skill Endpoint | Purpose in 0T-Skill | Consumption Stage |
-|---|---|---|
-| `inspect_wallet` | Wallet profile, holdings, full transaction history | M1 Data Collection |
-| `inspect_token` | Token details, holder distribution, smart contract risk scan | M1 → M4 Risk Filter |
-| `inspect_market` | K-line data, liquidity depth, trading volume | M1 → M3 Market Context |
-| `review_signals` | On-chain anomaly signals, whale tracking | M1 → M4 Signal Filter |
-| `discover_tokens` | Token resolution and discovery | M1 Auxiliary |
-
-## Quick Start
+Use this when you want direct local debugging, direct file visibility, and the best agent editing experience.
 
 ```bash
-cd 0t-skill_hackson_v2ing
-./scripts/bootstrap.sh
+./scripts/doctor.sh
 cp .env.example .env
-# Fill in AVE_API_KEY, KIMI_API_KEY, and optionally OKX credentials
+# Fill in AVE_API_KEY, API_PLAN, KIMI_API_KEY
+uv sync --frozen
+uv run ot-enterprise runtime prepare --workspace-dir .ot-workspace
+uv run ot-serve-ave-data
+uv run ot-frontend
+uv run ot-enterprise style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc
 ```
+
+### 2. Docker path
+
+Use this when you want a more stable, more isolated startup path for weak local environments.
 
 ```bash
-# Start services
-./scripts/start_ave_data_service.sh
-./scripts/start_frontend.sh
-
-# Distill a wallet style
-ot-enterprise style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc
-
-# Resume with live execution
-ot-enterprise style resume --workspace-dir .ot-workspace --job-id <id> --live-execute --approval-granted
+./scripts/doctor.sh
+cp .env.example .env
+./scripts/docker_build.sh
+./scripts/docker_up.sh
+./scripts/docker_cli.sh style distill --workspace-dir /app/.ot-workspace --wallet 0x... --chain bsc
 ```
 
-## Example Distilled Skills
+If you also want local Postgres / Redis / MinIO:
 
-This repository includes real distilled Skill packages demonstrating the system's output:
-
-### Skill 1: Meme Hunter (0.95 confidence)
-
-- **Wallet**: `0xbac453...567a89` on BSC
-- **Archetype**: `meme_hunter` with `degen_sniper` secondary traits
-- **Behavior**: High-frequency rotation, 27 trades/day, small-cap bias ($752K avg market cap)
-- **Token preference**: PP
-- **Confidence**: 0.95 (high)
-
-### Skill 2: Exploratory Profile (0.39 confidence)
-
-- **Wallet**: `0x9998c3...bc0bc2d` on BSC
-- **Archetype**: `no_stable_archetype` (insufficient pattern signal)
-- **Behavior**: High-frequency rotation, 3.44 trades/day, conservative risk
-- **Token preference**: GENIUS
-- **Confidence**: 0.39 (low — system honestly reports uncertainty)
-
-### Skill 3: V2 Pipeline Output
-
-- **Wallet**: `0xd5b63e...` on BSC
-- **Type**: Full v2 pipeline with enhanced archetype classification
-
-## Repository Structure
-
+```bash
+./scripts/docker_up.sh --with-infra
 ```
-0t-skill-hackson-public/
-├── README.md                                    # This file
-├── CONFIGURATION.md                             # Environment setup guide
-├── docs/
-│   ├── PROJECT_INTRODUCTION.md                  # Detailed project introduction
-│   ├── ARCHITECTURE.md                          # Agent framework & system architecture
-│   ├── INTEGRATION.md                           # Skill-OS framework integration
-│   └── AVE_SKILLS.md                            # AVE Skills documentation (hackathon)
-├── distill-modules/                             # Distillation module design docs (M1-M7)
-├── 0t-skill_hackson_v2ing/                      # Main project
-│   ├── src/ot_skill_enterprise/                 # Core business logic
-│   │   ├── style_distillation/                  # Distillation engine + archetype
-│   │   ├── reflection/                          # LLM reflection service
-│   │   ├── skills_compiler/                     # Skill package compiler
-│   │   ├── execution/                           # OKX OnchainOS adapter
-│   │   └── providers/ave/                       # AVE data adapter
-│   ├── services/ave-data-service/               # AVE REST service
-│   ├── skills/                                  # Distilled skill packages
-│   ├── vendor/                                  # Vendored dependencies
-│   ├── tests/                                   # Test suite
-│   ├── scripts/                                 # Bootstrap & startup scripts
-│   └── frontend/                                # Dashboard UI
-└── agent.md                                     # Agent collaboration rules
+
+## Runtime Notes
+
+- `.env.example` keeps the real provider path:
+  - `AVE_DATA_PROVIDER=ave_rest`
+  - `OT_PI_REFLECTION_MOCK=0`
+  - `AVE_USE_DOCKER=true`
+- Host `uv` mode defaults to real AVE + real Kimi.
+- Docker app services override `AVE_USE_DOCKER=false` internally to avoid nested Docker.
+- `./scripts/bootstrap.sh` still exists as a compatibility wrapper, but `uv` is now the primary contract.
+
+Frontend default address:
+
+- [http://127.0.0.1:8090](http://127.0.0.1:8090)
+
+## Usage Modes
+
+| Mode | Purpose | Extra setup |
+|---|---|---|
+| Real distillation | AVE-backed data + real reflection | Set `AVE_API_KEY`, `API_PLAN`, `KIMI_API_KEY` |
+| Live execution | OKX OnchainOS execution flow | Add `OKX_*` credentials and a working `cargo` or `OT_ONCHAINOS_CLI_BIN` |
+| Mock verification | Repository smoke checks and CI | Optional; used by `./scripts/verify.sh`, not the default user path |
+| Local infra | Postgres / Redis / MinIO | Use `./scripts/start_stack.sh` or `./scripts/docker_up.sh --with-infra` |
+
+## Repository Layout
+
+```text
+.
+├── AGENTS.md                 # Canonical instructions for Codex, Claude Code, and similar agents
+├── AGENT_QUICKSTART.md       # Copy-paste prompts for users opening the repo in an agent
+├── START_HERE.md             # Shortest startup path for human operators
+├── README.md                 # Human quick start and operating modes
+├── CONFIGURATION.md          # Scenario-based environment guide
+├── .env.example              # Real-path environment template
+├── docs/                     # Architecture, contracts, product docs, archived hackathon docs
+├── docker/                   # Dockerfiles for app and AVE bridge
+├── scripts/                  # Doctor, startup, Docker helpers, verification
+├── src/ot_skill_enterprise/  # Python control plane and business logic
+├── services/                 # Local service implementations
+├── frontend/                 # Static dashboard assets
+├── skills/                   # Public fixture skills; local generated skills are ignored by git
+├── vendor/                   # Vendored upstream code; read last
+└── tests/                    # Regression and unit tests
 ```
+
+## Agent Integration
+
+Start with [AGENTS.md](./AGENTS.md). For most agent systems:
+
+1. `./scripts/doctor.sh`
+2. `cp .env.example .env`
+3. choose either `uv` or Docker
+4. stay at the repository root
+
+## Verification
+
+```bash
+./scripts/verify.sh
+```
+
+`verify.sh` intentionally uses mock-backed smoke coverage for repository health checks. It validates repository wiring before you debug real-provider behavior.
 
 ## Documentation
 
-| Document | Content |
-|---|---|
-| **[AVE Skills Documentation](docs/AVE_SKILLS.md)** | How AVE Skills power 0T-Skill (hackathon submission) |
-| [Project Introduction](docs/PROJECT_INTRODUCTION.md) | Background, core flow, example Skill walkthrough |
-| [System Architecture](docs/ARCHITECTURE.md) | Agent framework, 4-stage pipeline, archetype system |
-| [Integration Guide](docs/INTEGRATION.md) | AVE + OKX OnchainOS + Skill-OS collaboration |
-| [Configuration](CONFIGURATION.md) | Environment variables & dependency setup |
-
-## Tech Stack
-
-| Layer | Technology | Role |
-|---|---|---|
-| Data Plane | **AVE REST API** | Wallet, token, market, signal data |
-| Reflection | Pi Runtime + Kimi K2 | Structured LLM reasoning |
-| Compilation | Skill-OS Compiler | Skill package generation & validation |
-| Execution | **OKX OnchainOS CLI** | On-chain trade simulation & broadcast |
-| Control | Python CLI + HTTP API | Unified entry point & orchestration |
-| Frontend | Native HTML/CSS/JS | Runtime status & Skill browsing dashboard |
+- [START_HERE.md](./START_HERE.md)
+- [AGENT_QUICKSTART.md](./AGENT_QUICKSTART.md)
+- [AGENTS.md](./AGENTS.md)
+- [CONFIGURATION.md](./CONFIGURATION.md)
+- [docs/README.md](./docs/README.md)
+- [docs/architecture/system-overview.md](./docs/architecture/system-overview.md)
+- [docs/product/platform-guide.md](./docs/product/platform-guide.md)
+- [docs/legacy/hackathon/README.md](./docs/legacy/hackathon/README.md)
 
 ## License
 

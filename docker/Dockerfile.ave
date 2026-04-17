@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1.7
+
+FROM python:3.11-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN python -m pip install --no-cache-dir uv
+
+COPY vendor/ave_cloud_skill/scripts/requirements.txt /tmp/ave-requirements.txt
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system -r /tmp/ave-requirements.txt
+
+COPY vendor/ave_cloud_skill/scripts /app/scripts
+
+ENV AVE_USE_DOCKER=true
+
+ENTRYPOINT ["python", "scripts/ave_data_rest.py"]

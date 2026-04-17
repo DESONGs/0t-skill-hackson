@@ -1,0 +1,24 @@
+interface:
+  display_name: Meme Hunter BSC c0bc2d
+  short_description: 0x9998c32dc444709f7b613aa05666325edbc0bc2d on bsc maps to meme_hunter,
+    trades with high-frequency rotation, leans conservative, shows distributed basket,
+    and most often acts through swap around GENIUS.
+  default_prompt: 0x9998c32dc444709f7b613aa05666325edbc0bc2d on bsc maps to meme_hunter,
+    trades with high-frequency rotation, leans conservative, shows distributed basket,
+    and most often acts through swap around GENIUS.
+compatibility:
+  canonical_format: agent-skills
+  adapter_targets:
+  - generic
+  activation:
+    mode: manual
+    paths: []
+  execution:
+    context: fork
+    shell: bash
+  trust:
+    source_tier: local
+    remote_inline_execution: forbid
+    remote_metadata_policy: explicit-providers-only
+  degradation:
+    generic: manual

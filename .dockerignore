@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+.ot-workspace
+.ot-workspace*
+.pytest_cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+build
+dist
+vendor/pi_runtime/node_modules
+vendor/pi_runtime/dist
+vendor/onchainos_cli/upstream/cli/target
