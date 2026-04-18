@@ -3,6 +3,7 @@
 这份文档给“代码能力一般，但想尽快跑起来”的用户。
 
 如果你不是自己跑命令，而是想直接把仓库交给 Codex / Claude Code，请先看 [AGENT_QUICKSTART.md](./AGENT_QUICKSTART.md)。
+如果你要找的是新的 agent-team protocol / `ot-team` 入口，请看 [team-protocol/ENTRYPOINT.md](./team-protocol/ENTRYPOINT.md)。
 
 先记住一条：
 
@@ -36,6 +37,8 @@
 3. 补完 `.env` 后，再把第二段和第三段提示词继续发给 agent
 
 下面保留的是“你自己手动跑”的路径。
+
+`ot-team` protocol bundle 不是启动项目的替代路径，它只负责 planner / optimizer / reviewer 协作层。
 
 ## 手动路径 A：Host `uv`
 

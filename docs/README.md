@@ -8,14 +8,18 @@ This directory now has one documentation tree for the entire repository.
 2. [../AGENT_QUICKSTART.md](../AGENT_QUICKSTART.md)
 3. [../START_HERE.md](../START_HERE.md)
 4. [../AGENTS.md](../AGENTS.md)
-5. [architecture/system-overview.md](./architecture/system-overview.md)
-6. [architecture/wallet-style-agent-reflection-flow.md](./architecture/wallet-style-agent-reflection-flow.md)
-7. [product/platform-guide.md](./product/platform-guide.md)
-8. [contracts/runtime-run-evaluation-schema.md](./contracts/runtime-run-evaluation-schema.md)
-9. [contracts/workspace-discovery-api.md](./contracts/workspace-discovery-api.md)
+5. [../team-protocol/ENTRYPOINT.md](../team-protocol/ENTRYPOINT.md)
+6. [architecture/agent-team-optimization.md](./architecture/agent-team-optimization.md)
+7. [product/ot-team-protocol-guide.md](./product/ot-team-protocol-guide.md)
+8. [architecture/system-overview.md](./architecture/system-overview.md)
+9. [architecture/wallet-style-agent-reflection-flow.md](./architecture/wallet-style-agent-reflection-flow.md)
+10. [product/platform-guide.md](./product/platform-guide.md)
+11. [contracts/runtime-run-evaluation-schema.md](./contracts/runtime-run-evaluation-schema.md)
+12. [contracts/workspace-discovery-api.md](./contracts/workspace-discovery-api.md)
 
-## Sections
+## Linked Bundle And Sections
 
+- `../team-protocol/`: repo-tracked bundle for the `ot-team` planner/optimizer/reviewer architecture
 - `architecture/`: module boundaries, pipeline stages, runtime flow
 - `product/`: operator-facing explanations and walkthroughs
 - `contracts/`: runtime payloads, workspace discovery, field contracts
@@ -24,6 +28,7 @@ This directory now has one documentation tree for the entire repository.
 ## Current Repository Contract
 
 - single root entrypoint
+- repo-tracked `ot-team` bundle for agent coordination work
 - real-path onboarding from the repository root
 - mock-backed verification only as a repository health check
 - AVE as the data plane

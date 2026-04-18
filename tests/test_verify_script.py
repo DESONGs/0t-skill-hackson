@@ -16,6 +16,7 @@ class VerifyScriptTests(unittest.TestCase):
 
     def test_verify_script_includes_required_regression_entrypoints(self) -> None:
         content = VERIFY_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("test_agent_team_service.py", content)
         self.assertIn("test_style_distillation_archetype.py", content)
         self.assertIn("test_style_distillation_archetype_integration.py", content)
         self.assertIn("test_wallet_style_reflection.py", content)

@@ -1,0 +1,58 @@
+{
+  "module_id": "autoresearch",
+  "module_version": "1.0.0",
+  "capability_type": "workflow_optimizer",
+  "target_subjects": [
+    "skill"
+  ],
+  "search_space_schema": {
+    "allowed_fields": [
+      "strategy_spec",
+      "execution_intent",
+      "risk_filters",
+      "timing",
+      "sizing",
+      "pacing",
+      "candidate_generation_thresholds"
+    ]
+  },
+  "benchmark_profiles": [
+    {
+      "profile_id": "autoresearch-default",
+      "summary": "Deterministic benchmark runner profile for proposed skill variants."
+    }
+  ],
+  "gate_profiles": [
+    {
+      "profile_id": "autoresearch-hard-gates",
+      "rules": [
+        "Goal is explicitly scoped",
+        "Claims are backed by cited evidence or stated assumptions",
+        "Tradeoffs are summarized for the next decision-maker",
+        "Reviewer disposition is recorded"
+      ]
+    }
+  ],
+  "decision_policy": {
+    "default_workflow": "autoresearch",
+    "entry_role": "planner",
+    "terminal_role": "reviewer",
+    "max_style_distance": 0.35,
+    "min_confidence_vs_noise": 0.0
+  },
+  "supported_team_topologies": [
+    "homogeneous"
+  ],
+  "workspace_compatibility": {
+    "mode": "multi-workspace",
+    "storage_profiles": [
+      "local-files",
+      "postgres-redis-blob"
+    ]
+  },
+  "metadata": {
+    "title": "AutoResearch",
+    "purpose": "Coordinate multi-role research refinement through a planner/optimizer/reviewer loop.",
+    "artifact_type": "research_brief"
+  }
+}

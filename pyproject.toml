@@ -35,6 +35,7 @@ ave-advanced = [
 
 [project.scripts]
 ot-enterprise = "ot_skill_enterprise.control_plane.cli:main"
+ot-team = "ot_skill_enterprise.team.cli:main"
 ot-serve-ave-data = "ot_skill_enterprise.service_entrypoints:main"
 ot-frontend = "ot_skill_enterprise.frontend_server:main"
 ot-runtime-bootstrap = "ot_skill_enterprise.runtime.pi.bootstrap:main"

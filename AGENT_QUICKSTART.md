@@ -2,6 +2,8 @@
 
 这份文档给“不想自己敲一堆命令，只想打开 Codex / Claude Code 让 agent 接手”的用户。
 
+如果你要的是新的 agent-team protocol / `ot-team` 协作入口，也可以直接让 agent 先读 [team-protocol/ENTRYPOINT.md](./team-protocol/ENTRYPOINT.md)。
+
 ## 默认推荐
 
 默认先走 **host `uv` path**。  
@@ -18,6 +20,7 @@
 
 ```text
 Read AGENTS.md and START_HERE.md first.
+If the task is about the planner/optimizer/reviewer protocol, also read team-protocol/ENTRYPOINT.md.
 Stay on the real provider path, not mock mode.
 Use the host uv path unless you detect the machine is missing prerequisites.
 Run ./scripts/doctor.sh from the repository root.
@@ -59,6 +62,18 @@ Run ./scripts/docker_build.sh.
 Then run ./scripts/docker_up.sh.
 Then use ./scripts/docker_cli.sh to execute the real distillation path.
 Tell me the frontend URL and whether the app containers are healthy before you distill.
+```
+
+## 如果你是让 agent 跑新的 `ot-team` protocol
+
+把下面这段发给 agent：
+
+```text
+Read AGENTS.md and team-protocol/ENTRYPOINT.md first.
+Stay at the repository root.
+Treat ./team-protocol as the repo-tracked bundle for the planner/optimizer/reviewer architecture.
+If ot-team is available, run ot-team doctor, then start the autoresearch workflow and generate the planner handoff.
+Tell me which workflow, role files, and review gates are active before you make protocol changes.
 ```
 
 ## 现在的默认产物命名

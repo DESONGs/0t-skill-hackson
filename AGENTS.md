@@ -2,6 +2,8 @@
 
 This is the canonical orientation file for Codex, Claude Code, and similar repository agents.
 
+For the repo-tracked planner/optimizer/reviewer bundle, the protocol entrypoint is `team-protocol/ENTRYPOINT.md`. Use that bundle for `ot-team` coordination work, but keep the startup and runtime contract in this file unchanged.
+
 ## Root Contract
 
 - The repository root is the only supported working directory.
@@ -53,6 +55,8 @@ Docker app services override `AVE_USE_DOCKER=false` internally so they do not tr
 
 - `AGENT_QUICKSTART.md`
   - user-facing copy-paste prompts for handing the repo to Codex or Claude Code
+- `team-protocol/`
+  - repo-tracked entrypoint, manifest, roles, workflows, and modules for the `ot-team` coordination layer
 - `START_HERE.md`
   - shortest operator startup path for humans and thin agents
 - `README.md`
@@ -84,9 +88,10 @@ Docker app services override `AVE_USE_DOCKER=false` internally so they do not tr
 2. `AGENT_QUICKSTART.md`
 3. `START_HERE.md`
 4. `CONFIGURATION.md`
-5. `docs/README.md`
-6. `src/ot_skill_enterprise/README.md`
-7. only then dive into implementation modules
+5. `team-protocol/ENTRYPOINT.md` when the task involves agent-team optimization work
+6. `docs/README.md`
+7. `src/ot_skill_enterprise/README.md`
+8. only then dive into implementation modules
 
 ## Where To Spend Time
 
@@ -99,6 +104,15 @@ Focus on these first:
 - `tests/`
 
 Avoid spending time in `vendor/` unless the task is explicitly about vendored runtime behavior.
+
+## Agent-Team Optimization Path
+
+When the task is about multi-agent planning, optimization, or review loops:
+
+- enter through `team-protocol/ENTRYPOINT.md`
+- use `team-protocol/manifest.json` as the machine-readable source of truth
+- keep `ot-team` work separate from `ot-enterprise` runtime startup work
+- return to the normal startup docs when the task moves back to runtime, distillation, or execution
 
 ## Data And Execution Boundaries
 

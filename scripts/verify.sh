@@ -43,6 +43,7 @@ find src/ot_skill_enterprise -type f -name '*.py' -print0 | xargs -0 "$PYTHON_BI
 if command -v "$PYTHON_BIN" >/dev/null 2>&1 && "$PYTHON_BIN" -m pytest --version >/dev/null 2>&1; then
   echo "[verify] qa regression tests"
   PYTHONPATH="${PYTHONPATH:-$ROOT/src}" "$PYTHON_BIN" -m pytest -q \
+    "$ROOT/tests/test_agent_team_service.py" \
     "$ROOT/tests/test_style_distillation_archetype.py" \
     "$ROOT/tests/test_style_distillation_archetype_integration.py" \
     "$ROOT/tests/test_wallet_style_reflection.py::WalletStyleReflectionTests::test_parse_wallet_style_review_report_accepts_minimal_distill_output" \

@@ -4,6 +4,7 @@
 
 If you want the shortest human path, start with [START_HERE.md](./START_HERE.md).  
 If you want Codex or Claude Code to take over immediately, use [AGENT_QUICKSTART.md](./AGENT_QUICKSTART.md).
+If you need the repo-tracked planner/optimizer/reviewer bundle for the new agent-team architecture, start with [team-protocol/ENTRYPOINT.md](./team-protocol/ENTRYPOINT.md).
 
 ## Official Startup Paths
 
@@ -50,6 +51,19 @@ If you also want local Postgres / Redis / MinIO:
 - Docker app services override `AVE_USE_DOCKER=false` internally to avoid nested Docker.
 - `./scripts/bootstrap.sh` still exists as a compatibility wrapper, but `uv` is now the primary contract.
 
+## Agent-Team Protocol Bundle
+
+The repository now also tracks a protocol bundle for the separate `ot-team` coordination layer:
+
+- entrypoint: [team-protocol/ENTRYPOINT.md](./team-protocol/ENTRYPOINT.md)
+- manifest: [team-protocol/manifest.json](./team-protocol/manifest.json)
+- architecture note: [docs/architecture/agent-team-optimization.md](./docs/architecture/agent-team-optimization.md)
+
+This does not replace the startup paths above.
+
+- use `ot-enterprise` and the scripts in this README for runtime preparation, serving, and distillation
+- use `ot-team` when the task is about agent-team planning, optimization, and review workflows
+
 Frontend default address:
 
 - [http://127.0.0.1:8090](http://127.0.0.1:8090)
@@ -71,6 +85,7 @@ Frontend default address:
 ├── AGENT_QUICKSTART.md       # Copy-paste prompts for users opening the repo in an agent
 ├── START_HERE.md             # Shortest startup path for human operators
 ├── README.md                 # Human quick start and operating modes
+├── team-protocol/            # Repo-tracked planner/optimizer/reviewer bundle for ot-team
 ├── CONFIGURATION.md          # Scenario-based environment guide
 ├── .env.example              # Real-path environment template
 ├── docs/                     # Architecture, contracts, product docs, archived hackathon docs
@@ -93,6 +108,8 @@ Start with [AGENTS.md](./AGENTS.md). For most agent systems:
 3. choose either `uv` or Docker
 4. stay at the repository root
 
+For the separate agent-team coordination layer, use [team-protocol/ENTRYPOINT.md](./team-protocol/ENTRYPOINT.md) and point `ot-team` at `./team-protocol`.
+
 ## Verification
 
 ```bash
@@ -108,6 +125,9 @@ Start with [AGENTS.md](./AGENTS.md). For most agent systems:
 - [AGENTS.md](./AGENTS.md)
 - [CONFIGURATION.md](./CONFIGURATION.md)
 - [docs/README.md](./docs/README.md)
+- [team-protocol/ENTRYPOINT.md](./team-protocol/ENTRYPOINT.md)
+- [docs/architecture/agent-team-optimization.md](./docs/architecture/agent-team-optimization.md)
+- [docs/product/ot-team-protocol-guide.md](./docs/product/ot-team-protocol-guide.md)
 - [docs/architecture/system-overview.md](./docs/architecture/system-overview.md)
 - [docs/product/platform-guide.md](./docs/product/platform-guide.md)
 - [docs/legacy/hackathon/README.md](./docs/legacy/hackathon/README.md)
