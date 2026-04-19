@@ -2,7 +2,7 @@
 
 这份文档给“不想自己敲一堆命令，只想打开 Codex / Claude Code 让 agent 接手”的用户。
 
-如果你要的是新的 agent-team protocol / `ot-team` 协作入口，也可以直接让 agent 先读 [team-protocol/ENTRYPOINT.md](./team-protocol/ENTRYPOINT.md)。
+如果你要的是新的 agent-team protocol / `0t team` 协作入口，也可以直接让 agent 先读 [the `0t-protocol` guide](./docs/product/0t-protocol-guide.md)。
 
 ## 默认推荐
 
@@ -20,7 +20,7 @@
 
 ```text
 Read AGENTS.md and START_HERE.md first.
-If the task is about the planner/optimizer/reviewer protocol, also read team-protocol/ENTRYPOINT.md.
+If the task is about the planner/optimizer/reviewer protocol, also read the 0t-protocol entrypoint.
 Stay on the real provider path, not mock mode.
 Use the host uv path unless you detect the machine is missing prerequisites.
 Run ./scripts/doctor.sh from the repository root.
@@ -34,7 +34,7 @@ Do not continue past environment setup until you tell me exactly which keys I st
 Continue from the repository root.
 Use the host uv path.
 Run: uv sync --frozen
-Then run: uv run ot-enterprise runtime prepare --workspace-dir .ot-workspace
+Then run: uv run 0t runtime prepare --workspace-dir .ot-workspace
 Then start the required local services and tell me the frontend URL and whether the real distillation path is ready.
 ```
 
@@ -44,7 +44,7 @@ Then start the required local services and tell me the frontend URL and whether 
 
 ```text
 Use the current real setup and run one wallet distillation.
-Command: uv run ot-enterprise style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc
+Command: uv run 0t style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc
 After it finishes, tell me:
 1. the generated package name
 2. what that name means
@@ -64,15 +64,15 @@ Then use ./scripts/docker_cli.sh to execute the real distillation path.
 Tell me the frontend URL and whether the app containers are healthy before you distill.
 ```
 
-## 如果你是让 agent 跑新的 `ot-team` protocol
+## 如果你是让 agent 跑新的 `0t team` protocol
 
 把下面这段发给 agent：
 
 ```text
-Read AGENTS.md and team-protocol/ENTRYPOINT.md first.
+Read AGENTS.md and the 0t-protocol entrypoint first.
 Stay at the repository root.
-Treat ./team-protocol as the repo-tracked bundle for the planner/optimizer/reviewer architecture.
-If ot-team is available, run ot-team doctor, then start the autoresearch workflow and generate the planner handoff.
+Treat the repo-tracked 0t-protocol bundle as the source of truth for the planner/optimizer/reviewer architecture.
+Run 0t team doctor, then start the autoresearch workflow and generate the planner handoff.
 Tell me which workflow, role files, and review gates are active before you make protocol changes.
 ```
 
@@ -100,5 +100,5 @@ Run the distillation, but use --skill-name Desk Alpha BSC.
 或者直接让 agent 改命令为：
 
 ```bash
-uv run ot-enterprise style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc --skill-name "Desk Alpha BSC"
+uv run 0t style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc --skill-name "Desk Alpha BSC"
 ```

@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { runReflectionMode } from "./ot_reflection_mode.js";
+import { runWorkflowMode } from "./ot_workflow_mode.js";
 
 type Payload = {
 	run_id?: string;
@@ -72,6 +73,23 @@ function shouldRunReflection(payload: Payload): boolean {
 	const inputPayload = ensureObject(payload.input_payload);
 	const piMode = String(metadata["pi_mode"] || inputPayload["pi_mode"] || "").trim().toLowerCase();
 	return piMode === "reflection" || Boolean(inputPayload["reflection_job"]);
+}
+
+function shouldRunWorkflow(payload: Payload): boolean {
+	const metadata = ensureObject(payload.metadata);
+	const inputPayload = ensureObject(payload.input_payload);
+	const workflowSession = ensureObject(inputPayload["workflow_session"]);
+	const piMode = String(metadata["pi_mode"] || inputPayload["pi_mode"] || "").trim().toLowerCase();
+	const workflowAction = String(
+		metadata["workflow_action"] || inputPayload["workflow_action"] || workflowSession["action"] || "",
+	)
+		.trim()
+		.toLowerCase();
+	return (
+		piMode === "workflow" ||
+		Boolean(inputPayload["workflow_session"]) ||
+		["run", "resume", "replay", "handoff", "approve", "reject", "activate", "archive"].includes(workflowAction)
+	);
 }
 
 async function runStubMode(payload: Payload) {
@@ -216,7 +234,11 @@ async function runStubMode(payload: Payload) {
 
 async function main() {
 	const payload = await readPayload();
-	const result = shouldRunReflection(payload) ? await runReflectionMode(payload) : await runStubMode(payload);
+	const result = shouldRunReflection(payload)
+		? await runReflectionMode(payload)
+		: shouldRunWorkflow(payload)
+			? await runWorkflowMode(payload)
+			: await runStubMode(payload);
 	process.stdout.write(JSON.stringify(result, null, 2));
 }
 

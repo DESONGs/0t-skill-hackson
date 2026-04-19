@@ -30,4 +30,4 @@ fi
 export OT_FRONTEND_BIND_HOST="${OT_FRONTEND_BIND_HOST:-127.0.0.1}"
 export OT_FRONTEND_PORT="${OT_FRONTEND_PORT:-8090}"
 
-exec "$UV_BIN" run --no-sync ot-frontend
+exec "$UV_BIN" run --no-sync 0t-frontend

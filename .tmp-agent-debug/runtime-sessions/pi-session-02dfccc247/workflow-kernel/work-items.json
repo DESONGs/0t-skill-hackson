@@ -1,0 +1,83 @@
+{
+  "work_items": [
+    {
+      "work_item_id": "workflow:benchmark_finalist",
+      "step_id": "benchmark_finalist",
+      "title": "Benchmark Finalist",
+      "action_id": "benchmark.score_finalist",
+      "plugin_id": "benchmark",
+      "stage": "benchmark",
+      "iteration": null,
+      "loop_scope": "workflow",
+      "status": "completed",
+      "depends_on": [],
+      "blocked_by": [],
+      "allow_reentry": false,
+      "created_at": "2026-04-19T18:21:02.680Z",
+      "started_at": "2026-04-19T18:21:02.736Z",
+      "handoff_ready_at": null,
+      "completed_at": "2026-04-19T18:21:04.394Z",
+      "failed_at": null,
+      "artifact_paths": [],
+      "updated_at": "2026-04-19T18:21:04.394Z",
+      "request_path": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.tmp-agent-debug/runtime-sessions/pi-session-02dfccc247/workflow-kernel/bridge/workflow:benchmark_finalist.request.json",
+      "response_path": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.tmp-agent-debug/runtime-sessions/pi-session-02dfccc247/workflow-kernel/bridge/workflow:benchmark_finalist.response.json",
+      "launcher_id": "env.python-executable",
+      "summary": "benchmarked"
+    },
+    {
+      "work_item_id": "workflow:review_finalist",
+      "step_id": "review_finalist",
+      "title": "Review Finalist",
+      "action_id": "review.finalize_candidate",
+      "plugin_id": "review",
+      "stage": "review",
+      "iteration": null,
+      "loop_scope": "workflow",
+      "status": "completed",
+      "depends_on": [
+        "workflow:benchmark_finalist"
+      ],
+      "blocked_by": [],
+      "allow_reentry": false,
+      "created_at": "2026-04-19T18:21:02.681Z",
+      "started_at": "2026-04-19T18:21:04.396Z",
+      "handoff_ready_at": null,
+      "completed_at": "2026-04-19T18:21:06.142Z",
+      "failed_at": null,
+      "artifact_paths": [],
+      "updated_at": "2026-04-19T18:21:06.142Z",
+      "request_path": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.tmp-agent-debug/runtime-sessions/pi-session-02dfccc247/workflow-kernel/bridge/workflow:review_finalist.request.json",
+      "response_path": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.tmp-agent-debug/runtime-sessions/pi-session-02dfccc247/workflow-kernel/bridge/workflow:review_finalist.response.json",
+      "launcher_id": "env.python-executable",
+      "summary": "reviewed"
+    },
+    {
+      "work_item_id": "workflow:converge_approval",
+      "step_id": "converge_approval",
+      "title": "Converge Approval",
+      "action_id": "approval_convergence.converge_approval",
+      "plugin_id": "approval-convergence",
+      "stage": "finalize",
+      "iteration": null,
+      "loop_scope": "workflow",
+      "status": "completed",
+      "depends_on": [
+        "workflow:review_finalist"
+      ],
+      "blocked_by": [],
+      "allow_reentry": false,
+      "created_at": "2026-04-19T18:21:02.681Z",
+      "started_at": "2026-04-19T18:21:06.144Z",
+      "handoff_ready_at": null,
+      "completed_at": "2026-04-19T18:21:07.949Z",
+      "failed_at": null,
+      "artifact_paths": [],
+      "updated_at": "2026-04-19T18:21:07.949Z",
+      "request_path": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.tmp-agent-debug/runtime-sessions/pi-session-02dfccc247/workflow-kernel/bridge/workflow:converge_approval.request.json",
+      "response_path": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.tmp-agent-debug/runtime-sessions/pi-session-02dfccc247/workflow-kernel/bridge/workflow:converge_approval.response.json",
+      "launcher_id": "env.python-executable",
+      "summary": "review_required"
+    }
+  ]
+}

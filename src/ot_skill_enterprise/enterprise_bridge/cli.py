@@ -8,7 +8,7 @@ from ot_skill_enterprise.enterprise_bridge import EnterpriseBridge, runtime_entr
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="ot-enterprise", description="Single-root 0t enterprise bridge")
+    parser = argparse.ArgumentParser(prog="0t bridge", description="Single-root 0T bridge")
     parser.add_argument("--root", type=Path, default=None, help="Project root to inspect")
     subparsers = parser.add_subparsers(dest="command", required=False)
 

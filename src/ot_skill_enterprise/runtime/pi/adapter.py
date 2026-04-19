@@ -23,6 +23,21 @@ def _string(value: Any, default: str) -> str:
     return text or default
 
 
+def _newest_source_mtime(source_root: Path | None) -> float:
+    if source_root is None or not source_root.exists():
+        return 0.0
+    newest = 0.0
+    try:
+        for candidate in source_root.rglob("*.ts"):
+            try:
+                newest = max(newest, candidate.stat().st_mtime)
+            except OSError:
+                continue
+    except OSError:
+        return 0.0
+    return newest
+
+
 @dataclass(slots=True)
 class PiRuntimeAdapter(RuntimeAdapter):
     descriptor: RuntimeDescriptor
@@ -46,9 +61,15 @@ class PiRuntimeAdapter(RuntimeAdapter):
         node_binary = os.getenv("OT_PI_NODE", "node")
         built_artifact = (self.runtime_root / "dist" / "pi-runtime.mjs").resolve() if self.runtime_root is not None else None
         dev_entrypoint = (self.runtime_root / "upstream/coding_agent/src/ot_runtime_entry.ts").resolve() if self.runtime_root is not None else None
+        coding_agent_source = (self.runtime_root / "upstream/coding_agent/src").resolve() if self.runtime_root is not None else None
         built_mode = built_artifact is not None and built_artifact.exists()
+        if built_mode and coding_agent_source is not None and coding_agent_source.exists():
+            try:
+                built_mode = built_artifact.stat().st_mtime >= _newest_source_mtime(coding_agent_source)
+            except OSError:
+                built_mode = built_artifact.exists()
         source_trees = {
-            "coding_agent": str((self.runtime_root / "upstream/coding_agent/src").resolve()) if self.runtime_root is not None else None,
+            "coding_agent": str(coding_agent_source) if coding_agent_source is not None else None,
             "agent": str((self.runtime_root / "upstream/agent/src").resolve()) if self.runtime_root is not None else None,
             "ai": str((self.runtime_root / "upstream/ai/src").resolve()) if self.runtime_root is not None else None,
             "tui": str((self.runtime_root / "upstream/tui/src").resolve()) if self.runtime_root is not None else None,

@@ -1,0 +1,189 @@
+{
+  "evaluation_id": "eval-7e0507535cc6",
+  "run_id": "run-708a09d0bad4",
+  "runtime_session_id": "pi-session-02dfccc247",
+  "subject_type": "workflow_session",
+  "subject_id": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89",
+  "runtime_result": {
+    "passed": true,
+    "status": "succeeded",
+    "summary": "Workflow autonomous_research is awaiting approval.",
+    "error_code": null,
+    "evidence_refs": [
+      "pi-invocation-ffbe87ed6d"
+    ],
+    "metadata": {}
+  },
+  "contract_result": {
+    "passed": true,
+    "status": "pass",
+    "summary": "contract passed",
+    "missing_fields": [],
+    "violations": [],
+    "evidence_refs": [
+      "pi-invocation-ffbe87ed6d",
+      "pi-session-02dfccc247-session",
+      "pi-session-02dfccc247-work-items",
+      "pi-session-02dfccc247-recommendation",
+      "pi-session-02dfccc247-approval",
+      "pi-session-02dfccc247-team",
+      "pi-session-02dfccc247-result",
+      "pi-session-02dfccc247-approval-convergence"
+    ],
+    "metadata": {}
+  },
+  "task_match_result": {
+    "passed": true,
+    "status": "generate",
+    "summary": "task matched",
+    "score": 1.0,
+    "threshold": 0.8,
+    "evidence_refs": [
+      "pi-invocation-ffbe87ed6d",
+      "pi-session-02dfccc247-session",
+      "pi-session-02dfccc247-work-items",
+      "pi-session-02dfccc247-recommendation",
+      "pi-session-02dfccc247-approval",
+      "pi-session-02dfccc247-team",
+      "pi-session-02dfccc247-result",
+      "pi-session-02dfccc247-approval-convergence"
+    ],
+    "metadata": {}
+  },
+  "runtime_pass": true,
+  "contract_pass": true,
+  "task_match_score": 1.0,
+  "overall_grade": "pass",
+  "review_status": "generate",
+  "failure_reason": "Workflow autonomous_research is awaiting approval.",
+  "suggested_action": "Keep runtime events flowing through the shared run/trace/evaluation model.",
+  "grade": "pass",
+  "summary": "Workflow autonomous_research is awaiting approval.",
+  "trace_ids": [
+    "pi-invocation-ffbe87ed6d"
+  ],
+  "event_ids": [
+    "evt-4ad5a84087",
+    "evt-27214e7ecd"
+  ],
+  "event_types": [
+    "runtime.session_started",
+    "runtime.session_finished"
+  ],
+  "artifact_ids": [
+    "pi-session-02dfccc247-session",
+    "pi-session-02dfccc247-work-items",
+    "pi-session-02dfccc247-recommendation",
+    "pi-session-02dfccc247-approval",
+    "pi-session-02dfccc247-team",
+    "pi-session-02dfccc247-result",
+    "pi-session-02dfccc247-approval-convergence"
+  ],
+  "evidence_refs": [
+    "pi-invocation-ffbe87ed6d",
+    "pi-session-02dfccc247-session",
+    "pi-session-02dfccc247-work-items",
+    "pi-session-02dfccc247-recommendation",
+    "pi-session-02dfccc247-approval",
+    "pi-session-02dfccc247-team",
+    "pi-session-02dfccc247-result",
+    "pi-session-02dfccc247-approval-convergence"
+  ],
+  "checks": [
+    "Keep runtime events flowing through the shared run/trace/evaluation model.",
+    "Workflow autonomous_research is awaiting approval.",
+    "contract passed",
+    "task matched"
+  ],
+  "findings": [],
+  "metadata": {
+    "score": null,
+    "recommendation": "Keep runtime events flowing through the shared run/trace/evaluation model.",
+    "trace_ids": [
+      "pi-invocation-ffbe87ed6d"
+    ],
+    "event_ids": [
+      "evt-4ad5a84087",
+      "evt-27214e7ecd"
+    ],
+    "event_types": [
+      "runtime.session_started",
+      "runtime.session_finished"
+    ],
+    "artifact_ids": [
+      "pi-session-02dfccc247-session",
+      "pi-session-02dfccc247-work-items",
+      "pi-session-02dfccc247-recommendation",
+      "pi-session-02dfccc247-approval",
+      "pi-session-02dfccc247-team",
+      "pi-session-02dfccc247-result",
+      "pi-session-02dfccc247-approval-convergence"
+    ],
+    "runtime_result": {
+      "passed": true,
+      "status": "succeeded",
+      "summary": "Workflow autonomous_research is awaiting approval.",
+      "error_code": null,
+      "evidence_refs": [
+        "pi-invocation-ffbe87ed6d"
+      ],
+      "metadata": {}
+    },
+    "contract_result": {
+      "passed": true,
+      "status": "pass",
+      "summary": "contract passed",
+      "missing_fields": [],
+      "violations": [],
+      "evidence_refs": [
+        "pi-invocation-ffbe87ed6d",
+        "pi-session-02dfccc247-session",
+        "pi-session-02dfccc247-work-items",
+        "pi-session-02dfccc247-recommendation",
+        "pi-session-02dfccc247-approval",
+        "pi-session-02dfccc247-team",
+        "pi-session-02dfccc247-result",
+        "pi-session-02dfccc247-approval-convergence"
+      ],
+      "metadata": {}
+    },
+    "task_match_result": {
+      "passed": true,
+      "status": "generate",
+      "summary": "task matched",
+      "score": 1.0,
+      "threshold": 0.8,
+      "evidence_refs": [
+        "pi-invocation-ffbe87ed6d",
+        "pi-session-02dfccc247-session",
+        "pi-session-02dfccc247-work-items",
+        "pi-session-02dfccc247-recommendation",
+        "pi-session-02dfccc247-approval",
+        "pi-session-02dfccc247-team",
+        "pi-session-02dfccc247-result",
+        "pi-session-02dfccc247-approval-convergence"
+      ],
+      "metadata": {}
+    },
+    "review_status": "generate",
+    "runtime_pass": true,
+    "contract_pass": true,
+    "task_match_score": 1.0,
+    "overall_grade": "pass",
+    "failure_reason": "Workflow autonomous_research is awaiting approval.",
+    "suggested_action": "Keep runtime events flowing through the shared run/trace/evaluation model.",
+    "evidence_refs": [
+      "pi-invocation-ffbe87ed6d",
+      "pi-session-02dfccc247-session",
+      "pi-session-02dfccc247-work-items",
+      "pi-session-02dfccc247-recommendation",
+      "pi-session-02dfccc247-approval",
+      "pi-session-02dfccc247-team",
+      "pi-session-02dfccc247-result",
+      "pi-session-02dfccc247-approval-convergence"
+    ],
+    "source_kind": "runtime",
+    "source_id": "run-708a09d0bad4"
+  },
+  "created_at": "2026-04-19T18:20:58.690224Z"
+}

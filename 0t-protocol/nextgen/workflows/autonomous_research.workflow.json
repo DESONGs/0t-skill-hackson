@@ -1,0 +1,152 @@
+{
+  "workflow_id": "autonomous_research",
+  "display_id": "autoresearch",
+  "aliases": ["autonomous-research"],
+  "title": "Autonomous Research Workflow",
+  "description": "Runs the main research loop where autoresearch generates candidates, benchmark scores them, review critiques them, and autoresearch decides whether to continue or recommend.",
+  "subject_kind": "skill",
+  "iterative": true,
+  "human_review_required": true,
+  "metadata": {
+    "protocol_namespace": "0t",
+    "facade_workflow_id": "autoresearch",
+    "supported_adapter_families": ["codex", "claude-code"]
+  },
+  "entry_steps": [
+    "seed_baseline"
+  ],
+  "terminal_steps": [
+    "decide_next_iteration"
+  ],
+  "iteration": {
+    "budget_field": "iteration_budget",
+    "decision_step_id": "decide_next_iteration",
+    "reentry_step_id": "plan_iteration"
+  },
+  "steps": [
+    {
+      "step_id": "seed_baseline",
+      "title": "Seed Baseline",
+      "plugin_id": "distillation",
+      "action_id": "distillation.execute",
+      "stage": "seed",
+      "description": "Generate the baseline skill seed unless the request already provides one.",
+      "depends_on": [],
+      "outputs": [
+        "baseline_variant",
+        "baseline_artifacts"
+      ],
+      "skip_if_session_has": [
+        "baseline_variant"
+      ]
+    },
+    {
+      "step_id": "materialize_baseline",
+      "title": "Materialize Baseline",
+      "plugin_id": "skill-creation",
+      "action_id": "skill_creation.materialize_baseline",
+      "stage": "execute",
+      "description": "Normalize the baseline into replayable materialization artifacts before benchmarking starts.",
+      "depends_on": [
+        "seed_baseline"
+      ],
+      "outputs": [
+        "baseline_variant",
+        "baseline_materialization_bundle"
+      ]
+    },
+    {
+      "step_id": "benchmark_baseline",
+      "title": "Benchmark Baseline",
+      "plugin_id": "benchmark",
+      "action_id": "benchmark.score_baseline",
+      "stage": "benchmark",
+      "description": "Benchmark the baseline variant to establish the comparison floor.",
+      "depends_on": [
+        "materialize_baseline"
+      ],
+      "outputs": [
+        "baseline_scorecard"
+      ],
+      "loop_scope": "workflow"
+    },
+    {
+      "step_id": "plan_iteration",
+      "title": "Plan Iteration",
+      "plugin_id": "autoresearch",
+      "action_id": "autoresearch.plan_iteration",
+      "stage": "plan",
+      "description": "Plan the current iteration scope and emit artifact-backed variant plans.",
+      "depends_on": [
+        "benchmark_baseline"
+      ],
+      "outputs": [
+        "variant_plans"
+      ],
+      "loop_scope": "iteration"
+    },
+    {
+      "step_id": "create_variants",
+      "title": "Create Variants",
+      "plugin_id": "skill-creation",
+      "action_id": "skill_creation.create_variants",
+      "stage": "execute",
+      "description": "Materialize planned candidate variants into replayable packages and validation artifacts.",
+      "depends_on": [
+        "plan_iteration"
+      ],
+      "outputs": [
+        "candidate_variants",
+        "variant_materialization_bundle"
+      ],
+      "loop_scope": "iteration"
+    },
+    {
+      "step_id": "benchmark_candidates",
+      "title": "Benchmark Candidates",
+      "plugin_id": "benchmark",
+      "action_id": "benchmark.score_candidates",
+      "stage": "benchmark",
+      "description": "Benchmark candidate variants with the standard profiles and hard gates.",
+      "depends_on": [
+        "create_variants"
+      ],
+      "outputs": [
+        "candidate_scorecards"
+      ],
+      "loop_scope": "iteration"
+    },
+    {
+      "step_id": "review_candidates",
+      "title": "Review Candidates",
+      "plugin_id": "review",
+      "action_id": "review.evaluate_candidates",
+      "stage": "review",
+      "description": "Review benchmarked candidates against baseline style, risk, and policy rules.",
+      "depends_on": [
+        "benchmark_candidates"
+      ],
+      "outputs": [
+        "review_decisions"
+      ],
+      "loop_scope": "iteration"
+    },
+    {
+      "step_id": "decide_next_iteration",
+      "title": "Decide Next Iteration",
+      "plugin_id": "autoresearch",
+      "action_id": "autoresearch.decide_iteration",
+      "stage": "finalize",
+      "description": "Use benchmark and review outputs to stop, loop again, or emit a recommendation bundle.",
+      "depends_on": [
+        "review_candidates"
+      ],
+      "allow_reentry": true,
+      "outputs": [
+        "recommendation_bundle",
+        "stop_decision"
+      ],
+      "loop_scope": "iteration"
+    }
+  ]
+}

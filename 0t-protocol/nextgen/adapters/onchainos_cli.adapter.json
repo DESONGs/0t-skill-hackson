@@ -1,0 +1,54 @@
+{
+  "adapter_id": "onchainos_cli",
+  "adapter_type": "execution",
+  "adapter_version": "1.0.0",
+  "title": "OnchainOS CLI Execution Adapter",
+  "summary": "First-party wrapper exposing the current OnchainOS CLI execution flow through the nextgen execution adapter SPI.",
+  "capabilities": [
+    {
+      "capability_id": "execution_prepare",
+      "display_name": "Execution Prepare",
+      "description": "Resolve trade plans, checks, and execution discovery.",
+      "tags": ["execution", "prepare"],
+      "required_payload_keys": ["trade_plan", "execution_intent"],
+      "optional_payload_keys": ["project_root", "env", "market_context", "price_context", "target_token_context", "market_stream_snapshot", "allow_legacy_ave_wss_fallback"],
+      "normalized_result_keys": ["prepared_execution", "metadata", "trade_plan"],
+      "metadata": {"legacy_call": "prepare_execution"}
+    },
+    {
+      "capability_id": "execution_prepare_only",
+      "display_name": "Execution Prepare Only",
+      "description": "Resolve the existing prepare-only execution result without running a dry run or live trade.",
+      "tags": ["execution", "prepare"],
+      "required_payload_keys": ["trade_plan", "execution_intent"],
+      "optional_payload_keys": ["project_root", "env", "market_context", "price_context", "target_token_context", "market_stream_snapshot", "allow_legacy_ave_wss_fallback"],
+      "normalized_result_keys": ["prepared_execution", "metadata", "trade_plan"],
+      "metadata": {"legacy_call": "prepare_only_result"}
+    },
+    {
+      "capability_id": "dry_run",
+      "display_name": "Dry Run",
+      "description": "Execute the current dry-run path through the vendored OnchainOS CLI wrapper.",
+      "tags": ["execution", "simulation"],
+      "required_payload_keys": ["trade_plan", "execution_intent"],
+      "optional_payload_keys": ["project_root", "env", "market_context", "price_context", "target_token_context", "market_stream_snapshot", "allow_legacy_ave_wss_fallback"],
+      "normalized_result_keys": ["prepared_execution", "execution", "simulation_result", "metadata", "trade_plan"],
+      "metadata": {"legacy_call": "run_dry_run"}
+    },
+    {
+      "capability_id": "live_run",
+      "display_name": "Live Run",
+      "description": "Execute the current live path through the vendored OnchainOS CLI wrapper.",
+      "tags": ["execution", "broadcast"],
+      "required_payload_keys": ["trade_plan", "execution_intent"],
+      "optional_payload_keys": ["project_root", "env", "market_context", "price_context", "target_token_context", "market_stream_snapshot", "allow_legacy_ave_wss_fallback"],
+      "normalized_result_keys": ["prepared_execution", "execution", "broadcast_results", "metadata", "trade_plan"],
+      "metadata": {"legacy_call": "run_live"}
+    }
+  ],
+  "tags": ["builtin", "onchainos", "execution"],
+  "wraps": ["ot_skill_enterprise.execution.onchainos_cli"],
+  "is_builtin": true,
+  "workspace_compatibility": ["local", "workspace"],
+  "metadata": {"current_execution_provider_id": "onchainos_cli"}
+}

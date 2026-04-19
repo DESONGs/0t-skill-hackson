@@ -1,0 +1,1098 @@
+{
+  "contract_version": "nextgen.worker.response.v1",
+  "bridge_id": "python-worker-bridge",
+  "bridge_version": "1.0.0",
+  "action_id": "review.evaluate_candidates",
+  "workflow_id": "autonomous_research",
+  "workflow_step_id": "review_candidates",
+  "operation": "execute",
+  "status": "reviewed",
+  "ok": true,
+  "outputs": {
+    "review_decisions": [
+      {
+        "variant_id": "variant-risk-discipline-i16",
+        "status": "recommended",
+        "reasoning": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+        "review_notes": [
+          "objective=Optimize wallet-style skill meme-hunter-bsc-567a89 via autonomous research.",
+          "quality_delta=0.295",
+          "noise_delta=0.295",
+          "style_distance=0.0",
+          "risk_penalty=0.0"
+        ],
+        "governance": {
+          "variant_id": "variant-risk-discipline-i16",
+          "governance_status": "recommended",
+          "approval_required": true,
+          "activation_allowed": true,
+          "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+          "blocking_findings": [],
+          "follow_up_actions": [
+            "request human approval"
+          ],
+          "artifacts": [
+            {
+              "ref": {
+                "artifact_id": "review_governance:variant-risk-discipline-i16",
+                "kind": "review_governance",
+                "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-review-governance.json",
+                "label": "variant-risk-discipline-i16",
+                "metadata": {
+                  "variant_id": "variant-risk-discipline-i16",
+                  "iteration_index": 16
+                }
+              },
+              "payload": {
+                "variant_id": "variant-risk-discipline-i16",
+                "governance_status": "recommended",
+                "approval_required": true,
+                "activation_allowed": true,
+                "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+                "blocking_findings": [],
+                "follow_up_actions": [
+                  "request human approval"
+                ],
+                "artifacts": [],
+                "metadata": {
+                  "iteration_index": 16,
+                  "primary_quality_score": 0.812,
+                  "style_distance": 0.0,
+                  "risk_penalty": 0.0,
+                  "quality_delta": 0.295,
+                  "noise_delta": 0.295
+                }
+              }
+            }
+          ],
+          "metadata": {
+            "iteration_index": 16,
+            "primary_quality_score": 0.812,
+            "style_distance": 0.0,
+            "risk_penalty": 0.0,
+            "quality_delta": 0.295,
+            "noise_delta": 0.295
+          }
+        },
+        "artifacts": [
+          {
+            "ref": {
+              "artifact_id": "review_governance:variant-risk-discipline-i16",
+              "kind": "review_governance",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-review-governance.json",
+              "label": "variant-risk-discipline-i16",
+              "metadata": {
+                "variant_id": "variant-risk-discipline-i16",
+                "iteration_index": 16
+              }
+            },
+            "payload": {
+              "variant_id": "variant-risk-discipline-i16",
+              "governance_status": "recommended",
+              "approval_required": true,
+              "activation_allowed": true,
+              "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+              "blocking_findings": [],
+              "follow_up_actions": [
+                "request human approval"
+              ],
+              "artifacts": [],
+              "metadata": {
+                "iteration_index": 16,
+                "primary_quality_score": 0.812,
+                "style_distance": 0.0,
+                "risk_penalty": 0.0,
+                "quality_delta": 0.295,
+                "noise_delta": 0.295
+              }
+            }
+          },
+          {
+            "ref": {
+              "artifact_id": "review_notes:variant-risk-discipline-i16",
+              "kind": "review_notes",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-review-notes.json",
+              "label": "variant-risk-discipline-i16",
+              "metadata": {
+                "variant_id": "variant-risk-discipline-i16",
+                "iteration_index": 16
+              }
+            },
+            "payload": {
+              "variant_id": "variant-risk-discipline-i16",
+              "objective": "Optimize wallet-style skill meme-hunter-bsc-567a89 via autonomous research.",
+              "quality_delta": 0.295,
+              "noise_delta": 0.295,
+              "gates": [
+                {
+                  "gate_id": "style-drift",
+                  "passed": true,
+                  "threshold": 0.45,
+                  "observed": 0
+                },
+                {
+                  "gate_id": "risk-floor",
+                  "passed": true,
+                  "threshold": 0.3,
+                  "observed": 0
+                },
+                {
+                  "gate_id": "readiness",
+                  "passed": true,
+                  "threshold": "ready",
+                  "observed": "ready"
+                },
+                {
+                  "gate_id": "validation",
+                  "passed": true,
+                  "threshold": true,
+                  "observed": true
+                },
+                {
+                  "gate_id": "qa",
+                  "passed": true,
+                  "threshold": "passed",
+                  "observed": "passed"
+                }
+              ]
+            }
+          },
+          {
+            "ref": {
+              "artifact_id": "retry_suggestion:variant-risk-discipline-i16",
+              "kind": "retry_suggestion",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-retry-suggestion.json",
+              "label": "variant-risk-discipline-i16",
+              "metadata": {
+                "variant_id": "variant-risk-discipline-i16",
+                "iteration_index": 16
+              }
+            },
+            "payload": {
+              "variant_id": "variant-risk-discipline-i16",
+              "status": "recommended",
+              "retry_focus": "strategy_spec",
+              "follow_up_actions": [
+                "request human approval"
+              ]
+            }
+          },
+          {
+            "ref": {
+              "artifact_id": "kernel_handoff_payload:variant-risk-discipline-i16",
+              "kind": "kernel_handoff_payload",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-review-handoff.json",
+              "label": "variant-risk-discipline-i16",
+              "metadata": {
+                "variant_id": "variant-risk-discipline-i16",
+                "iteration_index": 16,
+                "role_hint": "reviewer"
+              }
+            },
+            "payload": {
+              "workflow_id": "autonomous_research",
+              "session_id": "pi-session-1f07f6086e",
+              "action_id": "review.evaluate_candidates",
+              "variant_id": "variant-risk-discipline-i16",
+              "status": "recommended",
+              "reasoning": "Variant improved the benchmark with acceptable drift, risk, and replay readiness."
+            }
+          }
+        ],
+        "metadata": {
+          "source": "artifact-backed-review",
+          "iteration_index": 16,
+          "policy": {
+            "recommended_quality_delta": 0.03,
+            "keep_quality_delta": 0.0,
+            "recommended_noise_delta": 0.0,
+            "max_style_distance_for_auto": 0.35,
+            "max_risk_penalty_for_auto": 0.3,
+            "min_quality_score": 0.58
+          },
+          "artifact_suffix": ""
+        }
+      },
+      {
+        "variant_id": "variant-conviction-overlay-i16",
+        "status": "recommended",
+        "reasoning": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+        "review_notes": [
+          "objective=Optimize wallet-style skill meme-hunter-bsc-567a89 via autonomous research.",
+          "quality_delta=0.295",
+          "noise_delta=0.295",
+          "style_distance=0.0",
+          "risk_penalty=0.0"
+        ],
+        "governance": {
+          "variant_id": "variant-conviction-overlay-i16",
+          "governance_status": "recommended",
+          "approval_required": true,
+          "activation_allowed": true,
+          "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+          "blocking_findings": [],
+          "follow_up_actions": [
+            "request human approval"
+          ],
+          "artifacts": [
+            {
+              "ref": {
+                "artifact_id": "review_governance:variant-conviction-overlay-i16",
+                "kind": "review_governance",
+                "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-review-governance.json",
+                "label": "variant-conviction-overlay-i16",
+                "metadata": {
+                  "variant_id": "variant-conviction-overlay-i16",
+                  "iteration_index": 16
+                }
+              },
+              "payload": {
+                "variant_id": "variant-conviction-overlay-i16",
+                "governance_status": "recommended",
+                "approval_required": true,
+                "activation_allowed": true,
+                "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+                "blocking_findings": [],
+                "follow_up_actions": [
+                  "request human approval"
+                ],
+                "artifacts": [],
+                "metadata": {
+                  "iteration_index": 16,
+                  "primary_quality_score": 0.812,
+                  "style_distance": 0.0,
+                  "risk_penalty": 0.0,
+                  "quality_delta": 0.295,
+                  "noise_delta": 0.295
+                }
+              }
+            }
+          ],
+          "metadata": {
+            "iteration_index": 16,
+            "primary_quality_score": 0.812,
+            "style_distance": 0.0,
+            "risk_penalty": 0.0,
+            "quality_delta": 0.295,
+            "noise_delta": 0.295
+          }
+        },
+        "artifacts": [
+          {
+            "ref": {
+              "artifact_id": "review_governance:variant-conviction-overlay-i16",
+              "kind": "review_governance",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-review-governance.json",
+              "label": "variant-conviction-overlay-i16",
+              "metadata": {
+                "variant_id": "variant-conviction-overlay-i16",
+                "iteration_index": 16
+              }
+            },
+            "payload": {
+              "variant_id": "variant-conviction-overlay-i16",
+              "governance_status": "recommended",
+              "approval_required": true,
+              "activation_allowed": true,
+              "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+              "blocking_findings": [],
+              "follow_up_actions": [
+                "request human approval"
+              ],
+              "artifacts": [],
+              "metadata": {
+                "iteration_index": 16,
+                "primary_quality_score": 0.812,
+                "style_distance": 0.0,
+                "risk_penalty": 0.0,
+                "quality_delta": 0.295,
+                "noise_delta": 0.295
+              }
+            }
+          },
+          {
+            "ref": {
+              "artifact_id": "review_notes:variant-conviction-overlay-i16",
+              "kind": "review_notes",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-review-notes.json",
+              "label": "variant-conviction-overlay-i16",
+              "metadata": {
+                "variant_id": "variant-conviction-overlay-i16",
+                "iteration_index": 16
+              }
+            },
+            "payload": {
+              "variant_id": "variant-conviction-overlay-i16",
+              "objective": "Optimize wallet-style skill meme-hunter-bsc-567a89 via autonomous research.",
+              "quality_delta": 0.295,
+              "noise_delta": 0.295,
+              "gates": [
+                {
+                  "gate_id": "style-drift",
+                  "passed": true,
+                  "threshold": 0.45,
+                  "observed": 0
+                },
+                {
+                  "gate_id": "risk-floor",
+                  "passed": true,
+                  "threshold": 0.3,
+                  "observed": 0
+                },
+                {
+                  "gate_id": "readiness",
+                  "passed": true,
+                  "threshold": "ready",
+                  "observed": "ready"
+                },
+                {
+                  "gate_id": "validation",
+                  "passed": true,
+                  "threshold": true,
+                  "observed": true
+                },
+                {
+                  "gate_id": "qa",
+                  "passed": true,
+                  "threshold": "passed",
+                  "observed": "passed"
+                }
+              ]
+            }
+          },
+          {
+            "ref": {
+              "artifact_id": "retry_suggestion:variant-conviction-overlay-i16",
+              "kind": "retry_suggestion",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-retry-suggestion.json",
+              "label": "variant-conviction-overlay-i16",
+              "metadata": {
+                "variant_id": "variant-conviction-overlay-i16",
+                "iteration_index": 16
+              }
+            },
+            "payload": {
+              "variant_id": "variant-conviction-overlay-i16",
+              "status": "recommended",
+              "retry_focus": "strategy_spec",
+              "follow_up_actions": [
+                "request human approval"
+              ]
+            }
+          },
+          {
+            "ref": {
+              "artifact_id": "kernel_handoff_payload:variant-conviction-overlay-i16",
+              "kind": "kernel_handoff_payload",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-review-handoff.json",
+              "label": "variant-conviction-overlay-i16",
+              "metadata": {
+                "variant_id": "variant-conviction-overlay-i16",
+                "iteration_index": 16,
+                "role_hint": "reviewer"
+              }
+            },
+            "payload": {
+              "workflow_id": "autonomous_research",
+              "session_id": "pi-session-1f07f6086e",
+              "action_id": "review.evaluate_candidates",
+              "variant_id": "variant-conviction-overlay-i16",
+              "status": "recommended",
+              "reasoning": "Variant improved the benchmark with acceptable drift, risk, and replay readiness."
+            }
+          }
+        ],
+        "metadata": {
+          "source": "artifact-backed-review",
+          "iteration_index": 16,
+          "policy": {
+            "recommended_quality_delta": 0.03,
+            "keep_quality_delta": 0.0,
+            "recommended_noise_delta": 0.0,
+            "max_style_distance_for_auto": 0.35,
+            "max_risk_penalty_for_auto": 0.3,
+            "min_quality_score": 0.58
+          },
+          "artifact_suffix": ""
+        }
+      }
+    ]
+  },
+  "state_patch": {
+    "review_decisions": [
+      {
+        "variant_id": "variant-risk-discipline-i16",
+        "status": "recommended",
+        "reasoning": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+        "review_notes": [
+          "objective=Optimize wallet-style skill meme-hunter-bsc-567a89 via autonomous research.",
+          "quality_delta=0.295",
+          "noise_delta=0.295",
+          "style_distance=0.0",
+          "risk_penalty=0.0"
+        ],
+        "governance": {
+          "variant_id": "variant-risk-discipline-i16",
+          "governance_status": "recommended",
+          "approval_required": true,
+          "activation_allowed": true,
+          "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+          "blocking_findings": [],
+          "follow_up_actions": [
+            "request human approval"
+          ],
+          "artifacts": [
+            {
+              "ref": {
+                "artifact_id": "review_governance:variant-risk-discipline-i16",
+                "kind": "review_governance",
+                "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-review-governance.json",
+                "label": "variant-risk-discipline-i16",
+                "metadata": {
+                  "variant_id": "variant-risk-discipline-i16",
+                  "iteration_index": 16
+                }
+              },
+              "payload": {
+                "variant_id": "variant-risk-discipline-i16",
+                "governance_status": "recommended",
+                "approval_required": true,
+                "activation_allowed": true,
+                "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+                "blocking_findings": [],
+                "follow_up_actions": [
+                  "request human approval"
+                ],
+                "artifacts": [],
+                "metadata": {
+                  "iteration_index": 16,
+                  "primary_quality_score": 0.812,
+                  "style_distance": 0.0,
+                  "risk_penalty": 0.0,
+                  "quality_delta": 0.295,
+                  "noise_delta": 0.295
+                }
+              }
+            }
+          ],
+          "metadata": {
+            "iteration_index": 16,
+            "primary_quality_score": 0.812,
+            "style_distance": 0.0,
+            "risk_penalty": 0.0,
+            "quality_delta": 0.295,
+            "noise_delta": 0.295
+          }
+        },
+        "artifacts": [
+          {
+            "ref": {
+              "artifact_id": "review_governance:variant-risk-discipline-i16",
+              "kind": "review_governance",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-review-governance.json",
+              "label": "variant-risk-discipline-i16",
+              "metadata": {
+                "variant_id": "variant-risk-discipline-i16",
+                "iteration_index": 16
+              }
+            },
+            "payload": {
+              "variant_id": "variant-risk-discipline-i16",
+              "governance_status": "recommended",
+              "approval_required": true,
+              "activation_allowed": true,
+              "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+              "blocking_findings": [],
+              "follow_up_actions": [
+                "request human approval"
+              ],
+              "artifacts": [],
+              "metadata": {
+                "iteration_index": 16,
+                "primary_quality_score": 0.812,
+                "style_distance": 0.0,
+                "risk_penalty": 0.0,
+                "quality_delta": 0.295,
+                "noise_delta": 0.295
+              }
+            }
+          },
+          {
+            "ref": {
+              "artifact_id": "review_notes:variant-risk-discipline-i16",
+              "kind": "review_notes",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-review-notes.json",
+              "label": "variant-risk-discipline-i16",
+              "metadata": {
+                "variant_id": "variant-risk-discipline-i16",
+                "iteration_index": 16
+              }
+            },
+            "payload": {
+              "variant_id": "variant-risk-discipline-i16",
+              "objective": "Optimize wallet-style skill meme-hunter-bsc-567a89 via autonomous research.",
+              "quality_delta": 0.295,
+              "noise_delta": 0.295,
+              "gates": [
+                {
+                  "gate_id": "style-drift",
+                  "passed": true,
+                  "threshold": 0.45,
+                  "observed": 0
+                },
+                {
+                  "gate_id": "risk-floor",
+                  "passed": true,
+                  "threshold": 0.3,
+                  "observed": 0
+                },
+                {
+                  "gate_id": "readiness",
+                  "passed": true,
+                  "threshold": "ready",
+                  "observed": "ready"
+                },
+                {
+                  "gate_id": "validation",
+                  "passed": true,
+                  "threshold": true,
+                  "observed": true
+                },
+                {
+                  "gate_id": "qa",
+                  "passed": true,
+                  "threshold": "passed",
+                  "observed": "passed"
+                }
+              ]
+            }
+          },
+          {
+            "ref": {
+              "artifact_id": "retry_suggestion:variant-risk-discipline-i16",
+              "kind": "retry_suggestion",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-retry-suggestion.json",
+              "label": "variant-risk-discipline-i16",
+              "metadata": {
+                "variant_id": "variant-risk-discipline-i16",
+                "iteration_index": 16
+              }
+            },
+            "payload": {
+              "variant_id": "variant-risk-discipline-i16",
+              "status": "recommended",
+              "retry_focus": "strategy_spec",
+              "follow_up_actions": [
+                "request human approval"
+              ]
+            }
+          },
+          {
+            "ref": {
+              "artifact_id": "kernel_handoff_payload:variant-risk-discipline-i16",
+              "kind": "kernel_handoff_payload",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-review-handoff.json",
+              "label": "variant-risk-discipline-i16",
+              "metadata": {
+                "variant_id": "variant-risk-discipline-i16",
+                "iteration_index": 16,
+                "role_hint": "reviewer"
+              }
+            },
+            "payload": {
+              "workflow_id": "autonomous_research",
+              "session_id": "pi-session-1f07f6086e",
+              "action_id": "review.evaluate_candidates",
+              "variant_id": "variant-risk-discipline-i16",
+              "status": "recommended",
+              "reasoning": "Variant improved the benchmark with acceptable drift, risk, and replay readiness."
+            }
+          }
+        ],
+        "metadata": {
+          "source": "artifact-backed-review",
+          "iteration_index": 16,
+          "policy": {
+            "recommended_quality_delta": 0.03,
+            "keep_quality_delta": 0.0,
+            "recommended_noise_delta": 0.0,
+            "max_style_distance_for_auto": 0.35,
+            "max_risk_penalty_for_auto": 0.3,
+            "min_quality_score": 0.58
+          },
+          "artifact_suffix": ""
+        }
+      },
+      {
+        "variant_id": "variant-conviction-overlay-i16",
+        "status": "recommended",
+        "reasoning": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+        "review_notes": [
+          "objective=Optimize wallet-style skill meme-hunter-bsc-567a89 via autonomous research.",
+          "quality_delta=0.295",
+          "noise_delta=0.295",
+          "style_distance=0.0",
+          "risk_penalty=0.0"
+        ],
+        "governance": {
+          "variant_id": "variant-conviction-overlay-i16",
+          "governance_status": "recommended",
+          "approval_required": true,
+          "activation_allowed": true,
+          "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+          "blocking_findings": [],
+          "follow_up_actions": [
+            "request human approval"
+          ],
+          "artifacts": [
+            {
+              "ref": {
+                "artifact_id": "review_governance:variant-conviction-overlay-i16",
+                "kind": "review_governance",
+                "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-review-governance.json",
+                "label": "variant-conviction-overlay-i16",
+                "metadata": {
+                  "variant_id": "variant-conviction-overlay-i16",
+                  "iteration_index": 16
+                }
+              },
+              "payload": {
+                "variant_id": "variant-conviction-overlay-i16",
+                "governance_status": "recommended",
+                "approval_required": true,
+                "activation_allowed": true,
+                "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+                "blocking_findings": [],
+                "follow_up_actions": [
+                  "request human approval"
+                ],
+                "artifacts": [],
+                "metadata": {
+                  "iteration_index": 16,
+                  "primary_quality_score": 0.812,
+                  "style_distance": 0.0,
+                  "risk_penalty": 0.0,
+                  "quality_delta": 0.295,
+                  "noise_delta": 0.295
+                }
+              }
+            }
+          ],
+          "metadata": {
+            "iteration_index": 16,
+            "primary_quality_score": 0.812,
+            "style_distance": 0.0,
+            "risk_penalty": 0.0,
+            "quality_delta": 0.295,
+            "noise_delta": 0.295
+          }
+        },
+        "artifacts": [
+          {
+            "ref": {
+              "artifact_id": "review_governance:variant-conviction-overlay-i16",
+              "kind": "review_governance",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-review-governance.json",
+              "label": "variant-conviction-overlay-i16",
+              "metadata": {
+                "variant_id": "variant-conviction-overlay-i16",
+                "iteration_index": 16
+              }
+            },
+            "payload": {
+              "variant_id": "variant-conviction-overlay-i16",
+              "governance_status": "recommended",
+              "approval_required": true,
+              "activation_allowed": true,
+              "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+              "blocking_findings": [],
+              "follow_up_actions": [
+                "request human approval"
+              ],
+              "artifacts": [],
+              "metadata": {
+                "iteration_index": 16,
+                "primary_quality_score": 0.812,
+                "style_distance": 0.0,
+                "risk_penalty": 0.0,
+                "quality_delta": 0.295,
+                "noise_delta": 0.295
+              }
+            }
+          },
+          {
+            "ref": {
+              "artifact_id": "review_notes:variant-conviction-overlay-i16",
+              "kind": "review_notes",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-review-notes.json",
+              "label": "variant-conviction-overlay-i16",
+              "metadata": {
+                "variant_id": "variant-conviction-overlay-i16",
+                "iteration_index": 16
+              }
+            },
+            "payload": {
+              "variant_id": "variant-conviction-overlay-i16",
+              "objective": "Optimize wallet-style skill meme-hunter-bsc-567a89 via autonomous research.",
+              "quality_delta": 0.295,
+              "noise_delta": 0.295,
+              "gates": [
+                {
+                  "gate_id": "style-drift",
+                  "passed": true,
+                  "threshold": 0.45,
+                  "observed": 0
+                },
+                {
+                  "gate_id": "risk-floor",
+                  "passed": true,
+                  "threshold": 0.3,
+                  "observed": 0
+                },
+                {
+                  "gate_id": "readiness",
+                  "passed": true,
+                  "threshold": "ready",
+                  "observed": "ready"
+                },
+                {
+                  "gate_id": "validation",
+                  "passed": true,
+                  "threshold": true,
+                  "observed": true
+                },
+                {
+                  "gate_id": "qa",
+                  "passed": true,
+                  "threshold": "passed",
+                  "observed": "passed"
+                }
+              ]
+            }
+          },
+          {
+            "ref": {
+              "artifact_id": "retry_suggestion:variant-conviction-overlay-i16",
+              "kind": "retry_suggestion",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-retry-suggestion.json",
+              "label": "variant-conviction-overlay-i16",
+              "metadata": {
+                "variant_id": "variant-conviction-overlay-i16",
+                "iteration_index": 16
+              }
+            },
+            "payload": {
+              "variant_id": "variant-conviction-overlay-i16",
+              "status": "recommended",
+              "retry_focus": "strategy_spec",
+              "follow_up_actions": [
+                "request human approval"
+              ]
+            }
+          },
+          {
+            "ref": {
+              "artifact_id": "kernel_handoff_payload:variant-conviction-overlay-i16",
+              "kind": "kernel_handoff_payload",
+              "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-review-handoff.json",
+              "label": "variant-conviction-overlay-i16",
+              "metadata": {
+                "variant_id": "variant-conviction-overlay-i16",
+                "iteration_index": 16,
+                "role_hint": "reviewer"
+              }
+            },
+            "payload": {
+              "workflow_id": "autonomous_research",
+              "session_id": "pi-session-1f07f6086e",
+              "action_id": "review.evaluate_candidates",
+              "variant_id": "variant-conviction-overlay-i16",
+              "status": "recommended",
+              "reasoning": "Variant improved the benchmark with acceptable drift, risk, and replay readiness."
+            }
+          }
+        ],
+        "metadata": {
+          "source": "artifact-backed-review",
+          "iteration_index": 16,
+          "policy": {
+            "recommended_quality_delta": 0.03,
+            "keep_quality_delta": 0.0,
+            "recommended_noise_delta": 0.0,
+            "max_style_distance_for_auto": 0.35,
+            "max_risk_penalty_for_auto": 0.3,
+            "min_quality_score": 0.58
+          },
+          "artifact_suffix": ""
+        }
+      }
+    ],
+    "adapter_ids": {
+      "data_source": "ave",
+      "execution": "onchainos_cli"
+    }
+  },
+  "artifacts": [
+    {
+      "ref": {
+        "artifact_id": "review_governance:variant-risk-discipline-i16",
+        "kind": "review_governance",
+        "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-review-governance.json",
+        "label": "variant-risk-discipline-i16",
+        "metadata": {
+          "variant_id": "variant-risk-discipline-i16",
+          "iteration_index": 16
+        }
+      },
+      "payload": {
+        "variant_id": "variant-risk-discipline-i16",
+        "governance_status": "recommended",
+        "approval_required": true,
+        "activation_allowed": true,
+        "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+        "blocking_findings": [],
+        "follow_up_actions": [
+          "request human approval"
+        ],
+        "artifacts": [],
+        "metadata": {
+          "iteration_index": 16,
+          "primary_quality_score": 0.812,
+          "style_distance": 0.0,
+          "risk_penalty": 0.0,
+          "quality_delta": 0.295,
+          "noise_delta": 0.295
+        }
+      }
+    },
+    {
+      "ref": {
+        "artifact_id": "review_notes:variant-risk-discipline-i16",
+        "kind": "review_notes",
+        "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-review-notes.json",
+        "label": "variant-risk-discipline-i16",
+        "metadata": {
+          "variant_id": "variant-risk-discipline-i16",
+          "iteration_index": 16
+        }
+      },
+      "payload": {
+        "variant_id": "variant-risk-discipline-i16",
+        "objective": "Optimize wallet-style skill meme-hunter-bsc-567a89 via autonomous research.",
+        "quality_delta": 0.295,
+        "noise_delta": 0.295,
+        "gates": [
+          {
+            "gate_id": "style-drift",
+            "passed": true,
+            "threshold": 0.45,
+            "observed": 0
+          },
+          {
+            "gate_id": "risk-floor",
+            "passed": true,
+            "threshold": 0.3,
+            "observed": 0
+          },
+          {
+            "gate_id": "readiness",
+            "passed": true,
+            "threshold": "ready",
+            "observed": "ready"
+          },
+          {
+            "gate_id": "validation",
+            "passed": true,
+            "threshold": true,
+            "observed": true
+          },
+          {
+            "gate_id": "qa",
+            "passed": true,
+            "threshold": "passed",
+            "observed": "passed"
+          }
+        ]
+      }
+    },
+    {
+      "ref": {
+        "artifact_id": "retry_suggestion:variant-risk-discipline-i16",
+        "kind": "retry_suggestion",
+        "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-retry-suggestion.json",
+        "label": "variant-risk-discipline-i16",
+        "metadata": {
+          "variant_id": "variant-risk-discipline-i16",
+          "iteration_index": 16
+        }
+      },
+      "payload": {
+        "variant_id": "variant-risk-discipline-i16",
+        "status": "recommended",
+        "retry_focus": "strategy_spec",
+        "follow_up_actions": [
+          "request human approval"
+        ]
+      }
+    },
+    {
+      "ref": {
+        "artifact_id": "kernel_handoff_payload:variant-risk-discipline-i16",
+        "kind": "kernel_handoff_payload",
+        "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-risk-discipline-i16-review-handoff.json",
+        "label": "variant-risk-discipline-i16",
+        "metadata": {
+          "variant_id": "variant-risk-discipline-i16",
+          "iteration_index": 16,
+          "role_hint": "reviewer"
+        }
+      },
+      "payload": {
+        "workflow_id": "autonomous_research",
+        "session_id": "pi-session-1f07f6086e",
+        "action_id": "review.evaluate_candidates",
+        "variant_id": "variant-risk-discipline-i16",
+        "status": "recommended",
+        "reasoning": "Variant improved the benchmark with acceptable drift, risk, and replay readiness."
+      }
+    },
+    {
+      "ref": {
+        "artifact_id": "review_governance:variant-conviction-overlay-i16",
+        "kind": "review_governance",
+        "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-review-governance.json",
+        "label": "variant-conviction-overlay-i16",
+        "metadata": {
+          "variant_id": "variant-conviction-overlay-i16",
+          "iteration_index": 16
+        }
+      },
+      "payload": {
+        "variant_id": "variant-conviction-overlay-i16",
+        "governance_status": "recommended",
+        "approval_required": true,
+        "activation_allowed": true,
+        "rationale": "Variant improved the benchmark with acceptable drift, risk, and replay readiness.",
+        "blocking_findings": [],
+        "follow_up_actions": [
+          "request human approval"
+        ],
+        "artifacts": [],
+        "metadata": {
+          "iteration_index": 16,
+          "primary_quality_score": 0.812,
+          "style_distance": 0.0,
+          "risk_penalty": 0.0,
+          "quality_delta": 0.295,
+          "noise_delta": 0.295
+        }
+      }
+    },
+    {
+      "ref": {
+        "artifact_id": "review_notes:variant-conviction-overlay-i16",
+        "kind": "review_notes",
+        "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-review-notes.json",
+        "label": "variant-conviction-overlay-i16",
+        "metadata": {
+          "variant_id": "variant-conviction-overlay-i16",
+          "iteration_index": 16
+        }
+      },
+      "payload": {
+        "variant_id": "variant-conviction-overlay-i16",
+        "objective": "Optimize wallet-style skill meme-hunter-bsc-567a89 via autonomous research.",
+        "quality_delta": 0.295,
+        "noise_delta": 0.295,
+        "gates": [
+          {
+            "gate_id": "style-drift",
+            "passed": true,
+            "threshold": 0.45,
+            "observed": 0
+          },
+          {
+            "gate_id": "risk-floor",
+            "passed": true,
+            "threshold": 0.3,
+            "observed": 0
+          },
+          {
+            "gate_id": "readiness",
+            "passed": true,
+            "threshold": "ready",
+            "observed": "ready"
+          },
+          {
+            "gate_id": "validation",
+            "passed": true,
+            "threshold": true,
+            "observed": true
+          },
+          {
+            "gate_id": "qa",
+            "passed": true,
+            "threshold": "passed",
+            "observed": "passed"
+          }
+        ]
+      }
+    },
+    {
+      "ref": {
+        "artifact_id": "retry_suggestion:variant-conviction-overlay-i16",
+        "kind": "retry_suggestion",
+        "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-retry-suggestion.json",
+        "label": "variant-conviction-overlay-i16",
+        "metadata": {
+          "variant_id": "variant-conviction-overlay-i16",
+          "iteration_index": 16
+        }
+      },
+      "payload": {
+        "variant_id": "variant-conviction-overlay-i16",
+        "status": "recommended",
+        "retry_focus": "strategy_spec",
+        "follow_up_actions": [
+          "request human approval"
+        ]
+      }
+    },
+    {
+      "ref": {
+        "artifact_id": "kernel_handoff_payload:variant-conviction-overlay-i16",
+        "kind": "kernel_handoff_payload",
+        "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.ot-workspace/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/artifacts/variant-conviction-overlay-i16-review-handoff.json",
+        "label": "variant-conviction-overlay-i16",
+        "metadata": {
+          "variant_id": "variant-conviction-overlay-i16",
+          "iteration_index": 16,
+          "role_hint": "reviewer"
+        }
+      },
+      "payload": {
+        "workflow_id": "autonomous_research",
+        "session_id": "pi-session-1f07f6086e",
+        "action_id": "review.evaluate_candidates",
+        "variant_id": "variant-conviction-overlay-i16",
+        "status": "recommended",
+        "reasoning": "Variant improved the benchmark with acceptable drift, risk, and replay readiness."
+      }
+    }
+  ],
+  "events": [
+    {
+      "operation": "execute",
+      "status": "reviewed",
+      "message": "Reviewed 2 candidate variants.",
+      "metadata": {
+        "iteration_index": 16
+      }
+    }
+  ],
+  "compat_payload": {},
+  "raw_result": {},
+  "error": null,
+  "control": {},
+  "metadata": {}
+}

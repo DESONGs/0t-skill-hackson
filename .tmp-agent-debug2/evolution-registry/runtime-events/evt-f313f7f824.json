@@ -1,0 +1,27 @@
+{
+  "event_id": "evt-f313f7f824",
+  "run_id": "run-5d7567150eef",
+  "runtime_session_id": "pi-session-45c74e0145",
+  "event_type": "runtime.session_finished",
+  "trace_id": "pi-invocation-87aefae4d8",
+  "step_id": null,
+  "skill_id": null,
+  "action_id": null,
+  "subject_kind": null,
+  "subject_id": null,
+  "status": "succeeded",
+  "summary": "Pi workflow kernel session finished",
+  "artifact_id": null,
+  "timestamp": "2026-04-19T18:21:15.092220Z",
+  "payload": {
+    "type": "agent_end",
+    "message": "Pi workflow kernel session finished",
+    "status": "succeeded"
+  },
+  "metadata": {
+    "runtime_id": "pi",
+    "runtime_session_id": "pi-session-45c74e0145",
+    "session_id": "pi-session-45c74e0145",
+    "invocation_id": "pi-invocation-87aefae4d8"
+  }
+}

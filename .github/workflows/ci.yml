@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 0T-SKILL-v3testing
+      - "**"
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      OT_WORKFLOW_RUNTIME: ts-kernel
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Install vendored Pi runtime dependencies
+        working-directory: vendor/pi_runtime
+        run: npm ci
+
+      - name: Run targeted nextgen regression suite
+        run: |
+          PYTHONPATH=src uv run python -m pytest -q \
+            tests/test_nextgen_distillation_worker_bridge.py \
+            tests/test_nextgen_plugin_registry.py \
+            tests/test_nextgen_adapter_registry.py \
+            tests/test_nextgen_adapter_integration.py \
+            tests/test_nextgen_workflow_service.py \
+            tests/test_nextgen_workflow_cli.py \
+            tests/test_nextgen_architecture_cli.py \
+            tests/test_agent_team_service.py \
+            tests/test_verify_script.py
+
+      - name: Run repository verify script
+        run: ./scripts/verify.sh

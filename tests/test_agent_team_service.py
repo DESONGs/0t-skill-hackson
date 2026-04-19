@@ -2,17 +2,97 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
-from ot_skill_enterprise.team.cli import main as ot_team_main
+import pytest
+
+from ot_skill_enterprise.control_plane.cli import main as ot_main
 from ot_skill_enterprise.team.protocol import load_team_protocol_bundle
 from ot_skill_enterprise.team.service import build_agent_team_service
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+SAMPLE_SKILL = "meme-hunter-bsc-567a89"
 
 
 def _build_service(tmp_path: Path):
     return build_agent_team_service(project_root_path=REPO_ROOT, workspace_root=tmp_path / ".ot-workspace")
+
+
+def _mock_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AVE_DATA_PROVIDER", "mock")
+    monkeypatch.setenv("OT_PI_REFLECTION_MOCK", "1")
+    monkeypatch.setenv("AVE_USE_DOCKER", "false")
+    monkeypatch.setenv("OT_WORKFLOW_RUNTIME", "ts-kernel")
+    monkeypatch.delenv("OT_WORKFLOW_ENABLE_PYTHON_FALLBACK", raising=False)
+
+
+def _write_workspace_config(
+    tmp_path: Path,
+    *,
+    workspace_id: str = "desk-alpha",
+    data_source: str = "ave",
+    execution: str = "onchainos_cli",
+) -> Path:
+    path = tmp_path / ".ot-workspace" / "workspaces" / workspace_id / "workflow-config.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "workspace_id": workspace_id,
+                "adapter_ids": {
+                    "data_source": data_source,
+                    "execution": execution,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _create_handoff_ready_session(service, tmp_path: Path) -> tuple[str, dict[str, Any]]:
+    completed = service.start_session(
+        "autoresearch",
+        workspace_id="desk-alpha",
+        skill_ref=SAMPLE_SKILL,
+        adapter_family="codex",
+    )
+    completed_session_id = completed["session"]["session_id"]
+    completed_kernel_root = tmp_path / ".ot-workspace" / "runtime-sessions" / completed_session_id / "workflow-kernel"
+    seed_response = json.loads(
+        completed_kernel_root.joinpath("bridge", "workflow:seed_baseline.response.json").read_text(encoding="utf-8")
+    )
+    skill_context = service._resolve_skill_context(SAMPLE_SKILL)
+    handoff_dispatch = service.kernel_bridge.dispatch(
+        workflow_id="autonomous_research",
+        request_payload={
+            "workflow_id": "autonomous_research",
+            "wallet": skill_context["wallet"],
+            "chain": skill_context["chain"],
+            "skill_name": skill_context["skill_name"],
+            "workspace_id": "desk-alpha",
+            "workspace_dir": str(tmp_path / ".ot-workspace"),
+                "objective": "Optimize wallet-style skill through kernel handoff.",
+                "data_source_adapter_id": "ave",
+                "execution_adapter_id": "onchainos_cli",
+                "metadata": {
+                    "source": "0t team",
+                    "adapter_family": "codex",
+                },
+            "operator_hints": {
+                "skill_ref": SAMPLE_SKILL,
+                "skill_path": skill_context["skill_path"],
+                "manifest_path": skill_context["manifest_path"],
+            },
+        },
+        action="handoff",
+        metadata={"team_adapter_family": "codex"},
+    )
+    session_id = handoff_dispatch["kernel_output"]["session"]["session_id"]
+    return session_id, seed_response
 
 
 def test_team_protocol_bundle_normalizes_repo_tracked_specs() -> None:
@@ -28,8 +108,8 @@ def test_team_protocol_bundle_normalizes_repo_tracked_specs() -> None:
     assert module.capability_type == "workflow_optimizer"
 
 
-def test_ot_team_doctor_cli_reports_protocol_readiness(tmp_path, capsys) -> None:
-    exit_code = ot_team_main(["--workspace-dir", str(tmp_path / ".ot-workspace"), "doctor"])
+def test_0t_team_doctor_cli_reports_protocol_readiness(tmp_path, capsys) -> None:
+    exit_code = ot_main(["team", "--workspace-dir", str(tmp_path / ".ot-workspace"), "doctor"])
     captured = capsys.readouterr()
 
     assert exit_code == 0
@@ -37,234 +117,302 @@ def test_ot_team_doctor_cli_reports_protocol_readiness(tmp_path, capsys) -> None
     assert payload["status"] == "ready"
     assert payload["workflow_count"] >= 1
     assert {item["adapter_id"] for item in payload["adapters"]} >= {"codex", "claude-code"}
+    assert payload["kernel_launch_plan"]["pi_mode"] == "workflow"
 
 
-def test_agent_team_service_end_to_end_session_flow(tmp_path) -> None:
+def test_0t_team_runs_kernel_owned_autonomous_research_session(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_env(monkeypatch)
+    _write_workspace_config(tmp_path)
     service = _build_service(tmp_path)
 
     started = service.start_session(
         "autoresearch",
         workspace_id="desk-alpha",
-        skill_ref="sample-skill",
+        skill_ref=SAMPLE_SKILL,
         adapter_family="codex",
     )
 
     session_id = started["session"]["session_id"]
-    planner_item_id = started["work_items"][0]["work_item_id"]
+    kernel_root = tmp_path / ".ot-workspace" / "runtime-sessions" / session_id / "workflow-kernel"
 
-    handoff = service.handoff(session_id, role_id="planner")
-    assert handoff["agent_session"]["adapter_id"] == "codex"
-    assert "Planner Handoff" in handoff["launch"]["handoff_markdown"]
+    assert started["session"]["workflow_id"] == "autonomous_research"
+    assert started["session"]["active_workflow_id"] == "approval_convergence"
+    assert started["session"]["status"] in {"awaiting_approval", "completed", "recommended"}
+    assert started["recommendation"] is not None
+    assert started["recommendation"]["status"] in {"recommended", "keep", "review_required"}
+    assert started["ui_hints"]["handoff_ready_work_items"] == []
+    assert kernel_root.joinpath("session.json").is_file()
+    assert kernel_root.joinpath("team.json").is_file()
+    assert kernel_root.joinpath("result.json").is_file()
 
-    service.submit_work(
-        session_id,
-        work_item_id=planner_item_id,
-        agent_id="codex/planner-1",
-        payload={
-            "summary": "Planner scoped the session.",
-            "constraints": {"max_iterations": 3},
-            "hard_gates": ["hard_gates_passed == true", "style_distance <= 0.35"],
-        },
-    )
+    status = service.status(session_id)
+    assert status["session"]["session_id"] == session_id
+    assert status["session"]["active_workflow_id"] == "approval_convergence"
+    assert isinstance(status["work_items"], list)
+    assert status["recommendation"] is not None
+    assert isinstance(status["leaderboard"], list)
+    assert status["approval"] is not None
+    assert status["approval"]["status"] in {"pending", "review_required", "approved", "activated", "blocked"}
+    assert status["ui_hints"]["handoff_ready_work_items"] == []
 
-    status_after_planner = service.status(session_id)
-    optimizer_item = next(item for item in status_after_planner["work_items"] if item["role_id"] == "optimizer")
-    assert optimizer_item["status"] == "queued"
+    review = service.review(session_id)
+    assert review["recommendation"] is not None
+    assert review["recommendation"]["status"] in {"recommended", "keep", "review_required"}
+    assert review["approval"] is not None
+    assert review["ui_hints"]["open_work_items"] == []
 
-    optimizer_result = service.submit_work(
-        session_id,
-        role_id="optimizer",
-        agent_id="codex/optimizer-1",
-        payload={
-            "variants": [
-                {
-                    "title": "Trend Routed",
-                    "summary": "Tighter route preference and slower pacing.",
-                    "strategy_patch": {"entry": "higher conviction"},
-                    "execution_patch": {"route_preference": "preferred pools", "cooldown_minutes": 20},
-                }
-            ]
-        },
-    )
-
-    variant_id = optimizer_result["variants"][0]["variant_id"]
-    benchmark_item = next(item for item in optimizer_result["spawned_work_items"] if item["role_id"] == "benchmark-runner")
-    reviewer_item = next(item for item in optimizer_result["spawned_work_items"] if item["role_id"] == "reviewer")
-
-    benchmark_result = service.submit_work(
-        session_id,
-        work_item_id=benchmark_item["work_item_id"],
-        agent_id="system/benchmark-runner",
-        payload={
-            "variant_id": variant_id,
-            "summary": "Benchmark completed.",
-            "scorecard": {
-                "primary_quality_score": 0.82,
-                "backtest_confidence": 0.76,
-                "execution_readiness": 0.90,
-                "strategy_quality": 0.79,
-                "style_distance": 0.20,
-                "risk_penalty": 0.12,
-                "confidence_vs_noise": 0.21,
-                "hard_gates_passed": True,
-            },
-            "metrics": {"sharpe_proxy": 1.4},
-        },
-    )
-
-    assert benchmark_result["variant"]["scorecard"]["primary_quality_score"] == 0.82
-
-    reviewer_result = service.submit_work(
-        session_id,
-        work_item_id=reviewer_item["work_item_id"],
-        agent_id="codex/reviewer-1",
-        payload={
-            "variant_id": variant_id,
-            "decision": "recommended",
-            "summary": "Variant beats baseline and keeps style drift inside policy.",
-            "reviewer_confidence": 0.88,
-        },
-    )
-
-    assert reviewer_result["recommendation"]["status"] == "recommended"
-
-    review_payload = service.review(session_id)
-    assert review_payload["recommendation"]["variant_id"] == variant_id
-
-    leaderboard = service.leaderboard(session_id)["leaderboard"]
-    assert leaderboard[0]["variant_id"] == variant_id
-    assert leaderboard[0]["decision"] == "recommended"
-
-    approval = service.approve(session_id, variant_id=variant_id, approved_by="human", activate=True)
+    recommendation_variant = review["recommendation"]["variant_id"] or started["recommendation"]["variant_id"]
+    approval = service.approve(session_id, variant_id=recommendation_variant, approved_by="human", activate=True)
+    assert approval["approval"] is not None
+    assert approval["approval"]["status"] == "activated"
     assert approval["activation"]["status"] == "activated"
     assert approval["session"]["status"] == "activated"
 
     archived = service.archive(session_id)
     assert archived["session"]["status"] == "archived"
+    assert archived["approval"] is not None
+    assert archived["recommendation"] is not None
 
 
-def test_role_resolution_prefers_runnable_items_over_blocked_items(tmp_path) -> None:
+def test_0t_team_submit_work_requires_handoff_ready_session(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_env(monkeypatch)
+    _write_workspace_config(tmp_path)
     service = _build_service(tmp_path)
-
     started = service.start_session(
         "autoresearch",
         workspace_id="desk-alpha",
-        skill_ref="sample-skill",
+        skill_ref=SAMPLE_SKILL,
         adapter_family="codex",
     )
-    session_id = started["session"]["session_id"]
-    planner_item_id = started["work_items"][0]["work_item_id"]
 
-    service.submit_work(
-        session_id,
-        work_item_id=planner_item_id,
-        agent_id="codex/planner-1",
-        payload={
-            "summary": "Planner scoped the session.",
-            "constraints": {"max_iterations": 3},
-        },
+    with pytest.raises(ValueError, match="handoff_ready"):
+        service.submit_work(
+            started["session"]["session_id"],
+            role_id="planner",
+            agent_id="codex/planner-1",
+            payload={"summary": "manual payload"},
+        )
+
+
+def test_0t_team_submit_work_resumes_kernel_handoff_ready_session(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_env(monkeypatch)
+    _write_workspace_config(tmp_path)
+    service = _build_service(tmp_path)
+    session_id, seed_response = _create_handoff_ready_session(service, tmp_path)
+    handoff = service.handoff(session_id, role_id="optimizer", adapter_family="codex")
+    handoff_team_doc = json.loads(
+        (tmp_path / ".ot-workspace" / "runtime-sessions" / session_id / "workflow-kernel" / "team.json").read_text(
+            encoding="utf-8"
+        )
     )
-    optimizer_result = service.submit_work(
+    kernel_agent_session = next(
+        item for item in handoff_team_doc["agent_sessions"] if item["work_item_id"] == "workflow:seed_baseline"
+    )
+
+    assert handoff["agent_session"]["status"] == "prepared"
+    assert handoff["agent_session"]["work_item_id"] == "workflow:seed_baseline"
+    assert handoff["agent_session"]["agent_session_id"] == kernel_agent_session["agent_session_id"]
+    assert handoff["agent_session"]["metadata"].get("source") != "kernel-fallback"
+
+    submitted = service.submit_work(
         session_id,
-        role_id="optimizer",
+        work_item_id=handoff["agent_session"]["work_item_id"],
         agent_id="codex/optimizer-1",
-        payload={
-            "variants": [
-                {"variant_id": "variant-a", "title": "Variant A", "summary": "First proposal."},
-                {"variant_id": "variant-b", "title": "Variant B", "summary": "Second proposal."},
-            ]
-        },
+        payload=seed_response,
     )
 
-    benchmark_items = [item for item in optimizer_result["spawned_work_items"] if item["role_id"] == "benchmark-runner"]
-    reviewer_items = [item for item in optimizer_result["spawned_work_items"] if item["role_id"] == "reviewer"]
-    assert len(benchmark_items) == 2
-    assert len(reviewer_items) == 2
+    assert submitted["session"]["session_id"] == session_id
+    assert submitted["session"]["status"] in {"awaiting_approval", "completed", "recommended"}
+    assert submitted["recommendation"] is not None
 
-    service.submit_work(
-        session_id,
-        work_item_id=benchmark_items[1]["work_item_id"],
-        agent_id="system/benchmark-runner",
-        payload={
-            "variant_id": "variant-b",
-            "summary": "Benchmark completed.",
-            "scorecard": {
-                "primary_quality_score": 0.80,
-                "backtest_confidence": 0.70,
-                "execution_readiness": 0.90,
-                "strategy_quality": 0.78,
-                "style_distance": 0.10,
-                "risk_penalty": 0.10,
-                "confidence_vs_noise": 0.20,
-                "hard_gates_passed": True,
-            },
-        },
-    )
-
-    handoff = service.handoff(session_id, role_id="reviewer")
-    assert handoff["agent_session"]["work_item_id"] == reviewer_items[1]["work_item_id"]
-    assert "Review Variant B" in handoff["launch"]["handoff_markdown"]
+    status = service.status(session_id)
+    work_items = {item["work_item_id"]: item for item in status["work_items"]}
+    agent_sessions = {item["work_item_id"]: item for item in status["agent_sessions"]}
+    assert work_items["workflow:seed_baseline"]["status"] == "completed"
+    assert agent_sessions["workflow:seed_baseline"]["status"] == "completed"
+    assert agent_sessions["workflow:seed_baseline"]["metadata"]["external_submission"] is True
 
 
-def test_compose_referenced_dockerfile_app_exists_and_is_tracked() -> None:
-    compose_content = (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
-    dockerfile_path = REPO_ROOT / "docker" / "Dockerfile.app"
-
-    assert "docker/Dockerfile.app" in compose_content
-    assert dockerfile_path.is_file()
-
-    tracked = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
-    assert "!docker/Dockerfile.app" in tracked
-
-
-def test_submit_work_keeps_item_runnable_when_validation_fails(tmp_path) -> None:
+def test_0t_team_handoff_requires_explicit_supported_adapter_when_kernel_projects_internal_only(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _mock_env(monkeypatch)
+    _write_workspace_config(tmp_path)
     service = _build_service(tmp_path)
-
-    started = service.start_session(
-        "autoresearch",
-        workspace_id="desk-alpha",
-        skill_ref="sample-skill",
-        adapter_family="codex",
-    )
-    session_id = started["session"]["session_id"]
-    planner_item_id = started["work_items"][0]["work_item_id"]
-
-    service.submit_work(
-        session_id,
-        work_item_id=planner_item_id,
-        agent_id="codex/planner-1",
-        payload={
-            "summary": "Planner scoped the session.",
-            "constraints": {"max_iterations": 3},
-        },
+    session_id, _seed_response = _create_handoff_ready_session(service, tmp_path)
+    kernel_team_path = tmp_path / ".ot-workspace" / "runtime-sessions" / session_id / "workflow-kernel" / "team.json"
+    team_doc = json.loads(kernel_team_path.read_text(encoding="utf-8"))
+    team_doc["adapter_family"] = "kernel"
+    for item in team_doc.get("agent_sessions") or []:
+        item["adapter_family"] = "kernel"
+    kernel_team_path.write_text(json.dumps(team_doc, ensure_ascii=False, indent=2), encoding="utf-8")
+    monkeypatch.setattr(
+        type(service.kernel_bridge),
+        "dispatch",
+        lambda self, **_: {"status": "ran", "kernel_output": {"session": {"session_id": session_id}}},
     )
 
-    try:
+    with pytest.raises(ValueError, match="pass --adapter explicitly"):
+        service.handoff(session_id, role_id="optimizer")
+
+
+def test_0t_team_submit_work_requires_projected_submit_ready_agent_session(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _mock_env(monkeypatch)
+    _write_workspace_config(tmp_path)
+    service = _build_service(tmp_path)
+    session_id, seed_response = _create_handoff_ready_session(service, tmp_path)
+    kernel_team_path = tmp_path / ".ot-workspace" / "runtime-sessions" / session_id / "workflow-kernel" / "team.json"
+    team_doc = json.loads(kernel_team_path.read_text(encoding="utf-8"))
+    team_doc["agent_sessions"] = []
+    kernel_team_path.write_text(json.dumps(team_doc, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="no projected agent session"):
         service.submit_work(
             session_id,
-            role_id="optimizer",
+            work_item_id="workflow:seed_baseline",
             agent_id="codex/optimizer-1",
-            payload={},
+            payload=seed_response,
         )
-    except ValueError as exc:
-        assert str(exc) == "optimizer payload must include variants"
-    else:
-        raise AssertionError("optimizer submission should fail without variants")
 
-    status_after_failure = service.status(session_id)
-    optimizer_item = next(item for item in status_after_failure["work_items"] if item["role_id"] == "optimizer")
-    assert optimizer_item["status"] == "queued"
-    assert optimizer_item["result_path"] is None
 
-    retry = service.submit_work(
-        session_id,
-        role_id="optimizer",
-        agent_id="codex/optimizer-1",
-        payload={
-            "variants": [
-                {"variant_id": "variant-retry", "title": "Retry Variant", "summary": "Valid retry after failed validation."},
-            ]
-        },
+def test_0t_team_persists_under_kernel_runtime_sessions_root(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_env(monkeypatch)
+    _write_workspace_config(tmp_path)
+    service = _build_service(tmp_path)
+
+    started = service.start_session(
+        "autoresearch",
+        workspace_id="desk-alpha",
+        skill_ref=SAMPLE_SKILL,
+        adapter_family="codex",
     )
-    assert retry["work_item"]["status"] == "completed"
-    assert retry["variants"][0]["variant_id"] == "variant-retry"
+
+    session_id = started["session"]["session_id"]
+    workspace_root = tmp_path / ".ot-workspace"
+    kernel_session_root = workspace_root / "runtime-sessions" / session_id / "workflow-kernel"
+    legacy_root = workspace_root / "team" / "sessions" / session_id
+
+    assert kernel_session_root.joinpath("session.json").is_file()
+    assert kernel_session_root.joinpath("team.json").is_file()
+    assert kernel_session_root.joinpath("result.json").is_file()
+    assert not legacy_root.exists()
+
+
+def test_0t_team_start_requires_explicit_or_workspace_derived_adapters(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_env(monkeypatch)
+    service = _build_service(tmp_path)
+
+    with pytest.raises(ValueError, match="--data-source-adapter"):
+        service.start_session(
+            "autoresearch",
+            workspace_id="desk-alpha",
+            skill_ref=SAMPLE_SKILL,
+            adapter_family="codex",
+        )
+
+
+def test_0t_team_start_accepts_explicit_adapters(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_env(monkeypatch)
+    service = _build_service(tmp_path)
+
+    started = service.start_session(
+        "autoresearch",
+        workspace_id="desk-alpha",
+        skill_ref=SAMPLE_SKILL,
+        adapter_family="codex",
+        data_source_adapter_id="ave",
+        execution_adapter_id="onchainos_cli",
+    )
+
+    request = started["session"]["request"]
+    assert request["data_source_adapter_id"] == "ave"
+    assert request["execution_adapter_id"] == "onchainos_cli"
+    assert request["metadata"]["workspace_adapters"]["data_source"] == "ave"
+    assert request["metadata"]["workspace_adapters"]["execution"] == "onchainos_cli"
+
+
+def test_0t_team_cli_start_reads_workspace_adapter_config(tmp_path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    _mock_env(monkeypatch)
+    _write_workspace_config(tmp_path, data_source="ave", execution="onchainos_cli")
+
+    exit_code = ot_main(
+        [
+            "team",
+            "--workspace-dir",
+            str(tmp_path / ".ot-workspace"),
+            "start",
+            "autoresearch",
+            "--workspace",
+            "desk-alpha",
+            "--skill",
+            SAMPLE_SKILL,
+            "--adapter",
+            "codex",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    request = payload["session"]["request"]
+    assert request["data_source_adapter_id"] == "ave"
+    assert request["execution_adapter_id"] == "onchainos_cli"
+
+
+def test_0t_team_submit_work_requires_formal_worker_contract(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_env(monkeypatch)
+    _write_workspace_config(tmp_path)
+    service = _build_service(tmp_path)
+    session_id, _seed_response = _create_handoff_ready_session(service, tmp_path)
+    handoff = service.handoff(session_id, role_id="optimizer", adapter_family="codex")
+
+    with pytest.raises(ValueError, match="nextgen.worker.response.v1"):
+        service.submit_work(
+            session_id,
+            work_item_id=handoff["agent_session"]["work_item_id"],
+            agent_id="codex/optimizer-1",
+            payload={"summary": "not a worker contract"},
+        )
+
+
+def test_0t_team_cli_start_passes_explicit_adapter_flags(monkeypatch: pytest.MonkeyPatch, tmp_path, capsys) -> None:
+    captured: dict[str, Any] = {}
+
+    class _FakeService:
+        def start_session(self, workflow_id: str, **kwargs):
+            captured["workflow_id"] = workflow_id
+            captured["kwargs"] = kwargs
+            return {"ok": True}
+
+    monkeypatch.setattr("ot_skill_enterprise.team.service.build_agent_team_service", lambda **_: _FakeService())
+
+    exit_code = ot_main(
+        [
+            "team",
+            "--workspace-dir",
+            str(tmp_path / ".ot-workspace"),
+            "start",
+            "autoresearch",
+            "--workspace",
+            "desk-alpha",
+            "--skill",
+            SAMPLE_SKILL,
+            "--adapter",
+            "codex",
+            "--data-source-adapter",
+            "fake-data",
+            "--execution-adapter",
+            "fake-execution",
+        ]
+    )
+    captured_output = capsys.readouterr()
+
+    assert exit_code == 0
+    assert json.loads(captured_output.out) == {"ok": True}
+    assert captured["workflow_id"] == "autoresearch"
+    assert captured["kwargs"]["data_source_adapter_id"] == "fake-data"
+    assert captured["kwargs"]["execution_adapter_id"] == "fake-execution"

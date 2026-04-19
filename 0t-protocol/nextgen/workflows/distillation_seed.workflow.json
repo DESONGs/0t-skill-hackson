@@ -1,0 +1,51 @@
+{
+  "workflow_id": "distillation_seed",
+  "display_id": "distillation-seed",
+  "aliases": ["wallet-style-distillation", "wallet_style_distillation"],
+  "title": "Distillation Seed Workflow",
+  "description": "Produces a baseline skill seed as the additive baseline for later research loops.",
+  "subject_kind": "wallet",
+  "iterative": false,
+  "human_review_required": false,
+  "metadata": {
+    "protocol_namespace": "0t",
+    "facade_workflow_id": "distillation-seed",
+    "supported_adapter_families": ["codex", "claude-code"]
+  },
+  "entry_steps": [
+    "distill_baseline"
+  ],
+  "terminal_steps": [
+    "materialize_baseline"
+  ],
+  "steps": [
+    {
+      "step_id": "distill_baseline",
+      "title": "Distill Baseline",
+      "plugin_id": "distillation",
+      "action_id": "distillation.execute",
+      "stage": "seed",
+      "description": "Generate the baseline wallet-style distillation bundle.",
+      "depends_on": [],
+      "outputs": [
+        "baseline_variant",
+        "baseline_artifacts"
+      ]
+    },
+    {
+      "step_id": "materialize_baseline",
+      "title": "Materialize Baseline",
+      "plugin_id": "skill-creation",
+      "action_id": "skill_creation.materialize_baseline",
+      "stage": "execute",
+      "description": "Convert the distilled baseline into replayable skill-creation artifacts.",
+      "depends_on": [
+        "distill_baseline"
+      ],
+      "outputs": [
+        "baseline_variant",
+        "baseline_materialization_bundle"
+      ]
+    }
+  ]
+}

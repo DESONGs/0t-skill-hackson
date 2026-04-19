@@ -45,6 +45,30 @@ def _make_client() -> AveDataServiceClient:
     return AveDataServiceClient(base_url, api_key=api_key, timeout=timeout)
 
 
+def _provider_mode_from_env() -> str:
+    mode = os.environ.get("AVE_DATA_PROVIDER", "").strip().lower()
+    if mode:
+        return mode
+    return "auto" if os.environ.get("AVE_API_KEY") else "mock"
+
+
+class _ProviderClientShim:
+    def __init__(self, provider: Any) -> None:
+        self._provider = provider
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._provider, name)
+
+
+def _build_client_from_env() -> AveDataServiceClient | _ProviderClientShim:
+    mode = _provider_mode_from_env()
+    if mode in {"mock", "auto"} and mode != "ave_rest" and mode != "real":
+        from ot_skill_enterprise.service_entrypoints import build_ave_provider
+
+        return _ProviderClientShim(build_ave_provider())
+    return _make_client()
+
+
 def _workspace_dir(workspace_dir: Path | None = None) -> Path:
     root = workspace_dir or Path(os.environ.get("WORKSPACE_DIR", Path.cwd()))
     root = root.expanduser().resolve()
@@ -224,7 +248,7 @@ class AveDataProviderAdapter:
             }
 
         artifact_path = workspace / "data" / f"{action_name}-{resolved_request_id}.json"
-        artifact_path.write_text(json.dumps(artifact_body, ensure_ascii=False, indent=2), encoding="utf-8")
+        artifact_path.write_text(json.dumps(artifact_body, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
         return ProviderActionResult(
             ok=bool(response_ok) if response_error is None else False,
@@ -241,7 +265,7 @@ class AveDataProviderAdapter:
 
 
 def build_ave_provider_adapter(*, client: AveDataServiceClient | None = None) -> AveDataProviderAdapter:
-    return AveDataProviderAdapter(client=client)
+    return AveDataProviderAdapter(client=client or _build_client_from_env())
 
 
 def run_provider_action(

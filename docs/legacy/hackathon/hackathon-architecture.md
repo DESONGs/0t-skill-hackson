@@ -5,7 +5,7 @@
 ```mermaid
 graph TB
     subgraph USER["User Interface"]
-        CLI["CLI<br/>ot-enterprise"]
+        CLI["CLI<br/>0t"]
         HTTP["HTTP API"]
         FE["Frontend<br/>Dashboard"]
     end

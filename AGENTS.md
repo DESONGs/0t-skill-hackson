@@ -2,7 +2,7 @@
 
 This is the canonical orientation file for Codex, Claude Code, and similar repository agents.
 
-For the repo-tracked planner/optimizer/reviewer bundle, the protocol entrypoint is `team-protocol/ENTRYPOINT.md`. Use that bundle for `ot-team` coordination work, but keep the startup and runtime contract in this file unchanged.
+For the repo-tracked planner/optimizer/reviewer bundle, start with [the `0t-protocol` entrypoint](./0t-protocol/ENTRYPOINT.md). Use that bundle for `0t team` coordination work, but keep the startup and runtime contract in this file unchanged.
 
 ## Root Contract
 
@@ -20,10 +20,10 @@ For the repo-tracked planner/optimizer/reviewer bundle, the protocol entrypoint 
 cp .env.example .env
 # Fill in AVE_API_KEY, API_PLAN, KIMI_API_KEY
 uv sync --frozen
-uv run ot-enterprise runtime prepare --workspace-dir .ot-workspace
-uv run ot-serve-ave-data
-uv run ot-frontend
-uv run ot-enterprise style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc
+uv run 0t runtime prepare --workspace-dir .ot-workspace
+./scripts/start_ave_data_service.sh
+./scripts/start_frontend.sh
+uv run 0t style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc
 ```
 
 ### Docker path
@@ -49,14 +49,14 @@ Add `--with-infra` to `./scripts/docker_up.sh` when the task needs local Postgre
 Host `uv` mode uses the real AVE and real Kimi path.  
 Docker app services override `AVE_USE_DOCKER=false` internally so they do not try to launch nested Docker.
 
-`./scripts/bootstrap.sh` still exists, but it is only a compatibility wrapper around `uv sync` + `runtime prepare`.
+`./scripts/bootstrap.sh` still exists, but it is only a helper around `uv sync` + `runtime prepare`.
 
 ## Repository Map
 
 - `AGENT_QUICKSTART.md`
   - user-facing copy-paste prompts for handing the repo to Codex or Claude Code
-- `team-protocol/`
-  - repo-tracked entrypoint, manifest, roles, workflows, and modules for the `ot-team` coordination layer
+- `0t-protocol` bundle
+  - repo-tracked protocol bundle with the entrypoint, manifest, roles, workflows, and modules for the `0t team` coordination layer
 - `START_HERE.md`
   - shortest operator startup path for humans and thin agents
 - `README.md`
@@ -68,7 +68,7 @@ Docker app services override `AVE_USE_DOCKER=false` internally so they do not tr
 - `docker/`
   - Dockerfiles for the app image and AVE bridge image
 - `scripts/`
-  - doctor, bootstrap compatibility, Docker helpers, service start, verification
+  - doctor, bootstrap helper, Docker helpers, service start, verification
 - `src/ot_skill_enterprise/`
   - control plane, runtime integration, style distillation, storage, skill compilation
 - `services/`
@@ -88,7 +88,7 @@ Docker app services override `AVE_USE_DOCKER=false` internally so they do not tr
 2. `AGENT_QUICKSTART.md`
 3. `START_HERE.md`
 4. `CONFIGURATION.md`
-5. `team-protocol/ENTRYPOINT.md` when the task involves agent-team optimization work
+5. [the `0t-protocol` entrypoint](./0t-protocol/ENTRYPOINT.md) when the task involves `0t-protocol` agent-team optimization work
 6. `docs/README.md`
 7. `src/ot_skill_enterprise/README.md`
 8. only then dive into implementation modules
@@ -109,10 +109,22 @@ Avoid spending time in `vendor/` unless the task is explicitly about vendored ru
 
 When the task is about multi-agent planning, optimization, or review loops:
 
-- enter through `team-protocol/ENTRYPOINT.md`
-- use `team-protocol/manifest.json` as the machine-readable source of truth
-- keep `ot-team` work separate from `ot-enterprise` runtime startup work
+- enter through [the `0t-protocol` entrypoint](./0t-protocol/ENTRYPOINT.md)
+- use [the `0t-protocol` manifest](./0t-protocol/manifest.json) as the machine-readable source of truth
+- keep `0t team` work separate from `0t` runtime startup work
 - return to the normal startup docs when the task moves back to runtime, distillation, or execution
+
+## Workflow Runtime Default
+
+- `0t workflow ...` uses `OT_WORKFLOW_RUNTIME=ts-kernel` by default.
+- `0t style distill` follows the same TS-kernel workflow path unless the command is in a live-execution mode.
+- The only supported rollback flag is:
+
+```bash
+OT_WORKFLOW_RUNTIME=python-compat
+```
+
+- Do not describe `0t workflow` as an additive migration path anymore. It is the default workflow runtime surface.
 
 ## Data And Execution Boundaries
 

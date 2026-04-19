@@ -1,0 +1,66 @@
+{
+  "workflow_id": "approval_convergence",
+  "display_id": "approval-convergence",
+  "aliases": ["approval", "approval_convergence"],
+  "title": "Approval Convergence Workflow",
+  "description": "Runs final benchmark, review, and approval convergence passes before human approval.",
+  "subject_kind": "skill",
+  "iterative": false,
+  "human_review_required": true,
+  "metadata": {
+    "protocol_namespace": "0t",
+    "facade_workflow_id": "approval-convergence",
+    "supported_adapter_families": ["codex", "claude-code"]
+  },
+  "entry_steps": [
+    "benchmark_finalist"
+  ],
+  "terminal_steps": [
+    "converge_approval"
+  ],
+  "steps": [
+    {
+      "step_id": "benchmark_finalist",
+      "title": "Benchmark Finalist",
+      "plugin_id": "benchmark",
+      "action_id": "benchmark.score_finalist",
+      "stage": "benchmark",
+      "description": "Run the final benchmark profile on the selected candidate.",
+      "depends_on": [],
+      "outputs": [
+        "candidate_scorecards"
+      ]
+    },
+    {
+      "step_id": "review_finalist",
+      "title": "Review Finalist",
+      "plugin_id": "review",
+      "action_id": "review.finalize_candidate",
+      "stage": "review",
+      "description": "Produce the final review bundle used by the approval flow.",
+      "depends_on": [
+        "benchmark_finalist"
+      ],
+      "outputs": [
+        "review_decisions",
+        "review_decision"
+      ]
+    },
+    {
+      "step_id": "converge_approval",
+      "title": "Converge Approval",
+      "plugin_id": "approval-convergence",
+      "action_id": "approval_convergence.converge_approval",
+      "stage": "finalize",
+      "description": "Aggregate final benchmark and review outputs into an approval-ready activation bundle.",
+      "depends_on": [
+        "review_finalist"
+      ],
+      "outputs": [
+        "approval_activation_bundle",
+        "approval_recommendation",
+        "kernel_handoff_payload"
+      ]
+    }
+  ]
+}

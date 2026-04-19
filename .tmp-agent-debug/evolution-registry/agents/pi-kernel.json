@@ -1,0 +1,12 @@
+{
+  "agent_id": "pi-kernel",
+  "display_name": "Pi Workflow Kernel",
+  "execution_mode": "embedded",
+  "can_invoke_skills": true,
+  "can_emit_trace": true,
+  "can_emit_artifacts": true,
+  "capabilities": [],
+  "metadata": {
+    "runtime_id": "pi"
+  }
+}

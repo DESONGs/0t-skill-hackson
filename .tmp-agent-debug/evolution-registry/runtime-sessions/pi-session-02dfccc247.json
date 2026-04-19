@@ -1,0 +1,21 @@
+{
+  "session_id": "pi-session-02dfccc247",
+  "runtime_id": "pi",
+  "descriptor": null,
+  "status": "succeeded",
+  "cwd": null,
+  "parent_session_id": null,
+  "input_payload": {},
+  "output_payload": {},
+  "invocations": [],
+  "events": [],
+  "artifacts": [],
+  "started_at": "2026-04-19T18:21:22.515954Z",
+  "updated_at": "2026-04-19T18:21:22.515958Z",
+  "finished_at": null,
+  "metadata": {
+    "agent_id": "pi-kernel",
+    "flow_id": "approval_convergence",
+    "source": "run-pipeline"
+  }
+}

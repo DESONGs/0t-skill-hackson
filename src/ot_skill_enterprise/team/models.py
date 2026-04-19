@@ -71,6 +71,10 @@ class WorkflowDefinition(ContractModel):
     hard_gates: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    @property
+    def kernel_workflow_id(self) -> str:
+        return str(self.metadata.get("kernel_workflow_id") or self.workflow_id)
+
 
 class OptimizationScorecard(ContractModel):
     primary_quality_score: float | None = None

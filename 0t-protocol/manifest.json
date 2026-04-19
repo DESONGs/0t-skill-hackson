@@ -1,0 +1,66 @@
+{
+  "bundle_id": "0t-agent-optimization",
+  "bundle_version": "1.0.0",
+  "display_name": "0T Agent-Team Optimization Protocol",
+  "entrypoint": "0t-protocol/ENTRYPOINT.md",
+  "description": "Repo-tracked 0T protocol bundle for planner/optimizer/reviewer coordination and long-running optimization work.",
+  "owners": [
+    "repository agents",
+    "Codex",
+    "Claude Code"
+  ],
+  "roles": [
+    {
+      "id": "planner",
+      "path": "0t-protocol/roles/planner.md",
+      "purpose": "Frame goals, constraints, and an executable iteration plan."
+    },
+    {
+      "id": "optimizer",
+      "path": "0t-protocol/roles/optimizer.md",
+      "purpose": "Improve the candidate plan or artifact against measurable quality targets."
+    },
+    {
+      "id": "reviewer",
+      "path": "0t-protocol/roles/reviewer.md",
+      "purpose": "Gate completion, document risks, and decide whether another loop is required."
+    }
+  ],
+  "workflows": [
+    {
+      "id": "autoresearch",
+      "path": "0t-protocol/workflows/autoresearch.workflow.yaml",
+      "module": "autoresearch",
+      "default_entry_role": "planner",
+      "kernel_workflow_id": "autonomous_research",
+      "invocation_ids": ["autoresearch", "autonomous-research", "autonomous_research"],
+      "supported_adapter_families": ["codex", "claude-code"]
+    }
+  ],
+  "modules": [
+    {
+      "id": "autoresearch",
+      "path": "0t-protocol/modules/autoresearch.module.json",
+      "type": "research-optimization"
+    }
+  ],
+  "contracts": {
+    "root_only": true,
+    "handoff_format": "goal -> plan -> optimization delta -> review gate",
+    "stop_condition": "reviewer approves or the workflow hits a declared escalation threshold"
+  },
+  "facade": {
+    "brand": "0t",
+    "current_cli": "0t team",
+    "workflow_entry_ids": ["autoresearch"],
+    "supported_adapter_families": ["codex", "claude-code"]
+  },
+  "cli": {
+    "bundle_dir": "./0t-protocol",
+    "recommended_commands": [
+      "uv run 0t team doctor",
+      "uv run 0t team start autoresearch --workspace desk-alpha --skill my-skill --adapter codex --data-source-adapter ave --execution-adapter onchainos_cli",
+      "uv run 0t team handoff --session-id <session_id> --role planner"
+    ]
+  }
+}

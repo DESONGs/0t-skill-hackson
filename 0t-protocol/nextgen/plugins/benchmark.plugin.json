@@ -1,0 +1,38 @@
+{
+  "plugin_id": "benchmark",
+  "plugin_version": "v1alpha1",
+  "plugin_type": "benchmark",
+  "display_name": "Benchmark Plugin",
+  "summary": "Runs standardized variant validation, scorecards, and hard gate checks.",
+  "supported_subjects": [
+    "skill-variant"
+  ],
+  "input_schema_version": "v1",
+  "output_schema_version": "v1",
+  "artifact_kinds": [
+    "benchmark_scorecard",
+    "gate_result",
+    "benchmark_artifact_bundle"
+  ],
+  "default_benchmark_profiles": [
+    "default-research",
+    "final-approval"
+  ],
+  "default_gate_profiles": [
+    "style-drift",
+    "risk-floor",
+    "readiness"
+  ],
+  "worker_actions": [
+    "benchmark.score_baseline",
+    "benchmark.score_candidates",
+    "benchmark.score_finalist"
+  ],
+  "compatible_workflows": [
+    "autonomous_research",
+    "approval_convergence"
+  ],
+  "metadata": {
+    "worker_tier": "python-domain-worker"
+  }
+}

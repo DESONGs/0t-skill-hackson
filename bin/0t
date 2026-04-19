@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+
+def _maybe_reexec_into_venv() -> None:
+    root = Path(__file__).resolve().parents[1]
+    venv_python = root / ".venv" / "bin" / "python"
+    if not venv_python.exists():
+        return
+    active_venv = os.environ.get("VIRTUAL_ENV")
+    if active_venv and Path(active_venv).resolve() == (root / ".venv").resolve():
+        return
+    if os.environ.get("OT_SKIP_VENV_REEXEC") == "1":
+        return
+    env = dict(os.environ)
+    env["OT_SKIP_VENV_REEXEC"] = "1"
+    os.execve(str(venv_python), [str(venv_python), __file__, *sys.argv[1:]], env)
+
+
+def _bootstrap() -> None:
+    root = Path(__file__).resolve().parents[1]
+    src = root / "src"
+    vendor_src = root / "vendor" / "skill_enterprise" / "src"
+    for path in (vendor_src, src):
+        path_str = str(path)
+        if path.exists() and path_str not in sys.path:
+            sys.path.insert(0, path_str)
+
+
+def main() -> int:
+    _maybe_reexec_into_venv()
+    _bootstrap()
+    from ot_skill_enterprise.control_plane.cli import main as root_main
+
+    return root_main()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

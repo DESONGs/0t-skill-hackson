@@ -15,10 +15,15 @@ def _load_json_payload(inline_payload: str | None, payload_file: str | None) -> 
     return {}
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="ot-team", description="Agent-team orchestration entrypoint for skill optimization workflows")
+def configure_parser(
+    parser: argparse.ArgumentParser,
+    *,
+    command_dest: str = "command",
+) -> argparse.ArgumentParser:
+    parser.prog = "0t team"
+    parser.description = "0T team orchestration entrypoint for skill optimization workflows"
     parser.add_argument("--workspace-dir", default=".ot-workspace")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest=command_dest, required=True)
 
     subparsers.add_parser("doctor", help="Inspect team protocol readiness and adapter support")
 
@@ -26,7 +31,9 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("workflow", help="Workflow id, for example autoresearch")
     start.add_argument("--workspace", dest="workspace_id", required=True, help="Logical workspace identifier")
     start.add_argument("--skill", required=True, help="Skill slug or path to optimize")
-    start.add_argument("--adapter", default="codex", choices=("codex", "claude-code"))
+    start.add_argument("--adapter", default="codex")
+    start.add_argument("--data-source-adapter", dest="data_source_adapter_id", default=None)
+    start.add_argument("--execution-adapter", dest="execution_adapter_id", default=None)
     start.add_argument("--objective", default=None)
     start.add_argument("--session-id", default=None)
 
@@ -50,8 +57,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     handoff = subparsers.add_parser("handoff", help="Generate a role-specific handoff for Codex or Claude Code")
     handoff.add_argument("--session-id", required=True)
-    handoff.add_argument("--role", required=True, choices=("planner", "optimizer", "reviewer", "benchmark-runner"))
-    handoff.add_argument("--adapter", default=None, choices=("codex", "claude-code"))
+    handoff.add_argument("--role", required=True)
+    handoff.add_argument("--adapter", default=None)
 
     work_items = subparsers.add_parser("work-items", help="List work items for a session")
     work_items.add_argument("session_id")
@@ -59,7 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
     submit = subparsers.add_parser("submit-work", help="Submit a work item result back into the team session")
     submit.add_argument("--session-id", required=True)
     submit.add_argument("--work-item-id", default=None)
-    submit.add_argument("--role", default=None, choices=("planner", "optimizer", "reviewer", "benchmark-runner"))
+    submit.add_argument("--role", default=None)
     submit.add_argument("--agent-id", default=None)
     submit.add_argument("--payload", default=None)
     submit.add_argument("--payload-file", default=None)
@@ -67,19 +74,26 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
+    return configure_parser(argparse.ArgumentParser())
+
+
+def run_from_namespace(
+    args: argparse.Namespace,
+    *,
+    command_attr: str = "command",
+) -> int:
     from ot_skill_enterprise.env_bootstrap import load_local_env
     from ot_skill_enterprise.team.service import build_agent_team_service
 
     load_local_env()
-    parser = build_parser()
-    args = parser.parse_args(argv)
     service = build_agent_team_service(workspace_root=Path(args.workspace_dir).expanduser().resolve())
+    command = getattr(args, command_attr)
 
-    if args.command == "doctor":
+    if command == "doctor":
         print(json.dumps(service.doctor(), ensure_ascii=False, indent=2, default=str))
         return 0
-    if args.command == "start":
+    if command == "start":
         payload = service.start_session(
             args.workflow,
             workspace_id=args.workspace_id,
@@ -87,19 +101,21 @@ def main(argv: list[str] | None = None) -> int:
             adapter_family=args.adapter,
             objective=args.objective,
             session_id=args.session_id,
+            data_source_adapter_id=args.data_source_adapter_id,
+            execution_adapter_id=args.execution_adapter_id,
         )
         print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
         return 0
-    if args.command == "status":
+    if command == "status":
         print(json.dumps(service.status(args.session_id), ensure_ascii=False, indent=2, default=str))
         return 0
-    if args.command == "leaderboard":
+    if command == "leaderboard":
         print(json.dumps(service.leaderboard(args.session_id), ensure_ascii=False, indent=2, default=str))
         return 0
-    if args.command == "review":
+    if command == "review":
         print(json.dumps(service.review(args.session_id), ensure_ascii=False, indent=2, default=str))
         return 0
-    if args.command == "approve":
+    if command == "approve":
         print(
             json.dumps(
                 service.approve(
@@ -114,10 +130,10 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 0
-    if args.command == "archive":
+    if command == "archive":
         print(json.dumps(service.archive(args.session_id), ensure_ascii=False, indent=2, default=str))
         return 0
-    if args.command == "handoff":
+    if command == "handoff":
         print(
             json.dumps(
                 service.handoff(args.session_id, role_id=args.role, adapter_family=args.adapter),
@@ -127,11 +143,11 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 0
-    if args.command == "work-items":
+    if command == "work-items":
         payload = service.status(args.session_id)
         print(json.dumps({"session_id": args.session_id, "work_items": payload["work_items"]}, ensure_ascii=False, indent=2, default=str))
         return 0
-    if args.command == "submit-work":
+    if command == "submit-work":
         payload = _load_json_payload(args.payload, args.payload_file)
         print(
             json.dumps(
@@ -149,8 +165,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    parser.error(f"unknown command: {args.command}")
-    return 2
+    raise SystemExit(f"unknown team command: {command}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    return run_from_namespace(args)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,45 @@
+{
+  "contract_version": "nextgen.worker.request.v1",
+  "bridge_id": "python-worker-bridge",
+  "bridge_version": "1.0.0",
+  "action_id": "distillation.execute",
+  "workflow_id": "autonomous_research",
+  "workflow_step_id": "seed_baseline",
+  "workspace_dir": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.tmp-agent-debug2",
+  "request": {
+    "workflow_id": "autonomous_research",
+    "session_id": "pi-session-45c74e0145",
+    "workspace_id": "desk-alpha",
+    "workspace_dir": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.tmp-agent-debug2",
+    "wallet": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89",
+    "chain": "bsc",
+    "skill_name": "meme-hunter-bsc-567a89",
+    "objective": "Optimize wallet-style skill meme-hunter-bsc-567a89 via autonomous research.",
+    "data_source_adapter_id": "ave",
+    "execution_adapter_id": "onchainos_cli",
+    "operator_hints": {
+      "skill_ref": "meme-hunter-bsc-567a89",
+      "skill_path": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/skills/meme-hunter-bsc-567a89",
+      "manifest_path": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/skills/meme-hunter-bsc-567a89/manifest.json"
+    },
+    "metadata": {
+      "source": "ot-team",
+      "adapter_family": "codex",
+      "entry_workflow_id": "autonomous_research",
+      "requested_workflow_id": "autoresearch",
+      "workspace_adapters": {
+        "data_source": "ave",
+        "execution": "onchainos_cli"
+      }
+    }
+  },
+  "state": {
+    "iteration_index": 1
+  },
+  "metadata": {
+    "session_id": "pi-session-45c74e0145",
+    "runtime_id": "pi",
+    "work_item_id": "workflow:seed_baseline",
+    "iteration": null
+  }
+}

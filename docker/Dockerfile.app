@@ -40,7 +40,7 @@ COPY src ./src
 COPY tests ./tests
 COPY vendor ./vendor
 
-RUN chmod +x scripts/*.sh bin/ot-enterprise
+RUN chmod +x scripts/*.sh bin/0t
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --extra storage
@@ -52,7 +52,7 @@ RUN --mount=type=cache,target=/root/.npm \
 
 FROM base AS runtime
 
-CMD ["uv", "run", "--no-sync", "ot-enterprise", "runtime", "overview", "--workspace-dir", ".ot-workspace"]
+CMD ["uv", "run", "--no-sync", "0t", "runtime", "overview", "--workspace-dir", ".ot-workspace"]
 
 FROM base AS verify
 

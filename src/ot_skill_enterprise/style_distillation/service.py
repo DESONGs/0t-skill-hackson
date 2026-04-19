@@ -16,6 +16,7 @@ from uuid import uuid4
 from ot_skill_enterprise.control_plane.candidates import CandidateSurfaceService, build_candidate_surface_service
 from ot_skill_enterprise.chain_assets import chain_benchmark_defaults, chain_quote_symbols
 from ot_skill_enterprise.enterprise_bridge import EnterpriseBridge
+from ot_skill_enterprise.nextgen.provider_compat import build_provider_compat
 from ot_skill_enterprise.reflection.models import ReflectionJobResult, ReflectionJobSpec
 from ot_skill_enterprise.reflection.service import (
     PiReflectionService,
@@ -1607,6 +1608,16 @@ def _fallback_execution_intent(preprocessed: dict[str, Any], strategy: StrategyS
     return _build_fallback_execution_intent(preprocessed, strategy)
 
 
+def _configured_data_source_adapter_id(explicit: str | None = None) -> str | None:
+    candidate = str(
+        explicit
+        or os.environ.get("OT_NEXTGEN_DATA_SOURCE_ADAPTER")
+        or os.environ.get("OT_DATA_SOURCE_ADAPTER")
+        or ""
+    ).strip()
+    return candidate or None
+
+
 class WalletStyleDistillationService:
     def __init__(
         self,
@@ -1615,11 +1626,30 @@ class WalletStyleDistillationService:
         workspace_root: Path | None = None,
         provider: Any | None = None,
         reflection_service: PiReflectionService | None = None,
+        adapter_registry: Any | None = None,
+        data_source_adapter_id: str | None = None,
+        require_explicit_data_source_adapter: bool = False,
+        allow_builtin_adapter_registry_fallback: bool = True,
     ) -> None:
         self.project_root = Path(project_root).expanduser().resolve() if project_root is not None else resolve_project_root()
         self.workspace_root = Path(workspace_root).expanduser().resolve() if workspace_root is not None else (self.project_root / ".ot-workspace").resolve()
         self.workspace_root.mkdir(parents=True, exist_ok=True)
-        self.provider = provider or build_ave_provider()
+        selected_adapter_id = _configured_data_source_adapter_id(data_source_adapter_id)
+        if selected_adapter_id is not None and adapter_registry is None:
+            raise ValueError("explicit data_source_adapter_id requires adapter_registry injection")
+        resolved_provider = provider
+        if resolved_provider is None and selected_adapter_id is None and require_explicit_data_source_adapter:
+            raise ValueError("nextgen distillation requires an explicit data_source_adapter_id or provider")
+        if resolved_provider is None and selected_adapter_id is None:
+            resolved_provider = build_ave_provider()
+        self.provider = build_provider_compat(
+            workspace_dir=self.workspace_root,
+            provider=resolved_provider,
+            adapter_registry=adapter_registry,
+            adapter_id=selected_adapter_id,
+            allow_builtin_registry_fallback=allow_builtin_adapter_registry_fallback,
+        )
+        self.data_source_adapter_id = selected_adapter_id
         self.candidate_service: CandidateSurfaceService = build_candidate_surface_service(
             project_root=self.project_root,
             workspace_root=self.workspace_root,
@@ -4451,10 +4481,18 @@ def build_wallet_style_distillation_service(
     workspace_root: Path | None = None,
     provider: Any | None = None,
     reflection_service: PiReflectionService | None = None,
+    adapter_registry: Any | None = None,
+    data_source_adapter_id: str | None = None,
+    require_explicit_data_source_adapter: bool = False,
+    allow_builtin_adapter_registry_fallback: bool = True,
 ) -> WalletStyleDistillationService:
     return WalletStyleDistillationService(
         project_root=project_root,
         workspace_root=workspace_root,
         provider=provider,
         reflection_service=reflection_service,
+        adapter_registry=adapter_registry,
+        data_source_adapter_id=data_source_adapter_id,
+        require_explicit_data_source_adapter=require_explicit_data_source_adapter,
+        allow_builtin_adapter_registry_fallback=allow_builtin_adapter_registry_fallback,
     )

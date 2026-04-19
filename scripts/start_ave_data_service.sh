@@ -30,4 +30,4 @@ fi
 export AVE_DATA_SERVICE_BIND_HOST="${AVE_DATA_SERVICE_BIND_HOST:-127.0.0.1}"
 export AVE_DATA_SERVICE_PORT="${AVE_DATA_SERVICE_PORT:-8080}"
 
-exec "$UV_BIN" run --no-sync ot-serve-ave-data
+exec "$UV_BIN" run --no-sync 0t-serve-ave-data

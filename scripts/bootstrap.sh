@@ -42,7 +42,7 @@ echo "[bootstrap] syncing Python environment with uv"
 "$UV_BIN" "${SYNC_ARGS[@]}"
 
 echo "[bootstrap] preparing embedded runtime and Docker-backed AVE bridge if configured"
-"$UV_BIN" run --no-sync ot-enterprise runtime prepare --workspace-dir "$ROOT/.ot-workspace"
+"$UV_BIN" run --no-sync 0t runtime prepare --workspace-dir "$ROOT/.ot-workspace"
 
 if [[ "${OT_START_LOCAL_STACK:-0}" == "1" ]]; then
   echo "[bootstrap] starting local postgres/redis/blob stack"

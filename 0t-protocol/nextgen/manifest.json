@@ -1,0 +1,77 @@
+{
+  "bundle_id": "0t-nextgen-workflow-protocol",
+  "bundle_version": "1.0.0",
+  "contract_version": "nextgen.workflow.bundle.v1",
+  "display_name": "0T Nextgen Workflow Protocol",
+  "description": "Machine-readable source of truth for nextgen plugins, workflows, and the Python worker bridge contract.",
+  "default_bridge_id": "python-worker-bridge",
+  "adapters": [
+    {
+      "adapter_id": "ave",
+      "path": "0t-protocol/nextgen/adapters/ave.adapter.json"
+    },
+    {
+      "adapter_id": "onchainos_cli",
+      "path": "0t-protocol/nextgen/adapters/onchainos_cli.adapter.json"
+    }
+  ],
+  "plugins": [
+    {
+      "plugin_id": "distillation",
+      "path": "0t-protocol/nextgen/plugins/distillation.plugin.json"
+    },
+    {
+      "plugin_id": "skill-creation",
+      "path": "0t-protocol/nextgen/plugins/skill-creation.plugin.json"
+    },
+    {
+      "plugin_id": "autoresearch",
+      "path": "0t-protocol/nextgen/plugins/autoresearch.plugin.json"
+    },
+    {
+      "plugin_id": "benchmark",
+      "path": "0t-protocol/nextgen/plugins/benchmark.plugin.json"
+    },
+    {
+      "plugin_id": "review",
+      "path": "0t-protocol/nextgen/plugins/review.plugin.json"
+    },
+    {
+      "plugin_id": "approval-convergence",
+      "path": "0t-protocol/nextgen/plugins/approval-convergence.plugin.json"
+    }
+  ],
+  "workflows": [
+    {
+      "workflow_id": "distillation_seed",
+      "display_id": "distillation-seed",
+      "aliases": ["wallet-style-distillation", "wallet_style_distillation"],
+      "path": "0t-protocol/nextgen/workflows/distillation_seed.workflow.json"
+    },
+    {
+      "workflow_id": "autonomous_research",
+      "display_id": "autoresearch",
+      "aliases": ["autonomous-research"],
+      "path": "0t-protocol/nextgen/workflows/autonomous_research.workflow.json"
+    },
+    {
+      "workflow_id": "approval_convergence",
+      "display_id": "approval-convergence",
+      "aliases": ["approval", "approval_convergence"],
+      "path": "0t-protocol/nextgen/workflows/approval_convergence.workflow.json"
+    }
+  ],
+  "worker_bridges": [
+    {
+      "bridge_id": "python-worker-bridge",
+      "path": "0t-protocol/nextgen/bridges/python-worker-bridge.json"
+    }
+  ],
+  "defaults": {
+    "workflow_id": "autonomous_research",
+    "workflow_display_id": "autoresearch",
+    "state_root": ".ot-workspace/runtime-sessions",
+    "journal_file": "workflow-kernel/journal.jsonl",
+    "session_file": "workflow-kernel/session.json"
+  }
+}

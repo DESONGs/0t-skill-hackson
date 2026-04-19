@@ -1,0 +1,30 @@
+{
+  "plugin_id": "distillation",
+  "plugin_version": "v1alpha1",
+  "plugin_type": "distillation",
+  "display_name": "Distillation Plugin",
+  "summary": "Builds a baseline skill seed and distillation artifacts from wallet context.",
+  "supported_subjects": [
+    "wallet",
+    "skill"
+  ],
+  "input_schema_version": "v1",
+  "output_schema_version": "v1",
+  "artifact_kinds": [
+    "distilled_profile",
+    "strategy_spec",
+    "execution_intent_draft",
+    "seed_skill_package",
+    "distillation_report"
+  ],
+  "worker_actions": [
+    "distillation.execute"
+  ],
+  "compatible_workflows": [
+    "distillation_seed",
+    "autonomous_research"
+  ],
+  "metadata": {
+    "worker_tier": "python-domain-worker"
+  }
+}

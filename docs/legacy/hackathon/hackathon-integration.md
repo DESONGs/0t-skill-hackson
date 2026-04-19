@@ -289,7 +289,7 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph CTRL["Control Plane"]
-        CLI["CLI: ot-enterprise"]
+        CLI["CLI: 0t"]
         API["HTTP API"]
         FE["Frontend server"]
     end

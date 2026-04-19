@@ -154,13 +154,13 @@ fi
 if [[ -d "$ROOT/vendor/pi_runtime/node_modules" ]]; then
   mark_ok "pi runtime deps: installed"
 else
-  mark_warn "pi runtime deps: missing; run uv run ot-enterprise runtime prepare --workspace-dir .ot-workspace"
+  mark_warn "pi runtime deps: missing; run uv run 0t runtime prepare --workspace-dir .ot-workspace"
 fi
 
 if [[ -f "$ROOT/vendor/pi_runtime/dist/pi-runtime.mjs" ]]; then
   mark_ok "pi runtime bundle: present"
 else
-  mark_warn "pi runtime bundle: missing; run uv run ot-enterprise runtime prepare --workspace-dir .ot-workspace"
+  mark_warn "pi runtime bundle: missing; run uv run 0t runtime prepare --workspace-dir .ot-workspace"
 fi
 
 PROVIDER_MODE="${AVE_DATA_PROVIDER:-}"
@@ -236,7 +236,7 @@ echo "recommended next steps:"
 echo "  uv path:"
 echo "    1. cp .env.example .env"
 echo "    2. uv sync --frozen"
-echo "    3. uv run ot-enterprise runtime prepare --workspace-dir .ot-workspace"
+echo "    3. uv run 0t runtime prepare --workspace-dir .ot-workspace"
 echo "  docker path:"
 echo "    1. cp .env.example .env"
 echo "    2. ./scripts/docker_build.sh"

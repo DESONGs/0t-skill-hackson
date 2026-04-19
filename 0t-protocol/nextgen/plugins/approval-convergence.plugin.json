@@ -1,0 +1,30 @@
+{
+  "plugin_id": "approval-convergence",
+  "plugin_version": "v1alpha1",
+  "plugin_type": "approval-convergence",
+  "display_name": "Approval Convergence Plugin",
+  "summary": "Aggregates final benchmark and review outputs into an approval-ready activation bundle.",
+  "supported_subjects": [
+    "skill-variant"
+  ],
+  "input_schema_version": "v1",
+  "output_schema_version": "v1",
+  "artifact_kinds": [
+    "approval_activation_bundle",
+    "approval_recommendation",
+    "kernel_handoff_payload"
+  ],
+  "worker_actions": [
+    "approval_convergence.converge_approval"
+  ],
+  "compatible_workflows": [
+    "approval_convergence"
+  ],
+  "metadata": {
+    "composes_with": [
+      "benchmark",
+      "review"
+    ],
+    "worker_tier": "python-domain-worker"
+  }
+}

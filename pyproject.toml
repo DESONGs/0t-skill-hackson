@@ -34,11 +34,10 @@ ave-advanced = [
 ]
 
 [project.scripts]
-ot-enterprise = "ot_skill_enterprise.control_plane.cli:main"
-ot-team = "ot_skill_enterprise.team.cli:main"
-ot-serve-ave-data = "ot_skill_enterprise.service_entrypoints:main"
-ot-frontend = "ot_skill_enterprise.frontend_server:main"
-ot-runtime-bootstrap = "ot_skill_enterprise.runtime.pi.bootstrap:main"
+0t = "ot_skill_enterprise.control_plane.cli:main"
+0t-serve-ave-data = "ot_skill_enterprise.service_entrypoints:main"
+0t-frontend = "ot_skill_enterprise.frontend_server:main"
+0t-runtime-bootstrap = "ot_skill_enterprise.runtime.pi.bootstrap:main"
 
 [tool.setuptools]
 include-package-data = true

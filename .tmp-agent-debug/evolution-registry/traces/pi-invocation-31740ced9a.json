@@ -1,0 +1,73 @@
+{
+  "trace_id": "pi-invocation-31740ced9a",
+  "run_id": "run-cb5ecd02a4a1",
+  "runtime_session_id": "pi-session-1f07f6086e",
+  "summary": "Pi workflow kernel session finished",
+  "blob_uri": null,
+  "events": [
+    {
+      "event_id": "evt-a8fd89726d",
+      "run_id": "run-cb5ecd02a4a1",
+      "runtime_session_id": "pi-session-1f07f6086e",
+      "event_type": "runtime.session_started",
+      "trace_id": "pi-invocation-31740ced9a",
+      "step_id": null,
+      "skill_id": null,
+      "action_id": null,
+      "subject_kind": null,
+      "subject_id": null,
+      "status": "running",
+      "summary": "Pi workflow kernel session started",
+      "artifact_id": null,
+      "timestamp": "2026-04-19T18:20:45.060380Z",
+      "payload": {
+        "type": "agent_start",
+        "message": "Pi workflow kernel session started",
+        "status": "running",
+        "metadata": {
+          "session_id": "pi-session-1f07f6086e",
+          "workflow_id": "autonomous_research",
+          "action": "run"
+        }
+      },
+      "metadata": {
+        "session_id": "pi-session-1f07f6086e",
+        "workflow_id": "autonomous_research",
+        "action": "run",
+        "runtime_id": "pi",
+        "runtime_session_id": "pi-session-1f07f6086e",
+        "invocation_id": "pi-invocation-31740ced9a"
+      }
+    },
+    {
+      "event_id": "evt-d1c1bea73c",
+      "run_id": "run-cb5ecd02a4a1",
+      "runtime_session_id": "pi-session-1f07f6086e",
+      "event_type": "runtime.session_finished",
+      "trace_id": "pi-invocation-31740ced9a",
+      "step_id": null,
+      "skill_id": null,
+      "action_id": null,
+      "subject_kind": null,
+      "subject_id": null,
+      "status": "succeeded",
+      "summary": "Pi workflow kernel session finished",
+      "artifact_id": null,
+      "timestamp": "2026-04-19T18:20:45.061162Z",
+      "payload": {
+        "type": "agent_end",
+        "message": "Pi workflow kernel session finished",
+        "status": "succeeded"
+      },
+      "metadata": {
+        "runtime_id": "pi",
+        "runtime_session_id": "pi-session-1f07f6086e",
+        "session_id": "pi-session-1f07f6086e",
+        "invocation_id": "pi-invocation-31740ced9a"
+      }
+    }
+  ],
+  "metadata": {
+    "event_count": 2
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "plugin_id": "autoresearch",
+  "plugin_version": "v1alpha1",
+  "plugin_type": "autoresearch",
+  "display_name": "Autoresearch Plugin",
+  "summary": "Generates candidate variants, manages iteration budgets, and summarizes research loops.",
+  "supported_subjects": [
+    "skill",
+    "skill-family"
+  ],
+  "input_schema_version": "v1",
+  "output_schema_version": "v1",
+  "search_space_fields": [
+    "strategy_spec",
+    "execution_intent",
+    "risk_filters",
+    "timing",
+    "sizing",
+    "pacing",
+    "candidate_generation_thresholds"
+  ],
+  "worker_actions": [
+    "autoresearch.plan_iteration",
+    "autoresearch.decide_iteration"
+  ],
+  "compatible_workflows": [
+    "autonomous_research"
+  ],
+  "metadata": {
+    "composes_with": [
+      "skill-creation",
+      "benchmark",
+      "review"
+    ],
+    "worker_tier": "python-domain-worker"
+  }
+}

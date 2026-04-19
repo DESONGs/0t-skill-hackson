@@ -1,10 +1,10 @@
 # Agent-Team Optimization Architecture
 
-This repository now carries a repo-tracked protocol bundle for the `ot-team` coordination layer in [`team-protocol/`](../../team-protocol/ENTRYPOINT.md).
+This repository now carries a repo-tracked `0t-protocol` bundle for the `0t team` coordination layer.
 
 ## Why It Exists
 
-The main product path in this repository is still the `ot-enterprise` runtime and distillation flow. The new protocol bundle adds a separate coordination layer for agent-team work:
+The main product path in this repository is still the `0t` runtime and distillation flow. The new protocol bundle adds a separate coordination layer for agent-team work:
 
 - `planner` frames the task and declares acceptance criteria
 - `optimizer` improves the active candidate against those criteria
@@ -15,15 +15,15 @@ That split keeps planning, optimization, and review decisions explicit instead o
 ## Control Surface
 
 - Runtime and product operations stay on the existing startup contracts in [README.md](../../README.md), [START_HERE.md](../../START_HERE.md), and [AGENTS.md](../../AGENTS.md).
-- Agent-team coordination starts from [`team-protocol/ENTRYPOINT.md`](../../team-protocol/ENTRYPOINT.md).
-- The bundle manifest in [`team-protocol/manifest.json`](../../team-protocol/manifest.json) is the machine-readable index for roles, workflows, and modules.
+- Agent-team coordination starts from the public [`0t-protocol` guide](../product/0t-protocol-guide.md).
+- The bundle manifest is the machine-readable index for roles, workflows, and modules.
 
 ## Bundle Layout
 
 ```text
-team-protocol/
-├── ENTRYPOINT.md
-├── manifest.json
+0t-protocol bundle
+├── entrypoint
+├── manifest
 ├── modules/
 │   └── autoresearch.module.json
 ├── roles/
@@ -46,9 +46,9 @@ The loop is intentionally capped so the system does not drift into unbounded ref
 
 ## CLI Positioning
 
-The repository does not replace `ot-enterprise` with `ot-team`.
+The repository does not replace `0t` with `0t team`.
 
-- use `ot-enterprise` for runtime preparation, serving, distillation, and execution-related operator flows
-- use `ot-team` to load and run the repo-tracked protocol bundle when the task is about multi-agent coordination
+- use `0t` for runtime preparation, serving, distillation, and execution-related operator flows
+- use `0t team` to load and run the repo-tracked `0t-protocol` bundle when the task is about multi-agent coordination
 
-In other words, `ot-team` is a protocol-layer entrypoint, not a startup-path replacement.
+In other words, `0t team` is a protocol-layer entrypoint, not a startup-path replacement.

@@ -393,7 +393,10 @@ def _enrich_candidate_with_price_info(
         return candidate, {}
     command = _build_token_price_info_command(address, chain, project_root=project_root)
     runtime_env, _ = _execution_env(project_root, env)
-    result = _run_command(command, env=runtime_env, executor=executor)
+    try:
+        result = _run_command(command, env=runtime_env, executor=executor)
+    except Exception as exc:  # noqa: BLE001
+        return candidate, {"command": command, "error": str(exc), "status": "price_info_unavailable"}
     rows = _result_rows(result)
     if rows:
         candidate = _merge_candidate(candidate, _candidate_from_context(rows[0], source="token_price_info"))
@@ -496,6 +499,19 @@ def _collect_ave_wss_price_snapshot(
     return snapshot, {"command": command, "raw_output": raw[:1000]}
 
 
+def _nextgen_context_policy(execution_intent: dict[str, Any]) -> tuple[bool, bool, bool]:
+    metadata = dict(execution_intent.get("metadata") or {})
+    runtime = _safe_text(metadata.get("adapter_runtime")).lower()
+    context_injected = _safe_bool(metadata.get("market_context_injected")) or _safe_bool(metadata.get("price_context_injected"))
+    if _safe_text(metadata.get("execution_context_source")).lower() == "adapter_injected":
+        context_injected = True
+    nextgen_runtime = runtime == "nextgen_spi"
+    nextgen_context_active = nextgen_runtime or context_injected
+    requested_legacy_fallback = _safe_bool(metadata.get("allow_legacy_ave_wss_fallback"))
+    allow_legacy_fallback = requested_legacy_fallback and not nextgen_context_active
+    return nextgen_context_active, allow_legacy_fallback, requested_legacy_fallback and nextgen_context_active
+
+
 def _resolve_trade_plan_market(
     trade_plan: dict[str, Any],
     execution_intent: dict[str, Any],
@@ -517,11 +533,22 @@ def _resolve_trade_plan_market(
     scan_pending = target_resolution == "market_scan_pending"
     should_search = discovery_enabled and search_pending
     should_scan = discovery_enabled and (scan_pending or allow_override)
+    requested_legacy_market_discovery = bool(should_search or should_scan)
+    nextgen_context_active, allow_legacy_wss_fallback, ignored_legacy_wss_fallback = _nextgen_context_policy(
+        execution_intent
+    )
+    if nextgen_context_active:
+        should_search = False
+        should_scan = False
     meta: dict[str, Any] = {
         "market_discovery": _json_safe(discovery),
         "market_discovery_used": should_search or should_scan,
         "market_scan_attempted": False,
         "wss_price_used": False,
+        "nextgen_context_active": nextgen_context_active,
+        "legacy_ave_wss_fallback_allowed": allow_legacy_wss_fallback,
+        "legacy_ave_wss_fallback_ignored": ignored_legacy_wss_fallback,
+        "legacy_market_discovery_ignored": nextgen_context_active and requested_legacy_market_discovery,
     }
     context_candidates = _extract_market_context_candidates(resolved)
     candidates: list[dict[str, Any]] = []
@@ -562,9 +589,9 @@ def _resolve_trade_plan_market(
             "token_address": current_target_address,
         }
     if not chosen:
-        meta["resolution_reason"] = "no_market_candidate"
+        meta["resolution_reason"] = "missing_market_context" if nextgen_context_active else "no_market_candidate"
         return resolved, meta
-    if chosen.get("source") != "existing_trade_plan":
+    if chosen.get("source") != "existing_trade_plan" and not nextgen_context_active:
         chosen, price_meta = _enrich_candidate_with_price_info(
             chosen,
             chain,
@@ -589,12 +616,16 @@ def _resolve_trade_plan_market(
         "txs": chosen.get("txs"),
         "unique_traders": chosen.get("unique_traders"),
     }
-    if (
+    should_attempt_wss = (
         chosen.get("source") != "existing_trade_plan"
-        and _safe_bool(discovery.get("wss_price_enabled"))
+        and (
+            allow_legacy_wss_fallback
+            or (not nextgen_context_active and _safe_bool(discovery.get("wss_price_enabled")))
+        )
         and _is_evm_address(resolved.get("target_token_address"))
         and chain
-    ):
+    )
+    if should_attempt_wss:
         wss_snapshot, wss_meta = _collect_ave_wss_price_snapshot(
             _safe_text(resolved.get("target_token_address")),
             chain,
@@ -607,6 +638,11 @@ def _resolve_trade_plan_market(
         if wss_snapshot:
             resolved["market_stream_snapshot"] = wss_snapshot
             meta["wss_price_used"] = True
+    elif nextgen_context_active and (_safe_bool(discovery.get("wss_price_enabled")) or ignored_legacy_wss_fallback):
+        meta["wss_price"] = {"reason": "disabled_for_nextgen_injected_context"}
+    if nextgen_context_active:
+        meta["market_discovery_used"] = False
+        meta["execution_context_source"] = "adapter_injected"
     meta["resolved_target"] = {
         "symbol": resolved.get("target_token"),
         "token_address": resolved.get("target_token_address"),

@@ -1,0 +1,189 @@
+{
+  "evaluation_id": "eval-69e0bc51b64e",
+  "run_id": "run-7b965e5cb32b",
+  "runtime_session_id": "pi-session-1f07f6086e",
+  "subject_type": "workflow_session",
+  "subject_id": "0xbac453b9b7f53b35ac906b641925b2f5f2567a89",
+  "runtime_result": {
+    "passed": true,
+    "status": "succeeded",
+    "summary": "Workflow approval_convergence is awaiting approval.",
+    "error_code": null,
+    "evidence_refs": [
+      "pi-invocation-bbe128cb8a"
+    ],
+    "metadata": {}
+  },
+  "contract_result": {
+    "passed": true,
+    "status": "pass",
+    "summary": "contract passed",
+    "missing_fields": [],
+    "violations": [],
+    "evidence_refs": [
+      "pi-invocation-bbe128cb8a",
+      "pi-session-1f07f6086e-session",
+      "pi-session-1f07f6086e-work-items",
+      "pi-session-1f07f6086e-recommendation",
+      "pi-session-1f07f6086e-approval",
+      "pi-session-1f07f6086e-team",
+      "pi-session-1f07f6086e-result",
+      "pi-session-1f07f6086e-approval-convergence"
+    ],
+    "metadata": {}
+  },
+  "task_match_result": {
+    "passed": true,
+    "status": "generate",
+    "summary": "task matched",
+    "score": 1.0,
+    "threshold": 0.8,
+    "evidence_refs": [
+      "pi-invocation-bbe128cb8a",
+      "pi-session-1f07f6086e-session",
+      "pi-session-1f07f6086e-work-items",
+      "pi-session-1f07f6086e-recommendation",
+      "pi-session-1f07f6086e-approval",
+      "pi-session-1f07f6086e-team",
+      "pi-session-1f07f6086e-result",
+      "pi-session-1f07f6086e-approval-convergence"
+    ],
+    "metadata": {}
+  },
+  "runtime_pass": true,
+  "contract_pass": true,
+  "task_match_score": 1.0,
+  "overall_grade": "pass",
+  "review_status": "generate",
+  "failure_reason": "Workflow approval_convergence is awaiting approval.",
+  "suggested_action": "Keep runtime events flowing through the shared run/trace/evaluation model.",
+  "grade": "pass",
+  "summary": "Workflow approval_convergence is awaiting approval.",
+  "trace_ids": [
+    "pi-invocation-bbe128cb8a"
+  ],
+  "event_ids": [
+    "evt-9f4bd5d9b6",
+    "evt-ebc0e5dbf9"
+  ],
+  "event_types": [
+    "runtime.session_started",
+    "runtime.session_finished"
+  ],
+  "artifact_ids": [
+    "pi-session-1f07f6086e-session",
+    "pi-session-1f07f6086e-work-items",
+    "pi-session-1f07f6086e-recommendation",
+    "pi-session-1f07f6086e-approval",
+    "pi-session-1f07f6086e-team",
+    "pi-session-1f07f6086e-result",
+    "pi-session-1f07f6086e-approval-convergence"
+  ],
+  "evidence_refs": [
+    "pi-invocation-bbe128cb8a",
+    "pi-session-1f07f6086e-session",
+    "pi-session-1f07f6086e-work-items",
+    "pi-session-1f07f6086e-recommendation",
+    "pi-session-1f07f6086e-approval",
+    "pi-session-1f07f6086e-team",
+    "pi-session-1f07f6086e-result",
+    "pi-session-1f07f6086e-approval-convergence"
+  ],
+  "checks": [
+    "Keep runtime events flowing through the shared run/trace/evaluation model.",
+    "Workflow approval_convergence is awaiting approval.",
+    "contract passed",
+    "task matched"
+  ],
+  "findings": [],
+  "metadata": {
+    "score": null,
+    "recommendation": "Keep runtime events flowing through the shared run/trace/evaluation model.",
+    "trace_ids": [
+      "pi-invocation-bbe128cb8a"
+    ],
+    "event_ids": [
+      "evt-9f4bd5d9b6",
+      "evt-ebc0e5dbf9"
+    ],
+    "event_types": [
+      "runtime.session_started",
+      "runtime.session_finished"
+    ],
+    "artifact_ids": [
+      "pi-session-1f07f6086e-session",
+      "pi-session-1f07f6086e-work-items",
+      "pi-session-1f07f6086e-recommendation",
+      "pi-session-1f07f6086e-approval",
+      "pi-session-1f07f6086e-team",
+      "pi-session-1f07f6086e-result",
+      "pi-session-1f07f6086e-approval-convergence"
+    ],
+    "runtime_result": {
+      "passed": true,
+      "status": "succeeded",
+      "summary": "Workflow approval_convergence is awaiting approval.",
+      "error_code": null,
+      "evidence_refs": [
+        "pi-invocation-bbe128cb8a"
+      ],
+      "metadata": {}
+    },
+    "contract_result": {
+      "passed": true,
+      "status": "pass",
+      "summary": "contract passed",
+      "missing_fields": [],
+      "violations": [],
+      "evidence_refs": [
+        "pi-invocation-bbe128cb8a",
+        "pi-session-1f07f6086e-session",
+        "pi-session-1f07f6086e-work-items",
+        "pi-session-1f07f6086e-recommendation",
+        "pi-session-1f07f6086e-approval",
+        "pi-session-1f07f6086e-team",
+        "pi-session-1f07f6086e-result",
+        "pi-session-1f07f6086e-approval-convergence"
+      ],
+      "metadata": {}
+    },
+    "task_match_result": {
+      "passed": true,
+      "status": "generate",
+      "summary": "task matched",
+      "score": 1.0,
+      "threshold": 0.8,
+      "evidence_refs": [
+        "pi-invocation-bbe128cb8a",
+        "pi-session-1f07f6086e-session",
+        "pi-session-1f07f6086e-work-items",
+        "pi-session-1f07f6086e-recommendation",
+        "pi-session-1f07f6086e-approval",
+        "pi-session-1f07f6086e-team",
+        "pi-session-1f07f6086e-result",
+        "pi-session-1f07f6086e-approval-convergence"
+      ],
+      "metadata": {}
+    },
+    "review_status": "generate",
+    "runtime_pass": true,
+    "contract_pass": true,
+    "task_match_score": 1.0,
+    "overall_grade": "pass",
+    "failure_reason": "Workflow approval_convergence is awaiting approval.",
+    "suggested_action": "Keep runtime events flowing through the shared run/trace/evaluation model.",
+    "evidence_refs": [
+      "pi-invocation-bbe128cb8a",
+      "pi-session-1f07f6086e-session",
+      "pi-session-1f07f6086e-work-items",
+      "pi-session-1f07f6086e-recommendation",
+      "pi-session-1f07f6086e-approval",
+      "pi-session-1f07f6086e-team",
+      "pi-session-1f07f6086e-result",
+      "pi-session-1f07f6086e-approval-convergence"
+    ],
+    "source_kind": "runtime",
+    "source_id": "run-7b965e5cb32b"
+  },
+  "created_at": "2026-04-19T18:21:23.347935Z"
+}

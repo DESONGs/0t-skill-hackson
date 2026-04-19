@@ -89,7 +89,7 @@ services:
     <<: *app-common
     depends_on:
       - ave-data-service
-    entrypoint: ["uv", "run", "--no-sync", "ot-enterprise"]
+    entrypoint: ["uv", "run", "--no-sync", "0t"]
 
   qa:
     profiles: ["app"]

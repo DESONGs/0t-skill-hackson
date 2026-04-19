@@ -42,27 +42,43 @@ find src/ot_skill_enterprise -type f -name '*.py' -print0 | xargs -0 "$PYTHON_BI
 
 if command -v "$PYTHON_BIN" >/dev/null 2>&1 && "$PYTHON_BIN" -m pytest --version >/dev/null 2>&1; then
   echo "[verify] qa regression tests"
+  WALLET_STYLE_K_EXPR="test_parse_wallet_style_review_report_accepts_minimal_distill_output or test_parse_wallet_style_review_report_auto_fixes_wallet_chain or test_reflection_job_embeds_ephemeral_context_outside_system_prompt or test_reflection_job_sets_request_timeout_and_token_budget_metadata or test_reflection_job_uses_higher_default_token_budget or test_chain_benchmark_source_defaults_are_chain_specific or test_fallback_execution_intent_uses_chain_benchmark_source_defaults or test_reflection_run_does_not_generate_candidate"
   PYTHONPATH="${PYTHONPATH:-$ROOT/src}" "$PYTHON_BIN" -m pytest -q \
     "$ROOT/tests/test_agent_team_service.py" \
     "$ROOT/tests/test_style_distillation_archetype.py" \
     "$ROOT/tests/test_style_distillation_archetype_integration.py" \
-    "$ROOT/tests/test_wallet_style_reflection.py::WalletStyleReflectionTests::test_parse_wallet_style_review_report_accepts_minimal_distill_output" \
-    "$ROOT/tests/test_wallet_style_reflection.py::WalletStyleReflectionTests::test_parse_wallet_style_review_report_auto_fixes_wallet_chain" \
-    "$ROOT/tests/test_wallet_style_reflection.py::WalletStyleReflectionTests::test_reflection_job_embeds_ephemeral_context_outside_system_prompt" \
-    "$ROOT/tests/test_wallet_style_reflection.py::WalletStyleReflectionTests::test_reflection_job_sets_request_timeout_and_token_budget_metadata" \
-    "$ROOT/tests/test_wallet_style_reflection.py::WalletStyleReflectionTests::test_reflection_job_uses_higher_default_token_budget" \
-    "$ROOT/tests/test_wallet_style_reflection.py::WalletStyleReflectionTests::test_chain_benchmark_source_defaults_are_chain_specific" \
-    "$ROOT/tests/test_wallet_style_reflection.py::WalletStyleReflectionTests::test_fallback_execution_intent_uses_chain_benchmark_source_defaults" \
-    "$ROOT/tests/test_wallet_style_reflection.py::WalletStyleReflectionTests::test_reflection_run_does_not_generate_candidate" \
+    "$ROOT/tests/test_wallet_style_reflection.py" \
     "$ROOT/tests/test_qa_evaluator_status_semantics.py" \
-    "$ROOT/tests/test_verify_script.py" >/dev/null
+    "$ROOT/tests/test_verify_script.py" \
+    -k "$WALLET_STYLE_K_EXPR" >/dev/null
 else
   echo "[verify] qa regression tests skipped (pytest unavailable)"
 fi
 
 if [[ -d "$ROOT/tests" ]]; then
   echo "[verify] unit tests"
-  PYTHONPATH="${PYTHONPATH:-$ROOT/src}" "$PYTHON_BIN" -m unittest discover -s "$ROOT/tests" -p 'test_*.py' >/dev/null
+  PYTHONPATH="${PYTHONPATH:-$ROOT/src}" ROOT="$ROOT" "$PYTHON_BIN" - <<'PY' >/dev/null
+import pathlib
+import sys
+import unittest
+
+root = pathlib.Path(__import__("os").environ["ROOT"]).resolve()
+tests_dir = root / "tests"
+sys.path.insert(0, str(root / "src"))
+sys.path.insert(0, str(tests_dir))
+
+loader = unittest.defaultTestLoader
+suite = unittest.TestSuite()
+for path in sorted(tests_dir.glob("test_*.py")):
+    text = path.read_text(encoding="utf-8")
+    if "import pytest" in text or "from pytest" in text:
+        continue
+    suite.addTests(loader.loadTestsFromName(path.stem))
+
+result = unittest.TextTestRunner(stream=sys.stderr, verbosity=0).run(suite)
+if not result.wasSuccessful():
+    raise SystemExit(1)
+PY
 fi
 
 if [[ -d "$ROOT/vendor/pi_runtime/node_modules" ]]; then

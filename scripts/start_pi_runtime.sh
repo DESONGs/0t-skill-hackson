@@ -28,6 +28,6 @@ if [[ -f ".env" ]]; then
 fi
 
 WORKSPACE="${OT_DEFAULT_WORKSPACE:-$ROOT/.ot-workspace}"
-"$UV_BIN" run --no-sync ot-enterprise runtime prepare --workspace-dir "$WORKSPACE" >/dev/null
+"$UV_BIN" run --no-sync 0t runtime prepare --workspace-dir "$WORKSPACE" >/dev/null
 
-exec "$UV_BIN" run --no-sync ot-enterprise runtime start --runtime "${OT_RUNTIME_DEFAULT:-pi}" "$@"
+exec "$UV_BIN" run --no-sync 0t runtime start --runtime "${OT_RUNTIME_DEFAULT:-pi}" "$@"

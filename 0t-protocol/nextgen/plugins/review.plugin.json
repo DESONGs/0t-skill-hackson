@@ -1,0 +1,28 @@
+{
+  "plugin_id": "review",
+  "plugin_version": "v1alpha1",
+  "plugin_type": "review",
+  "display_name": "Review Plugin",
+  "summary": "Compares baseline and candidates, evaluates drift and risk, and emits governance advice.",
+  "supported_subjects": [
+    "skill-variant"
+  ],
+  "input_schema_version": "v1",
+  "output_schema_version": "v1",
+  "artifact_kinds": [
+    "review_decision",
+    "review_notes",
+    "retry_suggestion"
+  ],
+  "worker_actions": [
+    "review.evaluate_candidates",
+    "review.finalize_candidate"
+  ],
+  "compatible_workflows": [
+    "autonomous_research",
+    "approval_convergence"
+  ],
+  "metadata": {
+    "worker_tier": "python-domain-worker"
+  }
+}

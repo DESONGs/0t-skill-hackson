@@ -1,0 +1,7 @@
+{
+  "workspace_id": "desk-alpha",
+  "adapter_ids": {
+    "data_source": "ave",
+    "execution": "onchainos_cli"
+  }
+}

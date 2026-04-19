@@ -1,0 +1,16 @@
+{
+  "artifact_id": "pi-session-1f07f6086e-result",
+  "runtime_session_id": "pi-session-1f07f6086e",
+  "kind": "workflow.kernel.result",
+  "uri": "/Users/chenge/.codex/worktrees/c883/0t-skill-hackson-public/.tmp-agent-debug/runtime-sessions/pi-session-1f07f6086e/workflow-kernel/result.json",
+  "label": "Workflow kernel result",
+  "source_step_id": "pi-invocation-bbe128cb8a",
+  "metadata": {
+    "run_id": "run-7b965e5cb32b",
+    "runtime_id": "pi",
+    "runtime_session_id": "pi-session-1f07f6086e",
+    "session_id": "pi-session-1f07f6086e",
+    "invocation_id": "pi-invocation-bbe128cb8a",
+    "tool_call_id": null
+  }
+}

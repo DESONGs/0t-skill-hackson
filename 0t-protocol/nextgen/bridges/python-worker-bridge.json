@@ -1,0 +1,193 @@
+{
+  "bridge_id": "python-worker-bridge",
+  "bridge_version": "1.0.0",
+  "contract_version": "nextgen.worker-bridge.v1",
+  "description": "Bridge contract for invoking Python domain workers from the TS Pi kernel using JSON request/response files.",
+  "runtime_kind": "python-inline-v1",
+  "preferred_launchers": [
+    {
+      "launcher_id": "uv-python-inline-v1",
+      "argv": [
+        "uv",
+        "run",
+        "python"
+      ]
+    },
+    {
+      "launcher_id": "python3-inline-v1",
+      "argv": [
+        "python3"
+      ]
+    }
+  ],
+  "io": {
+    "request_file_arg": "--request-file",
+    "response_file_arg": "--response-file",
+    "request_contract_version": "nextgen.worker.request.v1",
+    "response_contract_version": "nextgen.worker.response.v1"
+  },
+  "actions": {
+    "distillation.execute": {
+      "plugin_id": "distillation",
+      "summary": "Produce a baseline skill seed from wallet and chain inputs.",
+      "required_request_fields": [
+        "wallet",
+        "chain"
+      ],
+      "produces": [
+        "baseline_variant",
+        "baseline_artifacts",
+        "raw_result"
+      ]
+    },
+    "skill_creation.materialize_baseline": {
+      "plugin_id": "skill-creation",
+      "summary": "Materialize the distilled baseline into replayable skill packages and validation artifacts.",
+      "required_inputs": [
+        "baseline_variant"
+      ],
+      "produces": [
+        "baseline_variant",
+        "baseline_materialization_bundle"
+      ]
+    },
+    "benchmark.score_baseline": {
+      "plugin_id": "benchmark",
+      "summary": "Score the current baseline variant to establish the comparison floor.",
+      "required_inputs": [
+        "baseline_variant"
+      ],
+      "produces": [
+        "baseline_scorecard"
+      ]
+    },
+    "autoresearch.plan_iteration": {
+      "plugin_id": "autoresearch",
+      "summary": "Plan the current research iteration and emit artifact-backed variant plans.",
+      "required_inputs": [
+        "baseline_variant"
+      ],
+      "produces": [
+        "variant_plans"
+      ]
+    },
+    "skill_creation.create_variants": {
+      "plugin_id": "skill-creation",
+      "summary": "Materialize candidate variants from the current research plans.",
+      "required_inputs": [
+        "baseline_variant",
+        "variant_plans"
+      ],
+      "produces": [
+        "candidate_variants",
+        "variant_materialization_bundle"
+      ]
+    },
+    "benchmark.score_candidates": {
+      "plugin_id": "benchmark",
+      "summary": "Run standard scorecards and hard gates for candidate variants.",
+      "required_inputs": [
+        "baseline_variant",
+        "candidate_variants"
+      ],
+      "produces": [
+        "candidate_scorecards"
+      ]
+    },
+    "benchmark.score_finalist": {
+      "plugin_id": "benchmark",
+      "summary": "Run the final approval benchmark profile on the selected finalist.",
+      "required_inputs": [
+        "baseline_variant",
+        "candidate_variants"
+      ],
+      "produces": [
+        "candidate_scorecards"
+      ]
+    },
+    "review.evaluate_candidates": {
+      "plugin_id": "review",
+      "summary": "Review candidate scorecards against baseline quality, drift, and risk.",
+      "required_inputs": [
+        "baseline_scorecard",
+        "candidate_scorecards"
+      ],
+      "produces": [
+        "review_decisions"
+      ]
+    },
+    "review.finalize_candidate": {
+      "plugin_id": "review",
+      "summary": "Review the final benchmarked finalist and emit approval-ready governance advice.",
+      "required_inputs": [
+        "baseline_scorecard",
+        "candidate_scorecards"
+      ],
+      "produces": [
+        "review_decisions"
+      ]
+    },
+    "approval_convergence.converge_approval": {
+      "plugin_id": "approval-convergence",
+      "summary": "Aggregate finalist benchmark and review outputs into an approval-ready activation bundle.",
+      "required_inputs": [
+        "baseline_variant",
+        "recommendation_bundle",
+        "benchmark_scorecard",
+        "review_decision"
+      ],
+      "produces": [
+        "approval_convergence_result",
+        "approval_activation_bundle",
+        "approval_recommendation",
+        "kernel_handoff_payload"
+      ]
+    },
+    "autoresearch.decide_iteration": {
+      "plugin_id": "autoresearch",
+      "summary": "Emit a recommendation bundle and decide whether the workflow should iterate again.",
+      "required_inputs": [
+        "baseline_variant",
+        "candidate_variants",
+        "candidate_scorecards",
+        "review_decisions"
+      ],
+      "produces": [
+        "recommendation_bundle"
+      ],
+      "control_fields": [
+        "should_continue",
+        "remaining_iterations",
+        "stop_reason"
+      ]
+    },
+    "autoresearch.generate_variants": {
+      "plugin_id": "autoresearch",
+      "summary": "Legacy alias for planning and materializing candidate variants in one step.",
+      "required_inputs": [
+        "baseline_variant"
+      ],
+      "produces": [
+        "candidate_variants"
+      ]
+    },
+    "autoresearch.finalize_iteration": {
+      "plugin_id": "autoresearch",
+      "summary": "Legacy alias for decide_iteration.",
+      "required_inputs": [
+        "baseline_variant",
+        "candidate_variants",
+        "candidate_scorecards",
+        "review_decisions"
+      ],
+      "produces": [
+        "recommendation_bundle"
+      ],
+      "control_fields": [
+        "should_continue",
+        "remaining_iterations",
+        "stop_reason"
+      ]
+    }
+  }
+}

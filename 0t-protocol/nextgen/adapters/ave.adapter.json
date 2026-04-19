@@ -1,0 +1,74 @@
+{
+  "adapter_id": "ave",
+  "adapter_type": "data_source",
+  "adapter_version": "1.0.0",
+  "title": "AVE Data Source Adapter",
+  "summary": "First-party wrapper exposing the current AVE data service through the nextgen data adapter SPI.",
+  "capabilities": [
+    {
+      "capability_id": "wallet_profile",
+      "display_name": "Wallet Profile",
+      "description": "Resolve the normalized wallet profile and holdings snapshot.",
+      "tags": ["wallet", "profile"],
+      "required_payload_keys": ["wallet|wallet_address"],
+      "optional_payload_keys": ["chain", "include_holdings", "include_activity", "activity_pages", "recent_activity_limit"],
+      "normalized_result_keys": ["wallet_summary", "holdings", "recent_activity", "source_meta"],
+      "metadata": {"legacy_action": "inspect_wallet"}
+    },
+    {
+      "capability_id": "wallet_trades",
+      "display_name": "Wallet Trades",
+      "description": "Resolve wallet activity samples through inspect_wallet activity payloads.",
+      "tags": ["wallet", "activity"],
+      "required_payload_keys": ["wallet|wallet_address"],
+      "optional_payload_keys": ["chain", "include_holdings", "include_activity", "activity_pages", "recent_activity_limit"],
+      "normalized_result_keys": ["wallet_summary", "recent_activity", "full_activity_history", "fetch_metadata", "source_meta"],
+      "metadata": {"legacy_action": "inspect_wallet"}
+    },
+    {
+      "capability_id": "token_metadata",
+      "display_name": "Token Metadata",
+      "description": "Resolve token metadata, holders, and risk annotations.",
+      "tags": ["token", "metadata"],
+      "required_payload_keys": ["token|token_ref|address"],
+      "optional_payload_keys": ["chain", "include_holders", "include_risk"],
+      "normalized_result_keys": ["identity", "market_snapshot", "risk_snapshot", "holder_snapshot", "source_meta"],
+      "metadata": {"legacy_action": "inspect_token"}
+    },
+    {
+      "capability_id": "market_context",
+      "display_name": "Market Context",
+      "description": "Resolve market and pair context.",
+      "tags": ["market", "context"],
+      "required_payload_keys": ["token|token_ref|address"],
+      "optional_payload_keys": ["pair", "pair_ref", "chain", "interval", "window"],
+      "normalized_result_keys": ["selected_pair", "ohlcv", "recent_swaps", "flow_summary", "source_meta"],
+      "metadata": {"legacy_action": "inspect_market"}
+    },
+    {
+      "capability_id": "research_dataset",
+      "display_name": "Research Dataset",
+      "description": "Resolve token discovery datasets.",
+      "tags": ["research", "dataset"],
+      "required_payload_keys": ["query|source"],
+      "optional_payload_keys": ["chain", "limit"],
+      "normalized_result_keys": ["token_refs", "ranking_context", "source_meta"],
+      "metadata": {"legacy_action": "discover_tokens"}
+    },
+    {
+      "capability_id": "signal_context",
+      "display_name": "Signal Context",
+      "description": "Resolve signal review context.",
+      "tags": ["signals", "review"],
+      "required_payload_keys": ["chain"],
+      "optional_payload_keys": ["limit", "token", "token_ref"],
+      "normalized_result_keys": ["signals", "linked_token_refs", "source_meta"],
+      "metadata": {"legacy_action": "review_signals"}
+    }
+  ],
+  "tags": ["builtin", "ave", "data"],
+  "wraps": ["ot_skill_enterprise.providers.ave.adapter.AveDataProviderAdapter"],
+  "is_builtin": true,
+  "workspace_compatibility": ["local", "workspace"],
+  "metadata": {"current_provider_id": "ave"}
+}

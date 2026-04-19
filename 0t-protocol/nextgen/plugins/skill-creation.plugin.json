@@ -1,0 +1,34 @@
+{
+  "plugin_id": "skill-creation",
+  "plugin_version": "v1alpha1",
+  "plugin_type": "skill-creation",
+  "display_name": "Skill Creation Plugin",
+  "summary": "Materializes baseline and variant plans into replayable skill packages, validation bundles, and promote-ready artifacts.",
+  "supported_subjects": [
+    "skill",
+    "skill-variant"
+  ],
+  "input_schema_version": "v1",
+  "output_schema_version": "v1",
+  "artifact_kinds": [
+    "baseline_materialization",
+    "variant_materialization",
+    "skill_package",
+    "validation_report",
+    "qa_report",
+    "research_plan",
+    "candidate_variant",
+    "kernel_replay_payload"
+  ],
+  "worker_actions": [
+    "skill_creation.materialize_baseline",
+    "skill_creation.create_variants"
+  ],
+  "compatible_workflows": [
+    "distillation_seed",
+    "autonomous_research"
+  ],
+  "metadata": {
+    "worker_tier": "python-domain-worker"
+  }
+}

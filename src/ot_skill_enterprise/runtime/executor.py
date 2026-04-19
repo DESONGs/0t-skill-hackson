@@ -6,6 +6,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import Any, Mapping
 
 from ot_skill_enterprise.shared.contracts.common import ServiceError, utc_now
 
@@ -42,6 +43,68 @@ def _optional_timeout_seconds(request: RuntimeExecutionRequest) -> float:
     return timeout if timeout > 0 else _DEFAULT_RUNTIME_TIMEOUT_SECONDS
 
 
+def _mapping(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, Mapping) else {}
+
+
+def _mock_transcript(request: RuntimeExecutionRequest) -> RuntimeTranscript | None:
+    mock_response = _mapping(request.metadata.get("mock_response"))
+    if not mock_response:
+        return None
+    raw_text = json.dumps(mock_response, ensure_ascii=False, indent=2)
+    attempts = [
+        {
+            "attempt_index": 1,
+            "provider": "mock",
+            "model_id": "mock",
+            "model": "mock/mock",
+            "api": "mock",
+            "raw_text": raw_text,
+            "raw_text_salvaged": True,
+        }
+    ]
+    return RuntimeTranscript(
+        runtime_id=request.runtime_id,
+        session_id=request.session_id,
+        invocation_id=request.invocation_id,
+        ok=True,
+        status="succeeded",
+        summary="reflection mock response injected",
+        input_payload=dict(request.input_payload),
+        output_payload={
+            "review_backend": "pi-reflection-mock",
+            "raw_output": {
+                "text": raw_text,
+                "raw_text": raw_text,
+                "stop_reason": "mock",
+                "content_blocks": [{"type": "mock"}],
+                "model": {
+                    "provider": "mock",
+                    "model_id": "mock",
+                    "api": "mock",
+                },
+                "attempts": attempts,
+                "failure_type": None,
+                "raw_text_salvaged": True,
+            },
+            "normalized_output": mock_response,
+            "attempts": attempts,
+        },
+        events=[
+            {
+                "type": "message_start",
+                "message": "reflection mock response injected",
+                "status": "succeeded",
+                "metadata": {"mock_response": True},
+            }
+        ],
+        provider_ids=["mock"],
+        metadata={"mock_response": True},
+        stdout=raw_text,
+        stderr="",
+    )
+
+
 @dataclass(slots=True)
 class SubprocessRuntimeExecutor:
     def execute(self, request: RuntimeExecutionRequest) -> RuntimeExecutionResult:
@@ -49,6 +112,20 @@ class SubprocessRuntimeExecutor:
         launch_spec = request.launch_spec
         if not launch_spec.launcher:
             raise ValueError(f"runtime {request.runtime_id!r} has no launcher configured")
+        mock_transcript = _mock_transcript(request)
+        if mock_transcript is not None:
+            finished_at = utc_now()
+            return RuntimeExecutionResult(
+                runtime_id=request.runtime_id,
+                session_id=request.session_id,
+                invocation_id=request.invocation_id,
+                launch_spec=launch_spec,
+                command=["mock-response"],
+                returncode=0,
+                transcript=mock_transcript,
+                started_at=started_at,
+                finished_at=finished_at,
+            )
 
         payload = {
             "run_id": request.metadata.get("run_id"),

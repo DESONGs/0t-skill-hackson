@@ -10,7 +10,7 @@ The repository keeps the real startup path as the default. Copy `.env.example` t
 ./scripts/doctor.sh
 cp .env.example .env
 uv sync --frozen
-uv run ot-enterprise runtime prepare --workspace-dir .ot-workspace
+uv run 0t runtime prepare --workspace-dir .ot-workspace
 ```
 
 ### Docker path
@@ -157,7 +157,7 @@ uv sync --frozen --extra storage
 - `vendor/pi_runtime` is vendored source. Use:
 
 ```bash
-uv run ot-enterprise runtime prepare --workspace-dir .ot-workspace
+uv run 0t runtime prepare --workspace-dir .ot-workspace
 ```
 
 to install, build, and verify the embedded runtime on the host.

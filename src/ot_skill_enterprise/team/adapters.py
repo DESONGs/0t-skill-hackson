@@ -27,8 +27,8 @@ def build_builtin_adapters() -> dict[str, TeamAdapterSpec]:
             display_name="Codex",
             supported_roles=roles,
             capabilities=[
-                TeamAdapterCapability(name="repo-native-protocol", description="Reads tracked team-protocol files and session handoff bundles."),
-                TeamAdapterCapability(name="cli-collaboration", description="Consumes ot-team handoff output and submits JSON results back into the session."),
+                TeamAdapterCapability(name="repo-native-protocol", description="Reads tracked 0t-protocol files and session handoff bundles."),
+                TeamAdapterCapability(name="cli-collaboration", description="Consumes 0t team handoff output and submits worker-bridge results back into the session."),
             ],
             metadata={"family": "codex", "preferred_entrypoint": "AGENTS.md"},
         ),
@@ -37,8 +37,8 @@ def build_builtin_adapters() -> dict[str, TeamAdapterSpec]:
             display_name="Claude Code",
             supported_roles=roles,
             capabilities=[
-                TeamAdapterCapability(name="repo-native-protocol", description="Reads tracked team-protocol files and session handoff bundles."),
-                TeamAdapterCapability(name="cli-collaboration", description="Consumes ot-team handoff output and submits JSON results back into the session."),
+                TeamAdapterCapability(name="repo-native-protocol", description="Reads tracked 0t-protocol files and session handoff bundles."),
+                TeamAdapterCapability(name="cli-collaboration", description="Consumes 0t team handoff output and submits worker-bridge results back into the session."),
             ],
             metadata={"family": "claude-code", "preferred_entrypoint": "AGENTS.md"},
         ),
