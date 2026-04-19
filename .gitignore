@@ -38,6 +38,7 @@ vendor/ave_cloud_skill/scripts/__pycache__/
 .snapshots/
 .output/
 *.app
+!docker/Dockerfile.app
 rad.json
 *.g.xlf
 *.flf

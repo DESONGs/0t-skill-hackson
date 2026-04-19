@@ -375,9 +375,11 @@ class AgentTeamService:
             return item
         if not role_id:
             raise ValueError("provide --work-item-id or --role")
-        for item in self.store.list_work_items(session_id):
-            if item.role_id == role_id and item.status in {"queued", "blocked", "in_progress"}:
-                return item
+        matching = [item for item in self.store.list_work_items(session_id) if item.role_id == role_id]
+        for preferred_status in ("in_progress", "queued", "blocked"):
+            for item in matching:
+                if item.status == preferred_status:
+                    return item
         raise ValueError(f"no pending work item for role: {role_id}")
 
     def handoff(self, session_id: str, *, role_id: str, adapter_family: str | None = None) -> dict[str, Any]:

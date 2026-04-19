@@ -141,3 +141,77 @@ def test_agent_team_service_end_to_end_session_flow(tmp_path) -> None:
 
     archived = service.archive(session_id)
     assert archived["session"]["status"] == "archived"
+
+
+def test_role_resolution_prefers_runnable_items_over_blocked_items(tmp_path) -> None:
+    service = _build_service(tmp_path)
+
+    started = service.start_session(
+        "autoresearch",
+        workspace_id="desk-alpha",
+        skill_ref="sample-skill",
+        adapter_family="codex",
+    )
+    session_id = started["session"]["session_id"]
+    planner_item_id = started["work_items"][0]["work_item_id"]
+
+    service.submit_work(
+        session_id,
+        work_item_id=planner_item_id,
+        agent_id="codex/planner-1",
+        payload={
+            "summary": "Planner scoped the session.",
+            "constraints": {"max_iterations": 3},
+        },
+    )
+    optimizer_result = service.submit_work(
+        session_id,
+        role_id="optimizer",
+        agent_id="codex/optimizer-1",
+        payload={
+            "variants": [
+                {"variant_id": "variant-a", "title": "Variant A", "summary": "First proposal."},
+                {"variant_id": "variant-b", "title": "Variant B", "summary": "Second proposal."},
+            ]
+        },
+    )
+
+    benchmark_items = [item for item in optimizer_result["spawned_work_items"] if item["role_id"] == "benchmark-runner"]
+    reviewer_items = [item for item in optimizer_result["spawned_work_items"] if item["role_id"] == "reviewer"]
+    assert len(benchmark_items) == 2
+    assert len(reviewer_items) == 2
+
+    service.submit_work(
+        session_id,
+        work_item_id=benchmark_items[1]["work_item_id"],
+        agent_id="system/benchmark-runner",
+        payload={
+            "variant_id": "variant-b",
+            "summary": "Benchmark completed.",
+            "scorecard": {
+                "primary_quality_score": 0.80,
+                "backtest_confidence": 0.70,
+                "execution_readiness": 0.90,
+                "strategy_quality": 0.78,
+                "style_distance": 0.10,
+                "risk_penalty": 0.10,
+                "confidence_vs_noise": 0.20,
+                "hard_gates_passed": True,
+            },
+        },
+    )
+
+    handoff = service.handoff(session_id, role_id="reviewer")
+    assert handoff["agent_session"]["work_item_id"] == reviewer_items[1]["work_item_id"]
+    assert "Review Variant B" in handoff["launch"]["handoff_markdown"]
+
+
+def test_compose_referenced_dockerfile_app_exists_and_is_tracked() -> None:
+    compose_content = (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    dockerfile_path = REPO_ROOT / "docker" / "Dockerfile.app"
+
+    assert "docker/Dockerfile.app" in compose_content
+    assert dockerfile_path.is_file()
+
+    tracked = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
+    assert "!docker/Dockerfile.app" in tracked
