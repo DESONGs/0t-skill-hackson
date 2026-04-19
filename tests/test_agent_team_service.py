@@ -215,3 +215,56 @@ def test_compose_referenced_dockerfile_app_exists_and_is_tracked() -> None:
 
     tracked = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
     assert "!docker/Dockerfile.app" in tracked
+
+
+def test_submit_work_keeps_item_runnable_when_validation_fails(tmp_path) -> None:
+    service = _build_service(tmp_path)
+
+    started = service.start_session(
+        "autoresearch",
+        workspace_id="desk-alpha",
+        skill_ref="sample-skill",
+        adapter_family="codex",
+    )
+    session_id = started["session"]["session_id"]
+    planner_item_id = started["work_items"][0]["work_item_id"]
+
+    service.submit_work(
+        session_id,
+        work_item_id=planner_item_id,
+        agent_id="codex/planner-1",
+        payload={
+            "summary": "Planner scoped the session.",
+            "constraints": {"max_iterations": 3},
+        },
+    )
+
+    try:
+        service.submit_work(
+            session_id,
+            role_id="optimizer",
+            agent_id="codex/optimizer-1",
+            payload={},
+        )
+    except ValueError as exc:
+        assert str(exc) == "optimizer payload must include variants"
+    else:
+        raise AssertionError("optimizer submission should fail without variants")
+
+    status_after_failure = service.status(session_id)
+    optimizer_item = next(item for item in status_after_failure["work_items"] if item["role_id"] == "optimizer")
+    assert optimizer_item["status"] == "queued"
+    assert optimizer_item["result_path"] is None
+
+    retry = service.submit_work(
+        session_id,
+        role_id="optimizer",
+        agent_id="codex/optimizer-1",
+        payload={
+            "variants": [
+                {"variant_id": "variant-retry", "title": "Retry Variant", "summary": "Valid retry after failed validation."},
+            ]
+        },
+    )
+    assert retry["work_item"]["status"] == "completed"
+    assert retry["variants"][0]["variant_id"] == "variant-retry"

@@ -404,12 +404,7 @@ class AgentTeamService:
         if session is None:
             raise ValueError(f"unknown session: {session_id}")
         item = self._resolve_work_item(session_id, work_item_id=work_item_id, role_id=role_id)
-        item.status = "completed"
-        item.updated_at = utc_now()
-        item.result_path = self.store.save_work_item_result(session_id, item.work_item_id, payload)
-        self.store.save_work_item(item)
-
-        created: dict[str, Any] = {"work_item": item.model_dump(mode="json")}
+        created: dict[str, Any] = {}
 
         if item.role_id == "planner":
             if isinstance(payload.get("constraints"), dict):
@@ -582,6 +577,11 @@ class AgentTeamService:
                 },
             )
 
+        item.status = "completed"
+        item.updated_at = utc_now()
+        item.result_path = self.store.save_work_item_result(session_id, item.work_item_id, payload)
+        self.store.save_work_item(item)
+        created["work_item"] = item.model_dump(mode="json")
         self._refresh_leaderboard(session_id)
         return created
 
