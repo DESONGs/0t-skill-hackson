@@ -103,7 +103,7 @@ uv run 0t runtime prepare --workspace-dir .ot-workspace
 再开一个终端窗口：
 
 ```bash
-uv run 0t style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc
+uv run 0t workflow wallet-style-distillation --workspace-dir .ot-workspace --wallet 0x... --chain bsc
 ```
 
 ## 手动路径 B：Docker
@@ -149,7 +149,7 @@ KIMI_API_KEY=...
 ### 第 6 步：执行一次蒸馏
 
 ```bash
-./scripts/docker_cli.sh style distill --workspace-dir /app/.ot-workspace --wallet 0x... --chain bsc
+./scripts/docker_cli.sh workflow wallet-style-distillation --workspace-dir /app/.ot-workspace --wallet 0x... --chain bsc
 ```
 
 ## 如果你只想先检查仓库是不是完整

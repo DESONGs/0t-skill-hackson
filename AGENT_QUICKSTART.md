@@ -44,7 +44,7 @@ Then start the required local services and tell me the frontend URL and whether 
 
 ```text
 Use the current real setup and run one wallet distillation.
-Command: uv run 0t style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc
+Command: uv run 0t workflow wallet-style-distillation --workspace-dir .ot-workspace --wallet 0x... --chain bsc
 After it finishes, tell me:
 1. the generated package name
 2. what that name means
@@ -100,5 +100,5 @@ Run the distillation, but use --skill-name Desk Alpha BSC.
 或者直接让 agent 改命令为：
 
 ```bash
-uv run 0t style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc --skill-name "Desk Alpha BSC"
+uv run 0t workflow wallet-style-distillation --workspace-dir .ot-workspace --wallet 0x... --chain bsc --skill-name "Desk Alpha BSC"
 ```

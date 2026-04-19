@@ -1,171 +1,128 @@
 # Agent Execution Contract
 
-This file is the task-specific execution contract for long-running multi-agent work in this repository.
+这份文件不是项目启动文档。  
+项目怎么跑，看 [AGENTS.md](./AGENTS.md)。
 
-Canonical repository onboarding and runtime instructions still live in [AGENTS.md](./AGENTS.md).  
-Use this file when the task is specifically about the next-stage architecture migration described in:
+这份文件只管一件事：  
+当任务很长、需要多 agent 并行、需要主 agent 收敛时，团队怎么执行。
 
-- [docs/architecture/next-architecture/target-system-blueprint.md](./docs/architecture/next-architecture/target-system-blueprint.md)
-- [docs/architecture/next-architecture/kernel-and-stack-boundary.md](./docs/architecture/next-architecture/kernel-and-stack-boundary.md)
-- [docs/architecture/next-architecture/plugin-workflow-model.md](./docs/architecture/next-architecture/plugin-workflow-model.md)
-- [docs/architecture/next-architecture/data-and-execution-adapters.md](./docs/architecture/next-architecture/data-and-execution-adapters.md)
-- [docs/architecture/next-architecture/migration-phases.md](./docs/architecture/next-architecture/migration-phases.md)
-- [docs/architecture/next-architecture/team-delivery-plan.md](./docs/architecture/next-architecture/team-delivery-plan.md)
+## 适用场景
 
-## Mission
+只有下面这些任务才需要看这份文件：
 
-Implement the first executable iteration of the migration path from:
+- 大型重构
+- 多模块并行开发
+- 需要主 agent 拆任务给多个 subagent
+- 最后还要单独 QA 收口
 
-- `Python main system + TS sub-runtime`
+普通修 bug、普通命令运行、普通单文件改动，不需要按这份文件走。
 
-to:
+## 总原则
 
-- `TS Pi kernel + Python domain workers`
+- 仓库根目录是唯一工作目录
+- 主启动和运行契约只认 [AGENTS.md](./AGENTS.md)
+- 对外命令只认 `0t`
+- 主 agent 负责切任务、收代码、做最终裁决
+- subagent 只负责自己那一块，不抢别人边界
+- QA subagent 最后再上，只做验收，不接管业务实现
 
-This iteration does **not** attempt the full migration. It must only land the first stable scaffolding that future parallel work can build on safely.
+## 任务拆分方式
 
-## Iteration Scope
+### Main agent
 
-This round should implement only the following:
+负责：
 
-1. a machine-readable workflow/plugin surface for:
-   - `distillation`
-   - `autoresearch`
-   - `review`
-   - `benchmark`
-2. a machine-readable adapter SPI surface for:
-   - `DataSourceAdapter`
-   - `ExecutionAdapter`
-3. first-party wrappers that register the current runtime dependencies as adapters:
-   - AVE as the first data-source adapter
-   - OnchainOS / OKX as the first execution adapter
-4. an introspection surface that lets operators and future agents inspect the new scaffolding
-5. regression tests for the new scaffolding
+- 读清楚当前代码和文档
+- 冻结这轮任务边界
+- 给 subagent 分配互不重叠的写入范围
+- 做最终集成
+- 跑最后一轮收敛检查
 
-This round must **not**:
+主 agent 应该优先改：
 
-- rewrite the current distillation pipeline
-- remove the current legacy CLI path
-- replace the current team façade path with the unified `0t` surface
-- change live execution semantics
-- force a TS rewrite of existing Python business logic
+- 顶层入口
+- CLI stitching
+- docs 总入口
+- cross-module wiring
 
-## Delivery Principle
+### Subagent
 
-The goal is to make the future architecture executable in small steps.
+每个 subagent 只负责自己那块。
 
-This means:
+例子：
 
-- contracts first
-- registries second
-- wrappers third
-- integration fourth
-- QA last
+- Kernel subagent：只改 kernel/runtime
+- Adapter subagent：只改 data/execution adapter
+- Workflow subagent：只改 distillation / benchmark / review / autoresearch 相关
+- Docs subagent：只改文档
 
-## Agent-Team Structure
+原则：
 
-### Main Agent
+- 不重叠写文件
+- 不替别的 subagent 回滚代码
+- 不扩散任务范围
 
-The main agent is responsible for:
+### QA subagent
 
-- reading the current repository state
-- choosing the first implementation slice
-- assigning disjoint write scopes to subagents
-- integrating their work
-- preserving repository coherence
-- deciding the final QA scope
+最后才启用。
 
-The main agent should own:
+只负责：
 
-- root-level task coordination
-- `agent.md`
-- final wiring changes
-- CLI integration
-- final review before QA
+- 跑测试
+- 做回归
+- 报 blocker
+- 必要时修最小补丁
 
-### Subagent A: Workflow / Plugin Surface
+不负责：
 
-Owns only:
+- 重新设计架构
+- 趁机重构不相关代码
 
-- plugin contract models
-- workflow graph models
-- plugin registry
-- built-in plugin manifests or machine-readable specs
-- plugin-surface tests
+## 写代码时的执行纪律
 
-Must not edit:
+- 先把 contract 定清楚，再写实现
+- 先把边界定清楚，再并行开发
+- 先做最小可验收闭环，再做扩展
+- 文档必须跟着代码一起更新
+- 旧文档如果已经误导，就删，不保留废话 redirect
 
-- adapter files
-- CLI wiring owned elsewhere
+## 什么时候可以并行
 
-### Subagent B: Adapter SPI Surface
+适合并行的任务：
 
-Owns only:
+- 不同目录、不同模块、不同写入边界
+- kernel / adapter / workflow / docs / QA 这类天然可拆开的工作
 
-- data-source adapter contracts
-- execution adapter contracts
-- adapter registry
-- AVE wrapper
-- OnchainOS wrapper
-- adapter-surface tests
+不适合并行的任务：
 
-Must not edit:
+- 同一批文件同时大改
+- 尚未冻结接口的模块
+- 主 agent 还没决定 source of truth 的问题
 
-- plugin files
-- CLI wiring owned elsewhere
+## 交付标准
 
-### QA Subagent
+一轮 agent-team 任务，至少要满足：
 
-Runs after integration only.
+1. 代码完成
+2. 文档同步
+3. 回归跑过
+4. 新旧状态 owner 没混回去
+5. 主 agent 能清楚说明还剩什么、为什么还剩
 
-Owns only:
+## 验收顺序
 
-- verification
-- failure reporting
-- suggested follow-up fixes if needed
+默认顺序：
 
-The QA subagent must not perform broad refactors while validating.
+1. 主 agent 本地检查
+2. 定向 pytest
+3. `./scripts/doctor.sh`
+4. `./scripts/verify.sh`
+5. 必要时补充 e2e 命令
+6. QA subagent 最终复核
 
-## File Ownership Rule
+## 冲突处理
 
-Each subagent gets a disjoint write set.  
-No subagent may revert or rewrite files owned by another subagent unless explicitly reassigned by the main agent.
+如果这份文件和 [AGENTS.md](./AGENTS.md) 冲突：
 
-## Coding Rule For This Migration Slice
-
-Prefer additive changes.
-
-The new architecture scaffolding should live beside the current system, not replace it in one pass.
-
-Recommended pattern:
-
-- create a new isolated package for next-stage architecture contracts and registries
-- wrap current implementations instead of rewriting them
-- expose a small inspection command instead of changing runtime defaults
-
-## Acceptance Criteria
-
-This iteration is complete only if all of the following are true:
-
-1. the repository contains a concrete plugin/workflow registry surface
-2. the repository contains a concrete adapter SPI surface
-3. AVE and OnchainOS are visible through the new adapter registry
-4. the new scaffolding is inspectable through code and CLI
-5. tests cover the new registries and wrappers
-6. existing startup contracts in [AGENTS.md](./AGENTS.md) remain intact
-
-## Verification Contract
-
-Before claiming completion, run targeted tests for the new scaffolding plus the repository verification path when feasible.
-
-At minimum:
-
-- targeted pytest coverage for the new iteration
-- existing smoke verification if the new code touches repository wiring
-
-## Compatibility Rule
-
-If there is any conflict between this file and [AGENTS.md](./AGENTS.md):
-
-- follow `AGENTS.md` for repository/runtime behavior
-- follow `agent.md` for long-task execution structure and subagent orchestration
+- 运行方式、仓库入口、启动命令，永远听 `AGENTS.md`
+- 多 agent 拆任务和协作方式，听这份文件

@@ -1,63 +1,52 @@
 # Documentation Index
 
-This directory now has one documentation tree for the entire repository.
+这份索引只做一件事：告诉你先看哪里。
 
-## Read Order
+## 如果你只是想跑项目
+
+先看：
 
 1. [../README.md](../README.md)
+2. [../START_HERE.md](../START_HERE.md)
+3. [../CONFIGURATION.md](../CONFIGURATION.md)
+
+## 如果你是把仓库交给 agent
+
+先看：
+
+1. [../AGENTS.md](../AGENTS.md)
 2. [../AGENT_QUICKSTART.md](../AGENT_QUICKSTART.md)
-3. [../START_HERE.md](../START_HERE.md)
-4. [../AGENTS.md](../AGENTS.md)
-5. [0t team / `0t-protocol` guide](./product/0t-protocol-guide.md)
-6. [architecture/system-overview.md](./architecture/system-overview.md)
-7. [architecture/wallet-style-agent-reflection-flow.md](./architecture/wallet-style-agent-reflection-flow.md)
-8. [architecture/agent-team-optimization.md](./architecture/agent-team-optimization.md)
-9. [architecture/next-architecture/README.md](./architecture/next-architecture/README.md)
-10. [product/platform-guide.md](./product/platform-guide.md)
-11. [contracts/runtime-run-evaluation-schema.md](./contracts/runtime-run-evaluation-schema.md)
-12. [contracts/workspace-discovery-api.md](./contracts/workspace-discovery-api.md)
+3. [./product/0t-protocol-guide.md](./product/0t-protocol-guide.md)  
+   只有任务涉及 `0t team` 时再看
 
-## Linked Bundle And Sections
+## 如果你想理解系统怎么组成
 
-- the public `0t-protocol` entry: [0t team / 0t-protocol guide](./product/0t-protocol-guide.md)
-- `architecture/`: module boundaries, pipeline stages, runtime flow
-- `architecture/next-architecture/`: next-stage target architecture, plugin model, adapter SPI, migration phases, and team delivery plan
-- `product/`: operator-facing explanations and walkthroughs
-- `contracts/`: runtime payloads, workspace discovery, field contracts
-- `legacy/hackathon/`: archived public-facing hackathon docs kept for historical context
+先看：
 
-## Next-Architecture Entry
+- [architecture/system-overview.md](./architecture/system-overview.md)
+- [architecture/wallet-style-agent-reflection-flow.md](./architecture/wallet-style-agent-reflection-flow.md)
+- [architecture/agent-team-optimization.md](./architecture/agent-team-optimization.md)
 
-The executable workflow surface now starts from:
+## 如果你要看深一点的架构和迁移设计
 
-- `uv run 0t workflow overview`
-- `uv run 0t workflow distillation-seed ...`
-- `uv run 0t workflow autonomous-research ...`
+看这里：
 
-These commands are the default workflow runtime path. The host `uv` and Docker startup contracts in [../README.md](../README.md) and [../AGENTS.md](../AGENTS.md) stay the same, but workflow orchestration now defaults to `OT_WORKFLOW_RUNTIME=ts-kernel`. Rollback is controlled only by `OT_WORKFLOW_RUNTIME=python-compat`.
+- [architecture/next-architecture/README.md](./architecture/next-architecture/README.md)
 
-## Current Repository Contract
+这一组文档适合做重构、接口边界、插件模型、adapter SPI、团队分工，不适合当“怎么启动项目”的第一入口。
 
-- single root entrypoint
-- repo-tracked `0t-protocol` bundle for agent coordination work
-- `0t team` as the multi-agent/operator facade; kernel-owned workflow state under `.ot-workspace/runtime-sessions/.../workflow-kernel`
-- real-path onboarding from the repository root
-- mock-backed verification only as a repository health check
-- AVE as the data plane
-- OnchainOS as the execution plane
-- environment variables as the configuration boundary
-- numbered document names were removed so grep and agent retrieval are easier
+## 如果你要看产品和协议说明
 
-## Current Vs Next
+- [product/platform-guide.md](./product/platform-guide.md)
+- [product/0t-protocol-guide.md](./product/0t-protocol-guide.md)
 
-This index now tracks two architecture views:
+## 如果你要看字段和接口合同
 
-- current repository architecture
-  - [architecture/system-overview.md](./architecture/system-overview.md)
-  - [architecture/wallet-style-agent-reflection-flow.md](./architecture/wallet-style-agent-reflection-flow.md)
-  - [architecture/agent-team-optimization.md](./architecture/agent-team-optimization.md)
-- next-stage target architecture
-  - [architecture/next-architecture/README.md](./architecture/next-architecture/README.md)
+- [contracts/runtime-run-evaluation-schema.md](./contracts/runtime-run-evaluation-schema.md)
+- [contracts/workspace-discovery-api.md](./contracts/workspace-discovery-api.md)
 
-Read the current architecture first when you need to understand the repository as it runs today.  
-Read the next-architecture package when the task is about restructuring, migration planning, plugin boundaries, or team delivery.
+## 如果你要看历史材料
+
+- [legacy/hackathon/README.md](./legacy/hackathon/README.md)
+
+这些是归档，不是当前运行入口。

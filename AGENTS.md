@@ -1,152 +1,118 @@
-# 0T-Skill Agent Guide
+# 0T Agent Guide
 
-This is the canonical orientation file for Codex, Claude Code, and similar repository agents.
+这份文件是给 Codex、Claude Code 和类似 agent 的正式入口说明。
 
-For the repo-tracked planner/optimizer/reviewer bundle, start with [the `0t-protocol` entrypoint](./0t-protocol/ENTRYPOINT.md). Use that bundle for `0t team` coordination work, but keep the startup and runtime contract in this file unchanged.
+先记住三件事：
 
-## Root Contract
+1. 只在仓库根目录工作
+2. 默认走真实路径，不要一上来切 mock
+3. 对外正式命令只有 `0t`
 
-- The repository root is the only supported working directory.
-- Do not look for a nested application root.
-- Preserve the real startup path unless the task explicitly calls for mock verification.
-- Prefer the host `uv` path for agent-driven editing and debugging.
+如果任务是多 agent 协作、研究循环、handoff 或审批流，再看 [0t-protocol/ENTRYPOINT.md](./0t-protocol/ENTRYPOINT.md)。
 
-## Official Startup Contracts
+## 先读什么
 
-### Host `uv` path
+1. [README.md](./README.md)
+2. [AGENT_QUICKSTART.md](./AGENT_QUICKSTART.md)
+3. [START_HERE.md](./START_HERE.md)
+4. [CONFIGURATION.md](./CONFIGURATION.md)
+5. [0t-protocol/ENTRYPOINT.md](./0t-protocol/ENTRYPOINT.md)  
+   只有任务明确涉及 `0t team` 时再读
+6. [docs/README.md](./docs/README.md)
+7. [src/ot_skill_enterprise/README.md](./src/ot_skill_enterprise/README.md)
+
+## 两条正式启动路径
+
+### 本机 `uv`
+
+这是默认推荐路径，最适合 agent 接手。
 
 ```bash
 ./scripts/doctor.sh
 cp .env.example .env
-# Fill in AVE_API_KEY, API_PLAN, KIMI_API_KEY
+# 填 AVE_API_KEY、API_PLAN、KIMI_API_KEY
 uv sync --frozen
 uv run 0t runtime prepare --workspace-dir .ot-workspace
 ./scripts/start_ave_data_service.sh
 ./scripts/start_frontend.sh
-uv run 0t style distill --workspace-dir .ot-workspace --wallet 0x... --chain bsc
+uv run 0t workflow wallet-style-distillation --workspace-dir .ot-workspace --wallet 0x... --chain bsc
 ```
 
-### Docker path
+### Docker
+
+本机环境不稳时再走这条。
 
 ```bash
 ./scripts/doctor.sh
 cp .env.example .env
 ./scripts/docker_build.sh
 ./scripts/docker_up.sh
-./scripts/docker_cli.sh style distill --workspace-dir /app/.ot-workspace --wallet 0x... --chain bsc
+./scripts/docker_cli.sh workflow wallet-style-distillation --workspace-dir /app/.ot-workspace --wallet 0x... --chain bsc
 ```
 
-Add `--with-infra` to `./scripts/docker_up.sh` when the task needs local Postgres / Redis / MinIO.
+要本地 Postgres / Redis / MinIO 时加：
 
-## Default Operating Mode
+```bash
+./scripts/docker_up.sh --with-infra
+```
 
-`.env.example` is intentionally real-first:
+## 平时该用哪个命令
+
+### 正常业务入口
+
+- `0t workflow ...`
+
+常用命令：
+
+```bash
+uv run 0t workflow overview
+uv run 0t workflow wallet-style-distillation --wallet 0x... --chain bsc
+uv run 0t workflow autonomous-research --wallet 0x... --chain bsc --skill-name desk-alpha
+```
+
+### 多 agent / 长任务入口
+
+- `0t team ...`
+
+只在这些场景用：
+
+- planner / optimizer / reviewer 协作
+- 长时间研究循环
+- handoff
+- 审批前后的 operator 动作
+
+常用命令：
+
+```bash
+uv run 0t team doctor
+uv run 0t team start autoresearch --workspace desk-alpha --skill my-skill --adapter codex --data-source-adapter ave --execution-adapter onchainos_cli
+uv run 0t team status <session_id>
+uv run 0t team review <session_id>
+```
+
+## 运行边界
+
+- `0t workflow` 是默认前门
+- `0t team` 是高级入口，不是第二套主系统
+- `TS Pi kernel` 持有 workflow/session/work-item/recommendation/approval 真状态
+- `Python workers` 只做蒸馏、评测、review、执行准备这些业务工作
+
+## 数据和执行边界
+
+- AVE 是数据平面
+- OKX OnchainOS 是执行平面
+- 不要把执行逻辑混进纯蒸馏路径
+- live execution 仍然是宿主机导向，不进主 Docker app 路径
+
+## 默认模式
+
+`.env.example` 默认就是 real-first：
 
 - `AVE_DATA_PROVIDER=ave_rest`
 - `OT_PI_REFLECTION_MOCK=0`
 - `AVE_USE_DOCKER=true`
 
-Host `uv` mode uses the real AVE and real Kimi path.  
-Docker app services override `AVE_USE_DOCKER=false` internally so they do not try to launch nested Docker.
-
-`./scripts/bootstrap.sh` still exists, but it is only a helper around `uv sync` + `runtime prepare`.
-
-## Repository Map
-
-- `AGENT_QUICKSTART.md`
-  - user-facing copy-paste prompts for handing the repo to Codex or Claude Code
-- `0t-protocol` bundle
-  - repo-tracked protocol bundle with the entrypoint, manifest, roles, workflows, and modules for the `0t team` coordination layer
-- `START_HERE.md`
-  - shortest operator startup path for humans and thin agents
-- `README.md`
-  - human quick start and operating modes
-- `CONFIGURATION.md`
-  - scenario-based environment guide
-- `docs/`
-  - architecture, product, contract docs, plus archived hackathon docs
-- `docker/`
-  - Dockerfiles for the app image and AVE bridge image
-- `scripts/`
-  - doctor, bootstrap helper, Docker helpers, service start, verification
-- `src/ot_skill_enterprise/`
-  - control plane, runtime integration, style distillation, storage, skill compilation
-- `services/`
-  - local data service implementations
-- `frontend/`
-  - static dashboard assets served by the Python frontend server
-- `skills/`
-  - public fixture skills and promoted skill packages
-- `vendor/`
-  - vendored runtime and upstream code; read only when needed
-- `tests/`
-  - regression and unit coverage
-
-## Read Order For Agents
-
-1. `README.md`
-2. `AGENT_QUICKSTART.md`
-3. `START_HERE.md`
-4. `CONFIGURATION.md`
-5. [the `0t-protocol` entrypoint](./0t-protocol/ENTRYPOINT.md) when the task involves `0t-protocol` agent-team optimization work
-6. `docs/README.md`
-7. `src/ot_skill_enterprise/README.md`
-8. only then dive into implementation modules
-
-## Where To Spend Time
-
-Focus on these first:
-
-- `scripts/`
-- `src/ot_skill_enterprise/control_plane/`
-- `src/ot_skill_enterprise/style_distillation/`
-- `services/ave-data-service/`
-- `tests/`
-
-Avoid spending time in `vendor/` unless the task is explicitly about vendored runtime behavior.
-
-## Agent-Team Optimization Path
-
-When the task is about multi-agent planning, optimization, or review loops:
-
-- enter through [the `0t-protocol` entrypoint](./0t-protocol/ENTRYPOINT.md)
-- use [the `0t-protocol` manifest](./0t-protocol/manifest.json) as the machine-readable source of truth
-- keep `0t team` work separate from `0t` runtime startup work
-- return to the normal startup docs when the task moves back to runtime, distillation, or execution
-
-## Workflow Runtime Default
-
-- `0t workflow ...` uses `OT_WORKFLOW_RUNTIME=ts-kernel` by default.
-- `0t style distill` follows the same TS-kernel workflow path unless the command is in a live-execution mode.
-- The only supported rollback flag is:
-
-```bash
-OT_WORKFLOW_RUNTIME=python-compat
-```
-
-- Do not describe `0t workflow` as an additive migration path anymore. It is the default workflow runtime surface.
-
-## Data And Execution Boundaries
-
-- AVE is the data plane for distillation and market context.
-- OKX OnchainOS is the execution plane.
-- Do not mix execution concerns into distillation-only code paths.
-- Live execution remains a host-oriented path; do not move it into the main Docker app path.
-
-## Verification Contract
-
-Use these commands before claiming the repository is broken:
-
-```bash
-./scripts/doctor.sh
-./scripts/verify.sh
-```
-
-`verify.sh` uses mock-backed smoke coverage by design. If it fails, fix the local environment or repository wiring before attempting real credentials or execution work.
-
-## Switching To Mock Verification
-
-Only switch when the task requires mock verification:
+如果只是做 mock 验证，才切：
 
 ```bash
 AVE_DATA_PROVIDER=mock
@@ -154,10 +120,45 @@ OT_PI_REFLECTION_MOCK=1
 AVE_USE_DOCKER=false
 ```
 
-For live execution on the real path, add:
+如果做真实执行，再补：
 
 ```bash
 OKX_API_KEY=...
 OKX_SECRET_KEY=...
 OKX_PASSPHRASE=...
 ```
+
+## 回滚开关
+
+默认 workflow runtime 是 `ts-kernel`。  
+只有明确回滚时，才设置：
+
+```bash
+OT_WORKFLOW_RUNTIME=python-compat
+```
+
+## 验证顺序
+
+先跑：
+
+```bash
+./scripts/doctor.sh
+./scripts/verify.sh
+```
+
+`verify.sh` 是 mock 烟测，用来判断仓库 wiring 有没有坏。  
+在这两个命令没过之前，不要先下结论说项目坏了。
+
+## 优先读哪些目录
+
+先看：
+
+- `scripts/`
+- `src/ot_skill_enterprise/control_plane/`
+- `src/ot_skill_enterprise/style_distillation/`
+- `services/ave-data-service/`
+- `tests/`
+
+最后再看：
+
+- `vendor/`
